@@ -1,0 +1,145 @@
+{{define "content"}}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>🔧 Admin Dashboard</h2>
+            <div class="alert alert-warning" role="alert">
+                <strong>!!Admin-Bereich:</strong> Änderungen wirken sich auf alle Wertermittlungen aus!
+            </div>
+        </div>
+        
+        <!-- Statistik-Karten -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card bg-success text-white h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-apple-alt fa-3x mb-2"></i>
+                        <h4>{{.Stats.AnzahlObstarten}}</h4>
+                        <p class="mb-0">Obstarten</p>
+                    </div>
+                    <div class="card-footer">
+                        <a href="/admin/obstarten" class="btn btn-light btn-sm w-100">
+                            <i class="fas fa-cog"></i> Verwalten
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3">
+                <div class="card bg-info text-white h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-seedling fa-3x mb-2"></i>
+                        <h4>{{.Stats.AnzahlZieranpflanzungen}}</h4>
+                        <p class="mb-0">Zieranpflanzungen</p>
+                    </div>
+                    <div class="card-footer">
+                        <a href="/admin/zieranpflanzungen" class="btn btn-light btn-sm w-100">
+                            <i class="fas fa-cog"></i> Verwalten
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3">
+                <div class="card bg-primary text-white h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-map fa-3x mb-2"></i>
+                        <h4>{{.Stats.AnzahlParzellen}}</h4>
+                        <p class="mb-0">Parzellen</p>
+                    </div>
+                    <div class="card-footer">
+                        <a href="/admin/parzellen" class="btn btn-light btn-sm w-100">
+                            <i class="fas fa-trash"></i> Verwalten
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3">
+                <div class="card bg-warning text-dark h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-calculator fa-3x mb-2"></i>
+                        <h4>{{.Stats.AnzahlWertermittlungen}}</h4>
+                        <p class="mb-0">Wertermittlungen</p>
+                    </div>
+                    <div class="card-footer">
+                        <a href="/admin/protokolle" class="btn btn-dark btn-sm w-100">
+                            <i class="fas fa-clipboard-list"></i> Verwalten
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- NEU: Erweiterte Admin-Funktionen (Phase 5) -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card border-danger">
+                    <div class="card-header bg-danger text-white">
+                        <h5 class="mb-0"><i class="fas fa-trash-alt"></i> Löschfunktionen</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-danger">
+                            <strong>Warnung:</strong> Diese Aktionen können nicht rückgängig gemacht werden!
+                        </div>
+                        <div class="d-grid gap-2">
+                            <a href="/admin/parzellen" class="btn btn-outline-danger">
+                                <i class="fas fa-map"></i> Parzellen löschen
+                            </a>
+                            <a href="/admin/protokolle" class="btn btn-outline-danger">
+                                <i class="fas fa-clipboard-list"></i> Protokolle löschen
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card border-warning">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0"><i class="fas fa-shield-alt"></i> Sicherheit & Backup</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <a href="/admin/backup" class="btn btn-outline-warning">
+                                <i class="fas fa-download"></i> Backup erstellen
+                            </a>
+                            <a href="/admin/audit-log" class="btn btn-outline-info">
+                                <i class="fas fa-history"></i> Audit-Log
+                            </a>
+                            <a href="/admin/system-info" class="btn btn-outline-secondary">
+                                <i class="fas fa-info-circle"></i> System-Info
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0"><i class="fas fa-plus"></i> Neue Einträge hinzufügen</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <a href="/admin/obstarten#neu" class="btn btn-outline-success">
+                                <i class="fas fa-apple-alt"></i> Neue Obstart hinzufügen
+                            </a>
+                            <a href="/admin/zieranpflanzungen#neu" class="btn btn-outline-info">
+                                <i class="fas fa-seedling"></i> Neue Zieranpflanzung hinzufügen
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Zurück Button -->
+        <div class="mt-4">
+            <a href="/parzellen" class="btn btn-secondary btn-lg">
+                <i class="fas fa-arrow-left"></i> Zurück zu Parzellen
+            </a>
+        </div>
+    </div>
+</div>
+{{end}}

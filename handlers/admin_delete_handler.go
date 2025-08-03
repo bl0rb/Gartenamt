@@ -1,0 +1,392 @@
+package handlers
+
+import (
+	"encoding/json"
+	"fmt"
+	"html/template"
+	"log"
+	"net/http"
+	"strconv"
+	"time"
+
+	"kleingarten-verwaltung/models"
+
+	"github.com/gorilla/mux"
+)
+
+func AdminParzellenVerwaltungHandler(w http.ResponseWriter, r *http.Request) {
+	log.Println("DEBUG: Lade Parzellen-Statistiken...")
+
+	parzellen, err := models.GetAllParzellenMitStatistiken()
+	if err != nil {
+		log.Printf("ERROR: Fehler beim Laden der Parzellen: %v", err)
+		http.Error(w, "Fehler beim Laden der Parzellen: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("DEBUG: %d Parzellen geladen", len(parzellen))
+
+	// Debug: Erste Parzelle ausgeben
+	if len(parzellen) > 0 {
+		p := parzellen[0]
+		log.Printf("DEBUG: Erste Parzelle - GesamtWert: %f, LetzteAktivitaet: %v", p.GesamtWert, p.LetzteAktivitaet)
+	}
+
+	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/admin_parzellen_verwalten.html"))
+	err = tmpl.Execute(w, map[string]interface{}{
+		"Title":     "Parzellen verwalten",
+		"Parzellen": parzellen,
+	})
+
+	if err != nil {
+		log.Printf("ERROR: Template-Ausführung fehlgeschlagen: %v", err)
+		http.Error(w, "Template-Fehler: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	log.Println("DEBUG: Template erfolgreich gerendert")
+}
+
+// AdminProtokollVerwaltungHandler - Übersicht aller Protokolle mit Löschoptionen
+func AdminProtokollVerwaltungHandler(w http.ResponseWriter, r *http.Request) {
+	log.Println("DEBUG: Lade Protokoll-Daten...")
+
+	// Alle Inspektionen laden
+	inspektionen, err := models.GetAllInspektionen()
+	if err != nil {
+		log.Printf("ERROR: Fehler beim Laden der Inspektionen: %v", err)
+		http.Error(w, "Fehler beim Laden der Inspektionen: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	log.Printf("DEBUG: %d Inspektionen geladen", len(inspektionen))
+
+	// Alle Wertermittlungen laden
+	wertermittlungen, err := models.GetAllWertermittlungen()
+	if err != nil {
+		log.Printf("ERROR: Fehler beim Laden der Wertermittlungen: %v", err)
+		http.Error(w, "Fehler beim Laden der Wertermittlungen: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	log.Printf("DEBUG: %d Wertermittlungen geladen", len(wertermittlungen))
+
+	// Debug: Erste Wertermittlung ausgeben
+	if len(wertermittlungen) > 0 {
+		w := wertermittlungen[0]
+		log.Printf("DEBUG: Erste Wertermittlung - ID: %d, Gesamtwert: %f, Parzelle: %s",
+			w.Wertermittlung.ID, w.Wertermittlung.GesamtWert, w.ParzelleNummer)
+	}
+
+	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/admin_protokolle_verwalten.html"))
+	err = tmpl.Execute(w, map[string]interface{}{
+		"Title":            "Protokolle verwalten",
+		"Inspektionen":     inspektionen,
+		"Wertermittlungen": wertermittlungen,
+	})
+
+	if err != nil {
+		log.Printf("ERROR: Template-Ausführung fehlgeschlagen: %v", err)
+		http.Error(w, "Template-Fehler: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	log.Println("DEBUG: Protokolle-Template erfolgreich gerendert")
+}
+
+// AdminInspektionLoeschenHandler - Einzelne Inspektion löschen
+func AdminInspektionLoeschenHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Nur POST erlaubt", http.StatusMethodNotAllowed)
+		return
+	}
+
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		http.Error(w, "Ungültige Inspektions-ID", http.StatusBadRequest)
+		return
+	}
+
+	// Sicherheitscheck: Bestätigung erforderlich
+	if r.FormValue("bestaetigung") != "LOESCHEN" {
+		http.Error(w, "Bestätigung 'LOESCHEN' erforderlich", http.StatusBadRequest)
+		return
+	}
+
+	// Inspektion laden für Audit-Log
+	inspektion, err := models.GetInspektionByID(id)
+	if err != nil {
+		http.Error(w, "Inspektion nicht gefunden", http.StatusNotFound)
+		return
+	}
+
+	// Audit-Log erstellen
+	auditEntry := models.AuditLog{
+		Aktion:       "INSPEKTION_GELOESCHT",
+		Beschreibung: fmt.Sprintf("Inspektion ID %d für Parzelle %d gelöscht", id, inspektion.ParzelleID),
+		DatenVorher:  inspektion,
+		Zeitstempel:  time.Now(),
+		IPAdresse:    r.RemoteAddr,
+	}
+
+	// Abhängige Wertermittlungen prüfen
+	wertermittlungen, err := models.GetWertermittlungenByInspektionID(id)
+	if err == nil && len(wertermittlungen) > 0 {
+		// Warnung: Abhängige Wertermittlungen vorhanden
+		if r.FormValue("force_delete") != "true" {
+			http.Error(w, fmt.Sprintf("Inspektion kann nicht gelöscht werden: %d abhängige Wertermittlungen vorhanden. Verwenden Sie 'Erzwingen' um trotzdem zu löschen.", len(wertermittlungen)), http.StatusConflict)
+			return
+		}
+		// Abhängige Wertermittlungen ebenfalls löschen
+		for _, wert := range wertermittlungen {
+			models.DeleteWertermittlung(wert.ID)
+		}
+	}
+
+	// Inspektion löschen
+	if err := models.DeleteInspektion(id); err != nil {
+		http.Error(w, "Fehler beim Löschen: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Audit-Log speichern
+	auditEntry.Save()
+
+	http.Redirect(w, r, "/admin/protokolle?success=inspektion_geloescht", http.StatusSeeOther)
+}
+
+// AdminWertermittlungLoeschenHandler - Einzelne Wertermittlung löschen
+func AdminWertermittlungLoeschenHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Nur POST erlaubt", http.StatusMethodNotAllowed)
+		return
+	}
+
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		http.Error(w, "Ungültige Wertermittlungs-ID", http.StatusBadRequest)
+		return
+	}
+
+	// Sicherheitscheck: Bestätigung erforderlich
+	if r.FormValue("bestaetigung") != "LOESCHEN" {
+		http.Error(w, "Bestätigung 'LOESCHEN' erforderlich", http.StatusBadRequest)
+		return
+	}
+
+	// Wertermittlung laden für Audit-Log
+	wertermittlung, err := models.GetWertermittlungByID(id)
+	if err != nil {
+		http.Error(w, "Wertermittlung nicht gefunden", http.StatusNotFound)
+		return
+	}
+
+	// Audit-Log erstellen
+	auditEntry := models.AuditLog{
+		Aktion:       "WERTERMITTLUNG_GELOESCHT",
+		Beschreibung: fmt.Sprintf("Wertermittlung ID %d für Parzelle %d gelöscht (Wert: %.2f €)", id, wertermittlung.ParzelleID, wertermittlung.GesamtWert),
+		DatenVorher:  wertermittlung,
+		Zeitstempel:  time.Now(),
+		IPAdresse:    r.RemoteAddr,
+	}
+
+	// Wertermittlung löschen
+	if err := models.DeleteWertermittlung(id); err != nil {
+		http.Error(w, "Fehler beim Löschen: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Audit-Log speichern
+	auditEntry.Save()
+
+	http.Redirect(w, r, "/admin/protokolle?success=wertermittlung_geloescht", http.StatusSeeOther)
+}
+
+// AdminBulkDeleteHandler - Mehrere Einträge gleichzeitig löschen
+func AdminBulkDeleteHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Nur POST erlaubt", http.StatusMethodNotAllowed)
+		return
+	}
+
+	typ := r.FormValue("type")   // "parzellen", "inspektionen", "wertermittlungen"
+	idsStr := r.FormValue("ids") // Comma-separated IDs
+
+	// Sicherheitscheck: Bulk-Bestätigung erforderlich
+	if r.FormValue("bulk_bestaetigung") != "BULK_LOESCHEN" {
+		http.Error(w, "Bulk-Bestätigung 'BULK_LOESCHEN' erforderlich", http.StatusBadRequest)
+		return
+	}
+
+	var ids []int
+	if err := json.Unmarshal([]byte(idsStr), &ids); err != nil {
+		http.Error(w, "Ungültige ID-Liste", http.StatusBadRequest)
+		return
+	}
+
+	if len(ids) == 0 {
+		http.Error(w, "Keine IDs zum Löschen ausgewählt", http.StatusBadRequest)
+		return
+	}
+
+	// Bulk-Delete durchführen
+	deletedCount := 0
+	errors := []string{}
+
+	for _, id := range ids {
+		var err error
+		switch typ {
+		case "parzellen":
+			err = loescheParzelleMitAbhaengigkeiten(id)
+		case "inspektionen":
+			err = models.DeleteInspektion(id)
+		case "wertermittlungen":
+			err = models.DeleteWertermittlung(id)
+		default:
+			err = fmt.Errorf("unbekannter Typ: %s", typ)
+		}
+
+		if err != nil {
+			errors = append(errors, fmt.Sprintf("ID %d: %s", id, err.Error()))
+		} else {
+			deletedCount++
+		}
+	}
+
+	// Audit-Log für Bulk-Delete
+	auditEntry := models.AuditLog{
+		Aktion:       "BULK_DELETE_" + typ,
+		Beschreibung: fmt.Sprintf("Bulk-Delete: %d von %d Einträgen (%s) erfolgreich gelöscht", deletedCount, len(ids), typ),
+		DatenVorher: map[string]interface{}{
+			"ids":    ids,
+			"typ":    typ,
+			"errors": errors,
+		},
+		Zeitstempel: time.Now(),
+		IPAdresse:   r.RemoteAddr,
+	}
+	auditEntry.Save()
+
+	// Erfolgs-/Fehlermeldung
+	if len(errors) > 0 {
+		log.Printf("Bulk-Delete Fehler: %v", errors)
+	}
+
+	redirectUrl := fmt.Sprintf("/admin/%s?success=bulk_deleted&count=%d", typ, deletedCount)
+	if len(errors) > 0 {
+		redirectUrl += fmt.Sprintf("&errors=%d", len(errors))
+	}
+
+	http.Redirect(w, r, redirectUrl, http.StatusSeeOther)
+}
+
+// AdminAuditLogHandler - Audit-Log anzeigen
+func AdminAuditLogHandler(w http.ResponseWriter, r *http.Request) {
+	limit := 100
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 1000 {
+			limit = l
+		}
+	}
+
+	auditLogs, err := models.GetAuditLogs(limit)
+	if err != nil {
+		http.Error(w, "Fehler beim Laden des Audit-Logs: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/admin_audit_log.html"))
+	tmpl.Execute(w, map[string]interface{}{
+		"Title":     "Audit-Log",
+		"AuditLogs": auditLogs,
+		"Limit":     limit,
+	})
+}
+
+// AdminSystemInfoHandler - System-Informationen und Statistiken
+func AdminSystemInfoHandler(w http.ResponseWriter, r *http.Request) {
+	systemInfo := models.GetSystemInfo()
+
+	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/admin_system_info.html"))
+	tmpl.Execute(w, map[string]interface{}{
+		"Title":      "System-Information",
+		"SystemInfo": systemInfo,
+	})
+}
+
+// Hilfsfunktion am Ende der Datei hinzufügen
+func loescheParzelleMitAbhaengigkeiten(parzelleID int) error {
+	// In einer Transaktion alle abhängigen Daten löschen
+	tx, err := models.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// Wertermittlungen löschen
+	_, err = tx.Exec("DELETE FROM wertermittlungen WHERE parzelle_id = ?", parzelleID)
+	if err != nil {
+		return err
+	}
+
+	// Inspektionen löschen
+	_, err = tx.Exec("DELETE FROM inspektionen WHERE parzelle_id = ?", parzelleID)
+	if err != nil {
+		return err
+	}
+
+	// Parzelle löschen
+	_, err = tx.Exec("DELETE FROM parzellen WHERE id = ?", parzelleID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// AdminParzellenLoeschenHandler - Parzellen mit Sicherheitsabfrage löschen
+func AdminParzellenLoeschenHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "POST" {
+		vars := mux.Vars(r)
+		id, err := strconv.Atoi(vars["id"])
+		if err != nil {
+			http.Error(w, "Ungültige Parzellen-ID", http.StatusBadRequest)
+			return
+		}
+
+		// Sicherheitscheck: Bestätigung erforderlich
+		if r.FormValue("bestaetigung") != "LOESCHEN" {
+			http.Error(w, "Bestätigung erforderlich", http.StatusBadRequest)
+			return
+		}
+
+		// Parzelle und alle abhängigen Daten löschen
+		if err := loescheParzelleMitAbhaengigkeiten(id); err != nil {
+			http.Error(w, "Fehler beim Löschen: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		http.Redirect(w, r, "/admin?success=parzelle_geloescht", http.StatusSeeOther)
+		return
+	}
+
+	// GET - Löschbestätigung anzeigen
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		http.Error(w, "Ungültige Parzellen-ID", http.StatusBadRequest)
+		return
+	}
+
+	parzelle, err := models.GetParzelleByID(id)
+	if err != nil {
+		http.Error(w, "Parzelle nicht gefunden", http.StatusNotFound)
+		return
+	}
+
+	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/admin_parzelle_loeschen.html"))
+	tmpl.Execute(w, map[string]interface{}{
+		"Title":    "Parzelle löschen",
+		"Parzelle": parzelle,
+	})
+}

@@ -1,0 +1,90 @@
+{{define "content"}}
+<div class="row">
+    <div class="col-12">
+        <h2>Neue Parzelle anlegen</h2>
+        
+        <form method="POST" class="needs-validation" novalidate>
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="nummer" class="form-label">Parzellennummer *</label>
+                                <input type="text" class="form-control" id="nummer" name="nummer" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="groesse" class="form-label">Größe (m²) *</label>
+                                <input type="number" class="form-control" id="groesse" name="groesse" 
+                                       step="0.1" min="1" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="verein" class="form-label">Verein *</label>
+                                <input type="text" class="form-control" id="verein" name="verein" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="paechter_name" class="form-label">Pächter Name</label>
+                                <input type="text" class="form-control" id="paechter_name" name="paechter_name">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- NEU: Email und Telefon -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="email" class="form-label">E-Mail</label>
+                                <input type="email" class="form-control" id="email" name="email" 
+                                       placeholder="max.mustermann@email.de">
+                                <div class="form-text">Optionale E-Mail-Adresse des Pächters</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="telefon" class="form-label">Telefonnummer</label>
+                                <input type="tel" class="form-control" id="telefon" name="telefon" 
+                                       placeholder="0123 456789">
+                                <div class="form-text">Optionale Telefonnummer des Pächters</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="kuendigung_datum" class="form-label">Kündigungsdatum</label>
+                                <input type="date" class="form-control" id="kuendigung_datum" name="kuendigung_datum">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- NEU: Notizen -->
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label for="notizen" class="form-label">Interne Notizen</label>
+                                <textarea class="form-control" id="notizen" name="notizen" rows="3" 
+                                          placeholder="Interne Notizen zur Parzelle (z.B. Besonderheiten, wichtige Informationen...)"></textarea>
+                                <div class="form-text">Diese Notizen sind nur für interne Zwecke und erscheinen nicht in offiziellen Dokumenten</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-3">
+                <a href="/parzellen" class="btn btn-secondary me-md-2">Abbrechen</a>
+                <button type="submit" class="btn btn-success">Parzelle anlegen</button>
+            </div>
+        </form>
+    </div>
+</div>
+{{end}}

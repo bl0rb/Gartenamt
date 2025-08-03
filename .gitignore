@@ -1,0 +1,4 @@
+backups/
+*.db
+*.csv
+exports/
