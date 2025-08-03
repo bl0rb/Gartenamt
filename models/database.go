@@ -67,6 +67,7 @@ func createTables() error {
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		parzelle_id INTEGER NOT NULL,
 		datum DATE NOT NULL,
+		maengel TEXT, -- JSON storage for maengel
 		auflagen_erfuellt BOOLEAN NOT NULL DEFAULT 0,
 		frist DATE,
 		weitere_auflagen TEXT,
@@ -92,6 +93,7 @@ func createTables() error {
 	CREATE TABLE IF NOT EXISTS wertermittlungen (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		parzelle_id INTEGER NOT NULL,
+		inspektion_id INTEGER,
 		datum DATE NOT NULL,
 		laube_wert REAL NOT NULL DEFAULT 0,
 		baulichkeiten_wert REAL NOT NULL DEFAULT 0,
@@ -101,7 +103,8 @@ func createTables() error {
 		gesamt_wert REAL NOT NULL DEFAULT 0,
 		details TEXT, -- JSON für komplexe Daten
 		erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
-		FOREIGN KEY (parzelle_id) REFERENCES parzellen (id) ON DELETE CASCADE
+		FOREIGN KEY (parzelle_id) REFERENCES parzellen (id) ON DELETE CASCADE,
+		FOREIGN KEY (inspektion_id) REFERENCES inspektionen (id) ON DELETE SET NULL
 	);`
 
 	// 6. Obstarten-Tabelle

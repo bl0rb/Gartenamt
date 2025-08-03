@@ -4,12 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"kleingarten-verwaltung/models"
 	"log"
 	"net/http"
 	"strconv"
 	"time"
-
-	"kleingarten-verwaltung/models"
 
 	"github.com/gorilla/mux"
 )
@@ -47,7 +46,6 @@ func AdminParzellenVerwaltungHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("DEBUG: Template erfolgreich gerendert")
 }
 
-// AdminProtokollVerwaltungHandler - Übersicht aller Protokolle mit Löschoptionen
 func AdminProtokollVerwaltungHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("DEBUG: Lade Protokoll-Daten...")
 
@@ -77,19 +75,12 @@ func AdminProtokollVerwaltungHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/admin_protokolle_verwalten.html"))
-	err = tmpl.Execute(w, map[string]interface{}{
+	data := map[string]interface{}{
 		"Title":            "Protokolle verwalten",
 		"Inspektionen":     inspektionen,
 		"Wertermittlungen": wertermittlungen,
-	})
-
-	if err != nil {
-		log.Printf("ERROR: Template-Ausführung fehlgeschlagen: %v", err)
-		http.Error(w, "Template-Fehler: "+err.Error(), http.StatusInternalServerError)
-		return
 	}
-
-	log.Println("DEBUG: Protokolle-Template erfolgreich gerendert")
+	tmpl.Execute(w, AddSessionToData(r, data))
 }
 
 // AdminInspektionLoeschenHandler - Einzelne Inspektion löschen
