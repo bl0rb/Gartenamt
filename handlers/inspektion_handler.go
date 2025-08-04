@@ -2,13 +2,14 @@ package handlers
 
 import (
 	"fmt"
-	"github.com/gorilla/mux"
-	"github.com/jung-kurt/gofpdf"
 	"html/template"
 	"kleingarten-verwaltung/models"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/gorilla/mux"
+	"github.com/jung-kurt/gofpdf"
 )
 
 func InspektionHandler(w http.ResponseWriter, r *http.Request) {
@@ -143,14 +144,14 @@ func generateInspektionPDF(w http.ResponseWriter, id int) {
 
 	// Alle vordefinierten Mängel auflisten
 	for _, mangel := range models.VordefinierteManagel {
-		startY := pdf.GetY()
+		//startY := pdf.GetY()
 
 		// Nummer
 		pdf.CellFormat(10, 6, fmt.Sprintf("%d", mangel.Nr), "1", 0, "", false, 0, "")
 
 		// Checkbox
 		checkboxX := pdf.GetX()
-		checkboxY := pdf.GetY()
+		//checkboxY := pdf.GetY()
 		pdf.CellFormat(8, 6, "", "1", 0, "", false, 0, "")
 
 		// Draw checkbox mark if selected
