@@ -5,8 +5,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/gorilla/mux"
 	"kleingarten-verwaltung/models"
+
+	"github.com/gorilla/mux"
 )
 
 // AdminDashboardHandler - Übersicht aller Admin-Funktionen
@@ -15,10 +16,10 @@ func AdminDashboardHandler(w http.ResponseWriter, r *http.Request) {
 	stats := getAdminStatistiken()
 
 	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/admin_dashboard.html"))
-	tmpl.Execute(w, map[string]interface{}{
+	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
 		"Title": "Admin Dashboard",
 		"Stats": stats,
-	})
+	}))
 }
 
 // AdminObstartenHandler - CRUD für Obstarten
@@ -41,10 +42,10 @@ func AdminObstartenHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/admin_obstarten.html"))
-	tmpl.Execute(w, map[string]interface{}{
+	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
 		"Title":     "Obstarten verwalten",
 		"Obstarten": obstarten,
-	})
+	}))
 }
 
 // AdminZieranpflanzungenHandler - CRUD für Zieranpflanzungen
@@ -67,10 +68,10 @@ func AdminZieranpflanzungenHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/admin_zieranpflanzungen.html"))
-	tmpl.Execute(w, map[string]interface{}{
+	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
 		"Title":             "Zieranpflanzungen verwalten",
 		"Zieranpflanzungen": zieranpflanzungen,
-	})
+	}))
 }
 
 // AdminObstartenLoeschenHandler - Einzelne Obstart löschen
@@ -204,4 +205,67 @@ func handleZieranpflanzungenPost(r *http.Request) error {
 		_, err := models.DB.Exec(query, name, kategorie, preisProQM, beschreibung, maxFlaeche)
 		return err
 	}
+}
+
+// AdminBauindexHandler - CRUD für Bauindex
+func AdminBauindexHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "POST" {
+		// Neue/aktualisierte Bauindex hinzufügen/bearbeiten
+		if err := handleBauindexPost(r); err != nil {
+			http.Error(w, "Fehler beim Speichern: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		http.Redirect(w, r, "/admin/bauindex", http.StatusSeeOther)
+		return
+	}
+
+	// GET - Alle Bauindex-Einträge anzeigen
+	bauindexEintraege, err := models.GetAllBauindexEintraege()
+	if err != nil {
+		http.Error(w, "Fehler beim Laden der Bauindex-Einträge: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/admin_bauindex.html"))
+	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
+		"Title":             "Bauindex verwalten",
+		"BauindexEintraege": bauindexEintraege,
+	}))
+}
+
+// AdminBauindexLoeschenHandler - Einzelnen Bauindex-Eintrag löschen
+func AdminBauindexLoeschenHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Nur POST erlaubt", http.StatusMethodNotAllowed)
+		return
+	}
+
+	vars := mux.Vars(r)
+	jahr, err := strconv.Atoi(vars["jahr"])
+	if err != nil {
+		http.Error(w, "Ungültige Jahr", http.StatusBadRequest)
+		return
+	}
+
+	// Bauindex-Eintrag löschen
+	err = models.DeleteBauindex(jahr)
+	if err != nil {
+		http.Error(w, "Fehler beim Löschen: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, "/admin/bauindex?success=deleted", http.StatusSeeOther)
+}
+
+func handleBauindexPost(r *http.Request) error {
+	// Formulardaten verarbeiten
+	jahr, _ := strconv.Atoi(r.FormValue("jahr"))
+	bauindex, _ := strconv.ParseFloat(r.FormValue("bauindex"), 64)
+
+	if jahr <= 0 || bauindex <= 0 {
+		return nil // Ungültige Eingaben ignorieren
+	}
+
+	// Bauindex erstellen oder aktualisieren
+	return models.CreateBauindex(jahr, bauindex)
 }

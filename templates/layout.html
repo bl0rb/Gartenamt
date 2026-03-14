@@ -95,18 +95,6 @@
     {{end}}
     
     <div class="container mt-4">
-        <!-- Session-Info für Entwicklung (kann später entfernt werden) -->
-        {{if .Session}}
-        {{if eq .Session.Role "admin"}}
-        <div class="alert alert-info alert-dismissible fade show" role="alert">
-            <i class="fas fa-info-circle"></i>
-            <strong>Administrator-Modus:</strong> Sie haben erweiterte Berechtigungen.
-            <small>Session: {{.Session.ID | printf "%.8s"}}... | IP: {{.Session.IPAddress}}</small>
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-        {{end}}
-        {{end}}
-        
         {{template "content" .}}
     </div>
     

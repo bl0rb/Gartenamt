@@ -4,6 +4,12 @@ import (
 	"time"
 )
 
+// Bauindex Model
+type Bauindex struct {
+	Jahr     int     `json:"jahr"`
+	Bauindex float64 `json:"bauindex"`
+}
+
 // Obstarten Model (erweitert)
 type ObstArt struct {
 	ID            int       `json:"id"`
@@ -109,4 +115,55 @@ func GetZieranpflanzungByID(id int) (*Zieranpflanzung, error) {
 	}
 	z.MaxFlaeche = maxFlaeche
 	return &z, nil
+}
+
+// CRUD-Funktionen für Bauindex
+func GetAllBauindexEintraege() ([]Bauindex, error) {
+	query := `SELECT jahr, bauindex FROM bauindex_tabelle ORDER BY jahr DESC`
+	rows, err := DB.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var bauindexEintraege []Bauindex
+	for rows.Next() {
+		var b Bauindex
+		err := rows.Scan(&b.Jahr, &b.Bauindex)
+		if err != nil {
+			return nil, err
+		}
+		bauindexEintraege = append(bauindexEintraege, b)
+	}
+	return bauindexEintraege, nil
+}
+
+func GetBauindexByJahr(jahr int) (*Bauindex, error) {
+	query := `SELECT jahr, bauindex FROM bauindex_tabelle WHERE jahr = ?`
+	row := DB.QueryRow(query, jahr)
+
+	var b Bauindex
+	err := row.Scan(&b.Jahr, &b.Bauindex)
+	if err != nil {
+		return nil, err
+	}
+	return &b, nil
+}
+
+func CreateBauindex(jahr int, bauindex float64) error {
+	query := `INSERT OR REPLACE INTO bauindex_tabelle (jahr, bauindex) VALUES (?, ?)`
+	_, err := DB.Exec(query, jahr, bauindex)
+	return err
+}
+
+func UpdateBauindex(jahr int, bauindex float64) error {
+	query := `UPDATE bauindex_tabelle SET bauindex = ? WHERE jahr = ?`
+	_, err := DB.Exec(query, bauindex, jahr)
+	return err
+}
+
+func DeleteBauindex(jahr int) error {
+	query := `DELETE FROM bauindex_tabelle WHERE jahr = ?`
+	_, err := DB.Exec(query, jahr)
+	return err
 }

@@ -28,12 +28,12 @@ func AdminBackupHandler(w http.ResponseWriter, r *http.Request) {
 	backupFiles, _ := filepath.Glob("backups/*.db")
 
 	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/admin_backup.html"))
-	tmpl.Execute(w, map[string]interface{}{
+	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
 		"Title":       "Backup & CSV Export/Import",
 		"ExportFiles": exportFiles,
 		"BackupFiles": backupFiles,
 		"CSVService":  csvService,
-	})
+	}))
 }
 
 func handleBackupPost(w http.ResponseWriter, r *http.Request) {

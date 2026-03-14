@@ -32,10 +32,10 @@ func AdminParzellenVerwaltungHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/admin_parzellen_verwalten.html"))
-	err = tmpl.Execute(w, map[string]interface{}{
+	err = tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
 		"Title":     "Parzellen verwalten",
 		"Parzellen": parzellen,
-	})
+	}))
 
 	if err != nil {
 		log.Printf("ERROR: Template-Ausführung fehlgeschlagen: %v", err)
@@ -287,11 +287,11 @@ func AdminAuditLogHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/admin_audit_log.html"))
-	tmpl.Execute(w, map[string]interface{}{
+	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
 		"Title":     "Audit-Log",
 		"AuditLogs": auditLogs,
 		"Limit":     limit,
-	})
+	}))
 }
 
 // AdminSystemInfoHandler - System-Informationen und Statistiken
@@ -299,10 +299,10 @@ func AdminSystemInfoHandler(w http.ResponseWriter, r *http.Request) {
 	systemInfo := models.GetSystemInfo()
 
 	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/admin_system_info.html"))
-	tmpl.Execute(w, map[string]interface{}{
+	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
 		"Title":      "System-Information",
 		"SystemInfo": systemInfo,
-	})
+	}))
 }
 
 // Hilfsfunktion am Ende der Datei hinzufügen
@@ -376,8 +376,8 @@ func AdminParzellenLoeschenHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/admin_parzelle_loeschen.html"))
-	tmpl.Execute(w, map[string]interface{}{
+	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
 		"Title":    "Parzelle löschen",
 		"Parzelle": parzelle,
-	})
+	}))
 }

@@ -59,12 +59,12 @@ func InspektionHandler(w http.ResponseWriter, r *http.Request) {
 	inspektion, _ := models.GetInspektionByParzelleID(parzelleID)
 
 	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/inspektion.html"))
-	tmpl.Execute(w, map[string]interface{}{
+	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
 		"Title":                "Inspektion - Parzelle " + parzelle.Nummer,
 		"Parzelle":             parzelle,
 		"Inspektion":           inspektion,
 		"VordefinierteManagel": models.VordefinierteManagel,
-	})
+	}))
 }
 
 func generateInspektionPDF(w http.ResponseWriter, id int) {

@@ -351,7 +351,14 @@ func AdminUsersHandlerEnhanced(w http.ResponseWriter, r *http.Request) {
 		successMsg = "Benutzer erfolgreich reaktiviert"
 	}
 
-	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/admin_users.html"))
+	// Define template functions
+	funcMap := template.FuncMap{
+		"contains": func(s, substr string) bool {
+			return strings.Contains(s, substr)
+		},
+	}
+
+	tmpl := template.Must(template.New("").Funcs(funcMap).ParseFiles("templates/layout.html", "templates/admin_users.html"))
 	tmpl.Execute(w, map[string]interface{}{
 		"Title":          "Benutzerverwaltung",
 		"Users":          users,
@@ -398,7 +405,14 @@ func showUsersListWithError(w http.ResponseWriter, r *http.Request, errorMsg str
 	users, _ := models.GetAllUsers()
 	activeSessions := services.GlobalAuth.GetActiveSessions()
 
-	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/admin_users.html"))
+	// Define template functions
+	funcMap := template.FuncMap{
+		"contains": func(s, substr string) bool {
+			return strings.Contains(s, substr)
+		},
+	}
+
+	tmpl := template.Must(template.New("").Funcs(funcMap).ParseFiles("templates/layout.html", "templates/admin_users.html"))
 	tmpl.Execute(w, map[string]interface{}{
 		"Title":          "Benutzerverwaltung",
 		"Users":          users,

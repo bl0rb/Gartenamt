@@ -243,7 +243,7 @@ func (s *BerechnungsService) GetAktuellerBauindex() (float64, error) {
 	var bauindex float64
 	err := row.Scan(&bauindex)
 	if err != nil {
-		return 42.9, nil // Fallback auf aktuellen Wert 2025
+		return 44.3, nil // Fallback auf aktuellen Wert 2025
 	}
 	return bauindex, nil
 }

@@ -73,6 +73,8 @@ func main() {
 	adminRoutes.HandleFunc("/obstarten/{id}/delete", middleware.RequireAdmin(handlers.AdminObstartenLoeschenHandler)).Methods("POST")
 	adminRoutes.HandleFunc("/zieranpflanzungen", middleware.RequireAdmin(handlers.AdminZieranpflanzungenHandler)).Methods("GET", "POST")
 	adminRoutes.HandleFunc("/zieranpflanzungen/{id}/delete", middleware.RequireAdmin(handlers.AdminZieranpflanzungenLoeschenHandler)).Methods("POST")
+	adminRoutes.HandleFunc("/bauindex", middleware.RequireAdmin(handlers.AdminBauindexHandler)).Methods("GET", "POST")
+	adminRoutes.HandleFunc("/bauindex/{jahr}/delete", middleware.RequireAdmin(handlers.AdminBauindexLoeschenHandler)).Methods("POST")
 
 	// Parzellen-Verwaltung (Löschen)
 	adminRoutes.HandleFunc("/parzellen", middleware.RequireAdmin(handlers.AdminParzellenVerwaltungHandler)).Methods("GET")
