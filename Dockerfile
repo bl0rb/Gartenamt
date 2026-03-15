@@ -1,57 +1,35 @@
-# Multi-stage build for kleingarten-verwaltung
-# Stage 1: Builder
+# Build stage
 FROM golang:1.21-bullseye AS builder
 
 WORKDIR /build
 
-# Install required build dependencies for sqlite3 CGO
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    libc6-dev \
-    libsqlite3-dev \
-    pkg-config \
-    && rm -rf /var/lib/apt/lists/*
+    gcc libc6-dev libsqlite3-dev pkg-config && \
+    rm -rf /var/lib/apt/lists/*
 
-# Copy go mod files
 COPY go.mod go.sum ./
-
-# Download dependencies
 RUN go mod download
 
-# Copy source code
 COPY . .
+RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -a -o kleingarten-verwaltung .
+RUN ls -lh /build/kleingarten-verwaltung && echo "✅ Binary ready"
 
-# Build the application with CGO for sqlite3
-# Note: GOOS=linux is set because we're building FOR linux container
-# Let Go auto-detect GOARCH (will match container architecture)
-RUN CGO_ENABLED=1 GOOS=linux go build -o kleingarten-verwaltung .
+# Runtime stage
+FROM ubuntu:22.04
 
-# Stage 2: Runtime
-FROM alpine:latest
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libsqlite3-0 ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 
-# Install runtime dependencies (including bash and sh for entrypoint)
-RUN apk add --no-cache ca-certificates sqlite-libs bash
+COPY --from=builder /build/kleingarten-verwaltung /usr/bin/kleingarten-verwaltung
+RUN chmod +x /usr/bin/kleingarten-verwaltung && \
+    ls -lh /usr/bin/kleingarten-verwaltung && \
+    echo "✅ Binary installed"
 
-# Copy binary from builder
-COPY --from=builder /build/kleingarten-verwaltung /app/kleingarten-verwaltung
-
-# Make sure binary is executable
-RUN chmod +x /app/kleingarten-verwaltung
-
-# Create data directory for sqlite database with proper permissions
 RUN mkdir -p /data && chmod 777 /data
 
-# Expose port
+WORKDIR /data
 EXPOSE 8080
-
-# Volume mount point for persistent data (database)
 VOLUME ["/data"]
 
-# Set environment for database location
-ENV DB_PATH=/data/kleingarten.db
-
-# Change to /data so database is created there
-WORKDIR /data
-
-# Run the application directly (no entrypoint script - simpler)
-CMD ["/app/kleingarten-verwaltung", "--no-browser"]
+CMD ["/usr/bin/kleingarten-verwaltung", "--no-browser"]
