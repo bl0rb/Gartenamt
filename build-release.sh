@@ -16,16 +16,16 @@ mkdir -p "$BINARY_DIR"
 
 # Build binaries
 echo "📦 Building Linux (amd64)..."
-GOOS=linux GOARCH=amd64 go build -o "$BINARY_DIR/app-linux" main.go
+GOOS=linux GOARCH=amd64 go build -o "$BINARY_DIR/$PROJECT_NAME-linux-amd64" main.go
 
 echo "📦 Building Windows (amd64)..."
-GOOS=windows GOARCH=amd64 go build -o "$BINARY_DIR/app.exe" main.go
+GOOS=windows GOARCH=amd64 go build -o "$BINARY_DIR/$PROJECT_NAME-windows-amd64.exe" main.go
 
 echo "📦 Building macOS (amd64)..."
-GOOS=darwin GOARCH=amd64 go build -o "$BINARY_DIR/app-macos-intel" main.go
+GOOS=darwin GOARCH=amd64 go build -o "$BINARY_DIR/$PROJECT_NAME-macos-amd64" main.go
 
 echo "📦 Building macOS (arm64)..."
-GOOS=darwin GOARCH=arm64 go build -o "$BINARY_DIR/app-macos-arm64" main.go
+GOOS=darwin GOARCH=arm64 go build -o "$BINARY_DIR/$PROJECT_NAME-macos-arm64" main.go
 
 # Build Docker image
 echo "🐳 Building Docker image..."
@@ -55,10 +55,10 @@ fi
 
 # Create macOS .app bundle for Intel
 echo "📦 Creating macOS Intel app bundle..."
-MACOS_APP_INTEL="$BINARY_DIR/$PROJECT_NAME-macos-intel.app"
+MACOS_APP_INTEL="$BINARY_DIR/$PROJECT_NAME-macos-amd64.app"
 mkdir -p "$MACOS_APP_INTEL/Contents/MacOS"
 mkdir -p "$MACOS_APP_INTEL/Contents/Resources"
-cp "$BINARY_DIR/app-macos-intel" "$MACOS_APP_INTEL/Contents/MacOS/$PROJECT_NAME"
+cp "$BINARY_DIR/$PROJECT_NAME-macos-amd64" "$MACOS_APP_INTEL/Contents/MacOS/$PROJECT_NAME"
 chmod +x "$MACOS_APP_INTEL/Contents/MacOS/$PROJECT_NAME"
 
 # Create Info.plist for macOS Intel
@@ -98,7 +98,7 @@ echo "📦 Creating macOS ARM64 app bundle..."
 MACOS_APP_ARM="$BINARY_DIR/$PROJECT_NAME-macos-arm64.app"
 mkdir -p "$MACOS_APP_ARM/Contents/MacOS"
 mkdir -p "$MACOS_APP_ARM/Contents/Resources"
-cp "$BINARY_DIR/app-macos-arm64" "$MACOS_APP_ARM/Contents/MacOS/$PROJECT_NAME"
+cp "$BINARY_DIR/$PROJECT_NAME-macos-arm64" "$MACOS_APP_ARM/Contents/MacOS/$PROJECT_NAME"
 chmod +x "$MACOS_APP_ARM/Contents/MacOS/$PROJECT_NAME"
 
 # Create Info.plist for macOS ARM
@@ -115,11 +115,11 @@ for APP_BUNDLE in "$MACOS_APP_INTEL" "$MACOS_APP_ARM"; do
 done
 
 # Copy Windows exe to binary folder
-cp "$BINARY_DIR/app.exe" "$BINARY_DIR/kleingarten-verwaltung.exe"
+cp "$BINARY_DIR/$PROJECT_NAME-windows-amd64.exe" "$BINARY_DIR/$PROJECT_NAME.exe"
 
 # Create Windows launcher
 echo "📦 Creating Windows launcher..."
-cat > "$BINARY_DIR/kleingarten-verwaltung.bat" << 'EOF'
+cat > "$BINARY_DIR/$PROJECT_NAME.bat" << 'EOF'
 @echo off
 cd /d "%~dp0"
 start "" "kleingarten-verwaltung.exe"
@@ -129,9 +129,9 @@ EOF
 echo "📦 Creating archives..."
 cd "$BINARY_DIR"
 
-# macOS Intel
-ditto -c -k --sequesterRsrc "$PROJECT_NAME-macos-intel.app" "$PROJECT_NAME-macos-intel.zip"
-echo "✅ Created: $PROJECT_NAME-macos-intel.zip"
+# macOS amd64 (Intel)
+ditto -c -k --sequesterRsrc "$PROJECT_NAME-macos-amd64.app" "$PROJECT_NAME-macos-amd64.zip"
+echo "✅ Created: $PROJECT_NAME-macos-amd64.zip"
 
 # macOS ARM
 ditto -c -k --sequesterRsrc "$PROJECT_NAME-macos-arm64.app" "$PROJECT_NAME-macos-arm64.zip"
@@ -142,7 +142,7 @@ cd ..
 # Create checksums
 echo "📦 Creating checksum..."
 cd "$BINARY_DIR"
-shasum -a 256 *.zip *.exe *.bat *.tar.gz 2>/dev/null | grep -v " $" > CHECKSUMS.txt || shasum -a 256 *.zip *.exe *.bat 2>/dev/null > CHECKSUMS.txt || true
+shasum -a 256 $PROJECT_NAME-linux-amd64 $PROJECT_NAME-windows-amd64.exe $PROJECT_NAME-macos-amd64 $PROJECT_NAME-macos-arm64 *.zip *.tar.gz $PROJECT_NAME.bat 2>/dev/null > CHECKSUMS.txt || true
 cd ..
 
 echo ""
@@ -152,10 +152,10 @@ echo "📦 Release artifacts in: $BINARY_DIR/"
 ls -lh "$BINARY_DIR/"
 echo ""
 echo "Usage:"
-echo "  macOS Intel:     Double-click or run: open $BINARY_DIR/$PROJECT_NAME-macos-intel.app"
-echo "  macOS ARM:       Double-click or run: open $BINARY_DIR/$PROJECT_NAME-macos-arm64.app"
-echo "  Windows:         Double-click $BINARY_DIR/kleingarten-verwaltung.exe or .bat"
-echo "  Linux:           Run: ./$BINARY_DIR/app-linux"
-echo "  Docker NAS:      1. Transfer $PROJECT_NAME-docker-$VERSION.tar.gz to NAS"
+echo "  macOS amd64:     Double-click or run: open $BINARY_DIR/$PROJECT_NAME-macos-amd64.app"
+echo "  macOS ARM64:     Double-click or run: open $BINARY_DIR/$PROJECT_NAME-macos-arm64.app"
+echo "  Windows amd64:   Double-click $BINARY_DIR/$PROJECT_NAME.exe or .bat"
+echo "  Linux amd64:     Run: ./$BINARY_DIR/$PROJECT_NAME-linux-amd64"
+echo "  Docker amd64:    1. Transfer $PROJECT_NAME-docker-$VERSION.tar.gz to NAS"
 echo "                   2. Load via NAS Docker GUI: docker load < $PROJECT_NAME-docker-$VERSION.tar.gz"
 echo "                   3. Create container with volume mount /data"
