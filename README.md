@@ -2,6 +2,13 @@
 
 A web-based management system for allotment gardens (Kleingartenanlagen) built with Go.
 
+## 🎯 Overview
+
+- **Web App:** Browser-based, no installation required
+- **Database:** SQLite3, auto-initialized
+- **Platforms:** macOS, Windows, Linux, Docker (NAS)
+- **Architecture:** Multi-platform amd64 and ARM64 support
+
 
 ## 🚀 Quick Start (Local)
 
@@ -27,20 +34,57 @@ Open `https://localhost:8080`
 
 ---
 
-## 🐳 Docker (NAS/Server)
+## � Build Releases
 
-Import and run the AMD64 Docker image:
+Create all platform binaries and Docker image with one command:
+
 ```bash
-docker load -i kleingarten-verwaltung-amd64.tar
-docker run -d -p 8080:8080 -v kleingarten-data:/data kleingarten-verwaltung:amd64
+./build-release.sh
 ```
 
-Or use compose:
-```bash
-docker-compose up -d
-```
+**Generated Artifacts** (in `/binary/`):
+- `kleingarten-verwaltung-linux-amd64` - Linux binary
+- `kleingarten-verwaltung-windows-amd64.exe` - Windows executable
+- `kleingarten-verwaltung-macos-amd64` & `.app` - macOS Intel
+- `kleingarten-verwaltung-macos-arm64` & `.app` - macOS Apple Silicon
+- `kleingarten-verwaltung-docker-VERSION.tar.gz` - Docker image
+- `CHECKSUMS.txt` - SHA256 verification for all artifacts
 
-Database persists in `/data` volume.
+**Usage:**
+- **Linux:** `./kleingarten-verwaltung-linux-amd64`
+- **Windows:** Double-click `kleingarten-verwaltung.exe`
+- **macOS:** Open `kleingarten-verwaltung-macos-*.app`
+- **Docker:** `docker load < kleingarten-verwaltung-docker-*.tar.gz && docker run -p 8080:8080 -v data:/data kleingarten-verwaltung`
+
+---
+
+## 🐳 Docker Deployment
+
+### On NAS via Docker GUI
+
+1. **Transfer image to NAS:**
+   ```bash
+   scp binary/kleingarten-verwaltung-docker-*.tar.gz user@nas:/path/
+   ```
+
+2. **Load image** (via NAS Docker interface):
+   - Select "Import Image"
+   - Choose the `.tar.gz` file
+   - Wait for import to complete
+
+3. **Create container**:
+   - Image: `kleingarten-verwaltung:latest`
+   - Port mapping: `8080:8080`
+   - Volume mount: `/data` (for database persistence)
+   - Start container
+
+Access at: `http://nas-ip:8080`
+
+### Command Line
+```bash
+docker load < kleingarten-verwaltung-docker-VERSION.tar.gz
+docker run -d --name kleingarten -p 8080:8080 -v kleingarten-data:/data kleingarten-verwaltung:latest
+```
 
 ---
 
@@ -86,60 +130,116 @@ Database persists in `/data` volume.
 ```
 .
 ├── main.go                      # Entry point
-├── Dockerfile                   # Docker build
-├── docker-compose.yml           # Compose config
-├── build-release.sh             # Build all platforms
-├── handlers/                    # HTTP handlers
-├── middleware/                  # HTTP middleware
-├── models/                      # Database models
+├── Dockerfile                   # Docker build (linux/amd64)
+├── build-release.sh             # Build all platforms & Docker
+├── go.mod / go.sum              # Go dependencies
+├── handlers/                    # HTTP request handlers
+├── middleware/                  # Auth middleware
+├── models/                      # Database models & queries
 ├── services/                    # Business logic
 ├── templates/                   # HTML templates
-├── static/                      # CSS, JS
-└── binary/                      # Build outputs (ignored)
-
+├── static/                      # CSS, JavaScript
+├── binary/                      # Build outputs (generated, .gitignored)
+└── .github/workflows/           # CI/CD pipelines
+```
 
 ---
 
-## 🔧 Build All Platforms
+## 🔧 Development
 
+**Prerequisites:**
+- Go 1.21+
+- SQLite3
+- Docker (for containerization)
+
+**Environment Setup:**
 ```bash
-bash build-release.sh
+git clone https://github.com/bl0rb/kleingarten-verwaltung.git
+cd kleingarten-verwaltung
+go mod download
 ```
 
-Generates in `binary/`:
-- Linux (amd64)
-- Windows (amd64)
-- macOS Intel (amd64)
-- macOS ARM (arm64)
-- Checksums
+**Run Development Server:**
+```bash
+go run main.go
+```
+App opens in browser at `http://localhost:8080`
+
+**Build for Current Platform:**
+```bash
+go build -o kleingarten-verwaltung .
+```
+
+**Build Release Package:**
+```bash
+./build-release.sh     # Creates all platform binaries + Docker
+```
 
 ---
 
 ## 📋 Technology Stack
 
 - **Language:** Go 1.21
-- **Web:** Gorilla Mux (routing)
-- **Database:** SQLite3
-- **PDF:** gofpdf
+- **Router:** Gorilla Mux
+- **Database:** SQLite3 (auto-initialized)
+- **PDF Generation:** gofpdf
 - **Frontend:** HTML5, CSS3, Bootstrap 5
-- **Container:** Docker (Ubuntu 22.04)
+- **Container:** Docker with Ubuntu 22.04 (amd64)
+- **CI/CD:** GitHub Actions
 
 ---
 
 ## 🛡️ Security
 
-### Current Implementation
-- Password hashing (bcrypt)
-- Session authentication with HTTPOnly cookies
-- Role-based access control
+### Implementation
+- Password hashing with bcrypt
+- Session authentication (HTTPOnly cookies)
+- Role-based access control (Admin/User)
 - Parameterized SQL queries
+- IP logging for audit trail
 
-### Recommendations for Production
-1. **Change default admin password immediately**
-2. **Enable HTTPS** (app supports TLS)
-3. **Set secure cookie flags** (Secure, SameSite)
-4. **Implement CSRF protection**
-5. **Rate limit login attempts**
-6. **Use persistent session storage** (for multi-instance)
+### Production Checklist
+- ✅ Change default admin password immediately
+- ✅ Enable HTTPS/TLS
+- ✅ Set secure cookie flags (Secure, SameSite=Strict)
+- ✅ Implement rate limiting on login
+- ✅ Regular database backups
+- ✅ Monitor audit logs
 
-See [SECURITY_AUDIT.md](SECURITY_AUDIT.md) for detailed findings.
+See [SECURITY_AUDIT.md](SECURITY_AUDIT.md) for full audit report.
+
+---
+
+## 🐛 Troubleshooting
+
+**Application won't start:**
+- Check port 8080 is available: `lsof -i :8080`
+- Verify Go version: `go version` (needs 1.21+)
+- Check permissions: `chmod +x kleingarten-verwaltung`
+
+**Database issues:**
+- SQLite file: `kleingarten.db` (created on first run in app directory)
+- Reset database: Delete `kleingarten.db` and restart
+- Backup database: `cp kleingarten.db kleingarten.db.backup`
+
+**Docker on NAS:**
+- Verify image loaded: `docker images | grep kleingarten`
+- Check container logs: `docker logs <container-id>`
+- Ensure volume persists: `docker volume ls | grep kleingarten`
+
+**Browser access issues:**
+- Try `http://localhost:8080` instead of `https://`
+- Clear browser cache/cookies
+- Check firewall rules for port 8080
+
+---
+
+## 📝 License
+
+MIT
+
+---
+
+## 👤 Development
+
+Built with ❤️ for community garden management.
