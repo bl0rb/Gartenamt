@@ -32,14 +32,11 @@ FROM alpine:latest
 # Install runtime dependencies (including bash and sh for entrypoint)
 RUN apk add --no-cache ca-certificates sqlite-libs bash
 
-WORKDIR /app
-
 # Copy binary from builder
-COPY --from=builder /build/kleingarten-verwaltung .
+COPY --from=builder /build/kleingarten-verwaltung /app/kleingarten-verwaltung
 
-# Copy entrypoint script for logging and initialization
-COPY entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
+# Make sure binary is executable
+RUN chmod +x /app/kleingarten-verwaltung
 
 # Create data directory for sqlite database with proper permissions
 RUN mkdir -p /data && chmod 777 /data
@@ -53,6 +50,8 @@ VOLUME ["/data"]
 # Set environment for database location
 ENV DB_PATH=/data/kleingarten.db
 
-# Use entrypoint script for initialization and logging
-ENTRYPOINT ["/app/entrypoint.sh"]
-CMD []
+# Change to /data so database is created there
+WORKDIR /data
+
+# Run the application directly (no entrypoint script - simpler)
+CMD ["/app/kleingarten-verwaltung", "--no-browser"]
