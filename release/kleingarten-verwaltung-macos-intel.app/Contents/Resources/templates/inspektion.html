@@ -1,0 +1,211 @@
+{{define "content"}}
+<div class="row">
+    <div class="col-12">
+        <h2>Inspektion - Parzelle {{.Parzelle.Nummer}}</h2>
+        <p class="text-muted">
+            <strong>Pächter:</strong> {{.Parzelle.PaechterName}} | 
+            <strong>Größe:</strong> {{.Parzelle.Groesse}} m² | 
+            <strong>Verein:</strong> {{.Parzelle.Verein}}
+        </p>
+        
+        <div class="alert alert-info">
+            <strong>Hinweis:</strong> Die Inspektion ist aufgrund der „Richtlinie für die Inspektion und 
+            Wertermittlung von Kleingärten bei Pächterwechsel" zwingend vorgeschrieben. 
+            Alle festgestellten Mängel müssen bis zur gesetzten Frist beseitigt werden, 
+            bevor eine Wertermittlung erfolgen darf.
+        </div>
+        
+        <form method="POST" class="needs-validation" novalidate>
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Inspektionsprotokoll mit Auflagen und Fristsetzungen</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Verbindliches Inspektionsprotokoll:</strong> Bei der Inspektion der oben aufgeführten Parzelle wurden folgende Mängel/Beanstandungen festgestellt, die beseitigt werden müssen.</p>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th style="width: 40px;">Nr.</th>
+                                    <th style="width: 60px;">Mangel</th>
+                                    <th>Festgestellte Mängel/Beanstandungen auf der Parzelle</th>
+                                    <th style="width: 200px;">Rechtsgrundlage</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {{range .VordefinierteManagel}}
+                                <tr>
+                                    <td><strong>{{.Nr}}.</strong></td>
+                                    <td class="text-center">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" 
+                                                   id="mangel_{{.Nr}}" name="mangel_{{.Nr}}" value="true"
+                                                   {{if .Erfuellt}}disabled{{end}}>
+                                        </div>
+                                    </td>
+                                    <td>{{.Beschreibung}}</td>
+                                    <td><small class="text-muted">{{.Rechtsgrundlage}}</small></td>
+                                </tr>
+                                {{end}}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6>Weitere Auflagen/Hinweise</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="weitere_auflagen" class="form-label">Zusätzliche Auflagen oder Hinweise:</label>
+                        <textarea class="form-control" id="weitere_auflagen" name="weitere_auflagen" 
+                                  rows="3" placeholder="Zusätzliche Beanstandungen oder spezielle Hinweise..."></textarea>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label for="frist" class="form-label">Frist zur Mängelbeseitigung:</label>
+                            <input type="date" class="form-control" id="frist" name="frist" 
+                                   min="{{(index . "Today")}}" required>
+                            <div class="form-text">Alle aufgeführten Auflagen/Mängel müssen bis zu diesem Datum beseitigt werden.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check mt-4">
+                                <input class="form-check-input" type="checkbox" id="auflagen_erfuellt" 
+                                       name="auflagen_erfuellt" value="true">
+                                <label class="form-check-label" for="auflagen_erfuellt">
+                                    <strong>Die Parzelle ist in einwandfreiem Zustand, keine Vereinsauflagen.</strong>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6>Bestätigung</h6>
+                </div>
+                <div class="card-body">
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="keine_toiletten" 
+                               name="keine_toiletten" value="true" required>
+                        <label class="form-check-label" for="keine_toiletten">
+                            Auf dieser Parzelle sind keine illegalen Toiletten-Systeme, wie z.B. Wasserspültoiletten, 
+                            sickergrubenähnliche Einrichtungen, Abwasserleitungen etc. vorhanden
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                <a href="/parzellen/{{.Parzelle.ID}}" class="btn btn-secondary me-md-2">Abbrechen</a>
+                <button type="submit" class="btn btn-success">Inspektion speichern</button>
+            </div>
+        </form>
+        
+        {{if .Inspektion}}
+        <div class="card mt-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">Aktuelle Inspektion vom {{.Inspektion.Datum.Format "02.01.2006"}}</h5>
+            </div>
+            <div class="card-body">
+                {{if .Inspektion.AuflagenErfuellt}}
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle"></i> 
+                        <strong>Parzelle in einwandfreiem Zustand</strong> - Keine Auflagen erforderlich.
+                    </div>
+                {{else}}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>{{len .Inspektion.Maengel}} Mängel festgestellt</strong>
+                        {{if .Inspektion.Frist}}
+                        - Frist: {{.Inspektion.Frist.Format "02.01.2006"}}
+                        {{end}}
+                    </div>
+                    
+                    <h6>Festgestellte Mängel:</h6>
+                    <ul class="list-group mb-3">
+                        {{range .Inspektion.Maengel}}
+                        <li class="list-group-item d-flex justify-content-between align-items-start">
+                            <div class="ms-2 me-auto">
+                                <div class="fw-bold">{{.Nr}}. {{.Beschreibung}}</div>
+                                <small class="text-muted">{{.Rechtsgrundlage}}</small>
+                            </div>
+                            {{if .Erfuellt}}
+                            <span class="badge bg-success rounded-pill">Erfüllt</span>
+                            {{else}}
+                            <span class="badge bg-danger rounded-pill">Offen</span>
+                            {{end}}
+                        </li>
+                        {{end}}
+                    </ul>
+                {{end}}
+                
+                <div class="mt-3">
+                    <a href="/protokoll/inspektion/{{.Inspektion.ID}}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-file-pdf"></i> PDF Protokoll
+                    </a>
+                    {{if not .Inspektion.AuflagenErfuellt}}
+                    <a href="/inspektion/{{.Parzelle.ID}}" class="btn btn-warning btn-sm">
+                        <i class="fas fa-edit"></i> Nachkontrolle
+                    </a>
+                    {{end}}
+                </div>
+            </div>
+        </div>
+        {{end}}
+    </div>
+</div>
+
+<script>
+// Checkbox-Logik für "einwandfreier Zustand"
+document.getElementById('auflagen_erfuellt').addEventListener('change', function() {
+    const checkboxes = document.querySelectorAll('input[name^="mangel_"]');
+    const fristInput = document.getElementById('frist');
+    const weitereAuflagen = document.getElementById('weitere_auflagen');
+    
+    if (this.checked) {
+        // Alle Mängel-Checkboxen deaktivieren
+        checkboxes.forEach(cb => {
+            cb.checked = false;
+            cb.disabled = true;
+        });
+        fristInput.disabled = true;
+        fristInput.required = false;
+        weitereAuflagen.disabled = true;
+    } else {
+        // Alle Mängel-Checkboxen aktivieren
+        checkboxes.forEach(cb => {
+            cb.disabled = false;
+        });
+        fristInput.disabled = false;
+        fristInput.required = true;
+        weitereAuflagen.disabled = false;
+    }
+});
+
+// Automatische Fristsetzung (30 Tage ab heute)
+document.addEventListener('DOMContentLoaded', function() {
+    const heute = new Date();
+    const frist = new Date(heute.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 Tage
+    document.getElementById('frist').value = frist.toISOString().split('T')[0];
+});
+
+// Validierung vor Submit
+document.querySelector('form').addEventListener('submit', function(e) {
+    const auflagenErfuellt = document.getElementById('auflagen_erfuellt').checked;
+    const maengelSelected = document.querySelectorAll('input[name^="mangel_"]:checked').length > 0;
+    const weitereAuflagen = document.getElementById('weitere_auflagen').value.trim();
+    
+    if (!auflagenErfuellt && !maengelSelected && !weitereAuflagen) {
+        e.preventDefault();
+        alert('Bitte wählen Sie entweder "einwandfreier Zustand" oder mindestens einen Mangel aus.');
+        return false;
+    }
+});
+</script>
+{{end}}

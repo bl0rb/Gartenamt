@@ -1,0 +1,198 @@
+{{define "content"}}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-map"></i> Parzellen verwalten</h2>
+            <div class="btn-group">
+                <a href="/admin/backup" class="btn btn-warning">
+                    <i class="fas fa-download"></i> Backup erstellen
+                </a>
+                <a href="/admin" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Zurück
+                </a>
+            </div>
+        </div>
+
+        <div class="alert alert-danger">
+            <strong><i class="fas fa-exclamation-triangle"></i> Warnung:</strong> 
+            Das Löschen von Parzellen kann nicht rückgängig gemacht werden! 
+            Alle abhängigen Inspektionen und Wertermittlungen werden ebenfalls gelöscht.
+        </div>
+
+        <!-- DEBUG INFO -->
+        <div class="alert alert-info">
+            <strong>Debug:</strong> Anzahl Parzellen: {{len .Parzellen}}
+        </div>
+
+        <!-- Parzellen-Tabelle -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Alle Parzellen ({{len .Parzellen}})</h5>
+            </div>
+            <div class="card-body">
+                {{if .Parzellen}}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Nummer</th>
+                                <th>Pächter</th>
+                                <th>Größe</th>
+                                <th>Status</th>
+                                <th>Inspektionen</th>
+                                <th>Wertermittlungen</th>
+                                <th>Gesamtwert</th>
+                                <th>Letzte Aktivität</th>
+                                <th style="width: 120px;">Aktionen</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{range .Parzellen}}
+                            <tr>
+                                <td><strong>{{.Parzelle.Nummer}}</strong></td>
+                                <td>
+                                    {{if .Parzelle.PaechterName}}
+                                        {{.Parzelle.PaechterName}}
+                                    {{else}}
+                                        <span class="text-muted">-</span>
+                                    {{end}}
+                                </td>
+                                <td>{{.Parzelle.Groesse}} m²</td>
+                                <td>
+                                    {{if .Parzelle.KuendigungDatum}}
+                                        <span class="badge bg-warning text-dark">Gekündigt</span>
+                                    {{else}}
+                                        <span class="badge bg-success">Aktiv</span>
+                                    {{end}}
+                                </td>
+                                <td>
+                                    {{if gt .AnzahlInspektionen 0}}
+                                        <span class="badge bg-primary">{{.AnzahlInspektionen}}</span>
+                                    {{else}}
+                                        <span class="text-muted">0</span>
+                                    {{end}}
+                                </td>
+                                <td>
+                                    {{if gt .AnzahlWertermittlungen 0}}
+                                        <span class="badge bg-info">{{.AnzahlWertermittlungen}}</span>
+                                    {{else}}
+                                        <span class="text-muted">0</span>
+                                    {{end}}
+                                </td>
+                                <td>
+                                    <!-- DEBUG: GesamtWert = {{.GesamtWert}} -->
+                                    {{if .GesamtWert}}
+                                        {{if gt .GesamtWert 0}}
+                                            <strong>{{printf "%.2f" .GesamtWert}} €</strong>
+                                        {{else}}
+                                            <span class="text-muted">0,00 €</span>
+                                        {{end}}
+                                    {{else}}
+                                        <span class="text-muted">-</span>
+                                    {{end}}
+                                </td>
+                                <td>
+                                    <!-- DEBUG: LetzteAktivitaet = {{.LetzteAktivitaet}} -->
+                                    {{if .LetzteAktivitaet}}
+                                        {{.LetzteAktivitaet.Format "02.01.06"}}
+                                    {{else}}
+                                        <span class="text-muted">-</span>
+                                    {{end}}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="/parzellen/{{.Parzelle.ID}}" class="btn btn-outline-primary" title="Ansehen">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <button type="button" class="btn btn-outline-danger" 
+                                                onclick="confirmDeleteParzelle({{.Parzelle.ID}}, '{{.Parzelle.Nummer}}', {{.AnzahlInspektionen}}, {{.AnzahlWertermittlungen}})"
+                                                title="Löschen">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+                {{else}}
+                <div class="text-center py-4">
+                    <i class="fas fa-map fa-4x text-muted mb-3"></i>
+                    <h5 class="text-muted">Keine Parzellen vorhanden</h5>
+                </div>
+                {{end}}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal bleibt gleich -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">Parzelle löschen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>Warnung:</strong> Diese Aktion kann nicht rückgängig gemacht werden!
+                </div>
+                <p>Sind Sie sicher, dass Sie die Parzelle <strong id="delete-parzelle-nummer"></strong> löschen möchten?</p>
+                <div id="delete-dependencies"></div>
+                <hr>
+                <p>Geben Sie zur Bestätigung <strong>LOESCHEN</strong> ein:</p>
+                <input type="text" class="form-control" id="delete-confirmation" placeholder="LOESCHEN">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-danger" id="confirm-delete-btn" disabled 
+                        onclick="executeParzelleLoesung()">Endgültig löschen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentDeleteId = null;
+
+function confirmDeleteParzelle(id, nummer, inspektionen, wertermittlungen) {
+    currentDeleteId = id;
+    document.getElementById('delete-parzelle-nummer').textContent = nummer;
+    
+    let dependencies = '';
+    if (inspektionen > 0 || wertermittlungen > 0) {
+        dependencies = `<div class="alert alert-warning">`;
+        dependencies += `<strong>Abhängige Daten:</strong><br>`;
+        if (inspektionen > 0) dependencies += `• ${inspektionen} Inspektion(en)<br>`;
+        if (wertermittlungen > 0) dependencies += `• ${wertermittlungen} Wertermittlung(en)<br>`;
+        dependencies += `Diese werden ebenfalls gelöscht!</div>`;
+    }
+    document.getElementById('delete-dependencies').innerHTML = dependencies;
+    
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+
+function executeParzelleLoesung() {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = `/admin/parzellen/${currentDeleteId}/delete`;
+    
+    const confirmInput = document.createElement('input');
+    confirmInput.type = 'hidden';
+    confirmInput.name = 'bestaetigung';
+    confirmInput.value = 'LOESCHEN';
+    
+    form.appendChild(confirmInput);
+    document.body.appendChild(form);
+    form.submit();
+}
+
+document.getElementById('delete-confirmation').addEventListener('input', function() {
+    const confirmBtn = document.getElementById('confirm-delete-btn');
+    confirmBtn.disabled = this.value !== 'LOESCHEN';
+});
+</script>
+{{end}}

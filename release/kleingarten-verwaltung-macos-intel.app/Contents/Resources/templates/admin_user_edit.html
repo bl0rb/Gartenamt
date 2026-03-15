@@ -1,0 +1,206 @@
+{{define "content"}}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-user-edit"></i> Benutzer bearbeiten</h2>
+            <a href="/admin/users" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Zurück
+            </a>
+        </div>
+
+        {{if .Error}}
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="fas fa-exclamation-triangle"></i>
+            <strong>Fehler:</strong> {{.Error}}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {{end}}
+
+        <div class="row">
+            <!-- User Information & Edit -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Benutzerinformationen bearbeiten</h5>
+                    </div>
+                    <div class="card-body">
+                        <form method="POST" class="needs-validation" novalidate>
+                            <input type="hidden" name="action" value="update">
+                            
+                            <div class="mb-3">
+                                <label for="username" class="form-label">Benutzername *</label>
+                                <input type="text" class="form-control" id="username" name="username" 
+                                       value="{{.User.Username}}" required>
+                                <div class="invalid-feedback">Benutzername ist erforderlich.</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="email" class="form-label">E-Mail *</label>
+                                <input type="email" class="form-control" id="email" name="email" 
+                                       value="{{.User.Email}}" required>
+                                <div class="invalid-feedback">Gültige E-Mail ist erforderlich.</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="role" class="form-label">Rolle</label>
+                                <select class="form-select" id="role" name="role">
+                                    <option value="user" {{if eq .User.Role "user"}}selected{{end}}>Benutzer</option>
+                                    <option value="admin" {{if eq .User.Role "admin"}}selected{{end}}>Administrator</option>
+                                </select>
+                            </div>
+
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="active" name="active" 
+                                       value="1" {{if .User.Active}}checked{{end}}>
+                                <label class="form-check-label" for="active">
+                                    Konto aktiv
+                                </label>
+                            </div>
+
+                            <div class="mb-3">
+                                <small class="text-muted">
+                                    <strong>Erstellt:</strong> {{.User.CreatedAt.Format "02.01.2006 15:04"}}<br>
+                                    <strong>Letzter Login:</strong> 
+                                    {{if .User.LastLogin}}{{.User.LastLogin.Format "02.01.2006 15:04"}}{{else}}Nie{{end}}
+                                </small>
+                            </div>
+
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> Änderungen speichern
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Password Reset & Actions -->
+            <div class="col-md-6">
+                <!-- Password Reset -->
+                <div class="card mb-4">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0"><i class="fas fa-key"></i> Passwort zurücksetzen</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>Hinweis:</strong> Das Zurücksetzen beendet alle aktiven Sitzungen des Benutzers.
+                        </div>
+
+                        <form method="POST" class="needs-validation" novalidate id="passwordResetForm">
+                            <input type="hidden" name="action" value="reset_password">
+                            
+                            <div class="mb-3">
+                                <label for="new_password" class="form-label">Neues Passwort *</label>
+                                <input type="password" class="form-control" id="new_password" 
+                                       name="new_password" minlength="6" required>
+                                <div class="form-text">Mindestens 6 Zeichen</div>
+                                <div class="invalid-feedback">Neues Passwort muss mindestens 6 Zeichen haben.</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="confirm_password" class="form-label">Passwort bestätigen *</label>
+                                <input type="password" class="form-control" id="confirm_password" 
+                                       name="confirm_password" minlength="6" required>
+                                <div class="invalid-feedback">Passwort-Bestätigung ist erforderlich.</div>
+                            </div>
+
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-warning">
+                                    <i class="fas fa-key"></i> Passwort zurücksetzen
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Account Actions -->
+                <div class="card">
+                    <div class="card-header bg-danger text-white">
+                        <h5 class="mb-0"><i class="fas fa-exclamation-circle"></i> Konto-Aktionen</h5>
+                    </div>
+                    <div class="card-body">
+                        {{if .User.Active}}
+                        <div class="alert alert-danger">
+                            <strong>Konto deaktivieren:</strong> Der Benutzer kann sich nicht mehr anmelden.
+                        </div>
+                        <form method="POST" style="display: inline;" onsubmit="return confirm('Benutzer {{.User.Username}} wirklich deaktivieren?')">
+                            <input type="hidden" name="action" value="deactivate">
+                            <button type="submit" class="btn btn-danger w-100">
+                                <i class="fas fa-ban"></i> Konto deaktivieren
+                            </button>
+                        </form>
+                        {{else}}
+                        <div class="alert alert-success">
+                            <strong>Konto reaktivieren:</strong> Der Benutzer kann sich wieder anmelden.
+                        </div>
+                        <form method="POST" style="display: inline;" onsubmit="return confirm('Benutzer {{.User.Username}} wirklich reaktivieren?')">
+                            <input type="hidden" name="action" value="reactivate">
+                            <button type="submit" class="btn btn-success w-100">
+                                <i class="fas fa-check"></i> Konto reaktivieren
+                            </button>
+                        </form>
+                        {{end}}
+
+                        {{if not (eq .User.Username "admin")}}
+                        <div class="mt-3">
+                            <small class="text-muted">
+                                <strong>Hinweis:</strong> Der Standard-Administrator kann nicht gelöscht werden.
+                            </small>
+                        </div>
+                        {{end}}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Password confirmation validation
+document.getElementById('confirm_password').addEventListener('input', function() {
+    const newPassword = document.getElementById('new_password');
+    const confirmPassword = this;
+    
+    if (newPassword.value !== confirmPassword.value) {
+        confirmPassword.setCustomValidity('Passwörter stimmen nicht überein');
+    } else {
+        confirmPassword.setCustomValidity('');
+    }
+});
+
+document.getElementById('new_password').addEventListener('input', function() {
+    const confirmPassword = document.getElementById('confirm_password');
+    if (confirmPassword.value && this.value !== confirmPassword.value) {
+        confirmPassword.setCustomValidity('Passwörter stimmen nicht überein');
+    } else {
+        confirmPassword.setCustomValidity('');
+    }
+});
+
+// Bootstrap validation
+(function() {
+    'use strict';
+    window.addEventListener('load', function() {
+        var forms = document.getElementsByClassName('needs-validation');
+        Array.prototype.filter.call(forms, function(form) {
+            form.addEventListener('submit', function(event) {
+                if (form.checkValidity() === false) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                form.classList.add('was-validated');
+            }, false);
+        });
+    }, false);
+})();
+
+// Password reset confirmation
+document.getElementById('passwordResetForm').addEventListener('submit', function(e) {
+    if (!confirm('Passwort für Benutzer "{{.User.Username}}" wirklich zurücksetzen?\n\nAlle aktiven Sitzungen werden beendet.')) {
+        e.preventDefault();
+    }
+});
+</script>
+{{end}}
