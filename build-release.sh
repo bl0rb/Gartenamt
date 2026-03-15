@@ -27,10 +27,10 @@ GOOS=darwin GOARCH=amd64 go build -o "$BINARY_DIR/$PROJECT_NAME-macos-amd64" mai
 echo "📦 Building macOS (arm64)..."
 GOOS=darwin GOARCH=arm64 go build -o "$BINARY_DIR/$PROJECT_NAME-macos-arm64" main.go
 
-# Build Docker image
-echo "🐳 Building Docker image..."
+# Build Docker image for amd64
+echo "🐳 Building Docker image (linux/amd64)..."
 DOCKER_BUILD_EXIT=0
-docker build -t "$PROJECT_NAME:$VERSION" -t "$PROJECT_NAME:latest" . > /tmp/docker_build.log 2>&1
+docker build --platform linux/amd64 -t "$PROJECT_NAME:$VERSION" -t "$PROJECT_NAME:latest" . > /tmp/docker_build.log 2>&1
 DOCKER_BUILD_EXIT=$?
 
 if [ $DOCKER_BUILD_EXIT -eq 0 ]; then
