@@ -3,7 +3,6 @@ package handlers
 import (
 	"errors"
 	"fmt"
-	"github.com/jung-kurt/gofpdf"
 	"html/template"
 	"log"
 	"net/http"
@@ -11,9 +10,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gorilla/mux"
+	"github.com/jung-kurt/gofpdf"
+
 	"kleingarten-verwaltung/models"
 	"kleingarten-verwaltung/services"
+
+	"github.com/gorilla/mux"
 )
 
 func WertermittlungHandler(w http.ResponseWriter, r *http.Request) {
