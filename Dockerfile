@@ -1,11 +1,16 @@
 # Multi-stage build for kleingarten-verwaltung
 # Stage 1: Builder
-FROM golang:1.21-alpine AS builder
+FROM golang:1.21-bullseye AS builder
 
 WORKDIR /build
 
 # Install required build dependencies for sqlite3 CGO
-RUN apk add --no-cache gcc musl-dev sqlite-dev
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libc6-dev \
+    libsqlite3-dev \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy go mod files
 COPY go.mod go.sum ./
@@ -16,8 +21,8 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build the application
-RUN CGO_ENABLED=1 GOOS=linux go build -o kleingarten-verwaltung .
+# Build the application with CGO for sqlite3
+RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o kleingarten-verwaltung .
 
 # Stage 2: Runtime
 FROM alpine:latest
