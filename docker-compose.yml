@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  kleingarten:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kleingarten-verwaltung
+    ports:
+      - "8080:8080"
+    volumes:
+      # Mount data directory for persistent database storage
+      - kleingarten-data:/data
+    environment:
+      - DB_PATH=/data/kleingarten.db
+    restart: unless-stopped
+    # Optional: add resource limits for NAS deployment
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '1'
+    #       memory: 512M
+
+volumes:
+  kleingarten-data:
+    driver: local
