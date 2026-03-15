@@ -2,3 +2,5 @@ backups/
 *.db
 *.csv
 exports/
+*.tar
+*linux-amd64
