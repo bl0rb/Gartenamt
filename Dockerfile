@@ -22,7 +22,9 @@ RUN go mod download
 COPY . .
 
 # Build the application with CGO for sqlite3
-RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o kleingarten-verwaltung .
+# Note: GOOS=linux is set because we're building FOR linux container
+# Let Go auto-detect GOARCH (will match container architecture)
+RUN CGO_ENABLED=1 GOOS=linux go build -o kleingarten-verwaltung .
 
 # Stage 2: Runtime
 FROM alpine:latest
