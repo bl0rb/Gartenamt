@@ -3,7 +3,11 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
+	"os/exec"
+	"runtime"
 	"strings"
+	"time"
 
 	"kleingarten-verwaltung/handlers"
 	"kleingarten-verwaltung/middleware"
@@ -12,6 +16,23 @@ import (
 
 	"github.com/gorilla/mux"
 )
+
+// openBrowser öffnet die Anwendung im Standard-Browser
+func openBrowser(url string) {
+	var err error
+	switch runtime.GOOS {
+	case "linux":
+		err = exec.Command("xdg-open", url).Start()
+	case "windows":
+		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+	case "darwin":
+		err = exec.Command("open", url).Start()
+	}
+	if err != nil {
+		log.Printf("⚠️  Konnte Browser nicht automatisch öffnen: %v", err)
+		log.Printf("   Bitte öffnen Sie manuell: %s", url)
+	}
+}
 
 func main() {
 	// 1. Auth-Service initialisieren (ZUERST!)
@@ -115,6 +136,17 @@ func main() {
 	log.Println("✅ System bereit für Anmeldungen")
 	log.Println("🔐 Vollständige Benutzerauthentifizierung aktiviert")
 	log.Println()
+
+	// Browser automatisch öffnen (nur wenn nicht in Terminal-Only Mode)
+	if len(os.Args) == 1 || (len(os.Args) > 1 && os.Args[1] != "--no-browser") {
+		go func() {
+			time.Sleep(500 * time.Millisecond) // Kurze Verzögerung, um sicherzustellen, dass der Server läuft
+			log.Println("🌐 Öffne Browser...")
+			openBrowser("http://localhost:8080")
+		}()
+	} else {
+		log.Println("⚠️  Browser-Auto-Start deaktiviert (--no-browser Flag gesetzt)")
+	}
 
 	log.Fatal(http.ListenAndServe(":8080", r))
 }
