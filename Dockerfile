@@ -29,16 +29,20 @@ RUN CGO_ENABLED=1 GOOS=linux go build -o kleingarten-verwaltung .
 # Stage 2: Runtime
 FROM alpine:latest
 
-# Install runtime dependencies
-RUN apk add --no-cache ca-certificates sqlite-libs
+# Install runtime dependencies (including bash and sh for entrypoint)
+RUN apk add --no-cache ca-certificates sqlite-libs bash
 
 WORKDIR /app
 
 # Copy binary from builder
 COPY --from=builder /build/kleingarten-verwaltung .
 
-# Create data directory for sqlite database
-RUN mkdir -p /data
+# Copy entrypoint script for logging and initialization
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+# Create data directory for sqlite database with proper permissions
+RUN mkdir -p /data && chmod 777 /data
 
 # Expose port
 EXPOSE 8080
@@ -49,5 +53,6 @@ VOLUME ["/data"]
 # Set environment for database location
 ENV DB_PATH=/data/kleingarten.db
 
-# Run the application
-CMD ["./kleingarten-verwaltung"]
+# Use entrypoint script for initialization and logging
+ENTRYPOINT ["/app/entrypoint.sh"]
+CMD []

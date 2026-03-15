@@ -1,40 +1,48 @@
 #!/bin/sh
-set -e
+# Entrypoint script for Kleingarten-Verwaltung Docker container
 
-# Entrypoint script with logging
 echo "=================================="
-echo "🚀 Kleingarten-Verwaltung Docker"
+echo "🚀 Kleingarten-Verwaltung - Docker"
 echo "=================================="
 echo ""
-echo "📍 Umgebung:"
+echo "📍 System Info:"
 echo "   Platform: $(uname -m)"
 echo "   OS: $(uname -s)"
-echo "   Go Version: $(go version 2>/dev/null || echo 'N/A')"
 echo ""
 
-echo "📂 Datenverzeichnis:"
-ls -la /data/ || echo "   /data nicht vorhanden (wird erstellt)"
+echo "📂 Data Directory:"
+echo "   Location: /data"
+
+if [ -d /data ]; then
+    echo "   Status: EXISTS"
+    ls -la /data/ 2>/dev/null | head -3 || true
+else
+    echo "   Status: CREATING"
+    mkdir -p /data
+fi
+
+echo "   Checking write permissions..."
+if touch /data/.write-test 2>/dev/null; then
+    rm -f /data/.write-test
+    echo "   Permissions: ✅ OK"
+else
+    echo "   Permissions: ⚠️  FAILED - May cause database issues"
+fi
+
+echo ""
+echo "🔧 Application Configuration:"
+echo "   Database: /data/kleingarten.db"
+echo "   Port: 8080 (HTTPS)"
+echo "   Mode: --no-browser"
 echo ""
 
-echo "🔧 Starte Anwendung..."
-echo "   Datenbank: /data/kleingarten.db"
-echo "   Port: 8080"
-echo ""
-
-# Ensure /data directory is writable
-mkdir -p /data
-chmod 755 /data
-
-# Also try to ensure permissions are correct
-touch /data/.test-write 2>/dev/null && rm /data/.test-write || {
-    echo "⚠️  WARNUNG: /data ist möglicherweise nicht beschreibbar!"
-    echo "   Bitte überprüfen Sie die Docker-Volume-Berechtigungen."
-}
-
-# Run the app with no browser (since we're in a container)
 echo "=================================="
-echo "✅ Anwendung läuft..."
+echo "✅ Starting application..."
 echo "=================================="
 echo ""
 
+# Change to /data so database is created there
+cd /data
+
+# Run the binary (no --no-browser, let main.go detect we're in a container)
 exec /app/kleingarten-verwaltung --no-browser
