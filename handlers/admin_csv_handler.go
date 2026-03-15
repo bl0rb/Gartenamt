@@ -27,7 +27,7 @@ func AdminBackupHandler(w http.ResponseWriter, r *http.Request) {
 	exportFiles, _ := filepath.Glob("exports/*.csv")
 	backupFiles, _ := filepath.Glob("backups/*.db")
 
-	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/admin_backup.html"))
+	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/admin_backup.html"))
 	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
 		"Title":       "Backup & CSV Export/Import",
 		"ExportFiles": exportFiles,

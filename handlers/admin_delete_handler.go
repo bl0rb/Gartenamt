@@ -31,7 +31,7 @@ func AdminParzellenVerwaltungHandler(w http.ResponseWriter, r *http.Request) {
 		log.Printf("DEBUG: Erste Parzelle - GesamtWert: %f, LetzteAktivitaet: %v", p.GesamtWert, p.LetzteAktivitaet)
 	}
 
-	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/admin_parzellen_verwalten.html"))
+	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/admin_parzellen_verwalten.html"))
 	err = tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
 		"Title":     "Parzellen verwalten",
 		"Parzellen": parzellen,
@@ -74,7 +74,7 @@ func AdminProtokollVerwaltungHandler(w http.ResponseWriter, r *http.Request) {
 			w.Wertermittlung.ID, w.Wertermittlung.GesamtWert, w.ParzelleNummer)
 	}
 
-	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/admin_protokolle_verwalten.html"))
+	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/admin_protokolle_verwalten.html"))
 	data := map[string]interface{}{
 		"Title":            "Protokolle verwalten",
 		"Inspektionen":     inspektionen,
@@ -286,7 +286,7 @@ func AdminAuditLogHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/admin_audit_log.html"))
+	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/admin_audit_log.html"))
 	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
 		"Title":     "Audit-Log",
 		"AuditLogs": auditLogs,
@@ -298,7 +298,7 @@ func AdminAuditLogHandler(w http.ResponseWriter, r *http.Request) {
 func AdminSystemInfoHandler(w http.ResponseWriter, r *http.Request) {
 	systemInfo := models.GetSystemInfo()
 
-	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/admin_system_info.html"))
+	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/admin_system_info.html"))
 	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
 		"Title":      "System-Information",
 		"SystemInfo": systemInfo,
@@ -375,7 +375,7 @@ func AdminParzellenLoeschenHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/admin_parzelle_loeschen.html"))
+	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/admin_parzelle_loeschen.html"))
 	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
 		"Title":    "Parzelle löschen",
 		"Parzelle": parzelle,

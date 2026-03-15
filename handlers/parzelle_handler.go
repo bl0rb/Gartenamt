@@ -26,7 +26,7 @@ func ParzellenListHandler(w http.ResponseWriter, r *http.Request) {
 	// Session aus Context laden
 	session := middleware.GetSessionFromContext(r.Context())
 
-	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/parzellen.html"))
+	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/parzellen.html"))
 	tmpl.Execute(w, map[string]interface{}{
 		"Title":     "Parzellenverwaltung",
 		"Parzellen": parzellen,
@@ -70,7 +70,7 @@ func ParzelleNeuHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// GET Request - Formular anzeigen
-	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/parzelle_neu.html"))
+	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/parzelle_neu.html"))
 	tmpl.Execute(w, map[string]interface{}{
 		"Title":   "Neue Parzelle",
 		"Session": session, // NEU: Session für Layout
@@ -104,7 +104,7 @@ func ParzelleDetailHandler(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	tmpl := template.Must(template.New("").Funcs(funcMap).ParseFiles("templates/layout.html", "templates/parzelle_detail.html"))
+	tmpl := template.Must(LoadTemplateWithFuncs(funcMap, "templates/layout.html", "templates/parzelle_detail.html"))
 	err = tmpl.ExecuteTemplate(w, "layout.html", map[string]interface{}{
 		"Title":          "Parzelle " + parzelle.Nummer,
 		"Parzelle":       parzelle,

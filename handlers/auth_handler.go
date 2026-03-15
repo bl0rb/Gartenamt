@@ -63,7 +63,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	// GET Request - Login-Formular anzeigen
 	redirectURL := r.URL.Query().Get("redirect")
 
-	tmpl := template.Must(template.ParseFiles("templates/login.html"))
+	tmpl := template.Must(LoadTemplate("templates/login.html"))
 	tmpl.Execute(w, map[string]interface{}{
 		"Title":       "Anmeldung",
 		"RedirectURL": redirectURL,
@@ -106,7 +106,7 @@ func ProfileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/profile.html"))
+	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/profile.html"))
 	tmpl.Execute(w, map[string]interface{}{
 		"Title":   "Profil",
 		"User":    user,
@@ -279,7 +279,7 @@ func AdminUserEditHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// GET request - show edit form
-	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/admin_user_edit.html"))
+	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/admin_user_edit.html"))
 	tmpl.Execute(w, map[string]interface{}{
 		"Title":   "Benutzer bearbeiten",
 		"User":    user,
@@ -358,7 +358,7 @@ func AdminUsersHandlerEnhanced(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	tmpl := template.Must(template.New("").Funcs(funcMap).ParseFiles("templates/layout.html", "templates/admin_users.html"))
+	tmpl := template.Must(LoadTemplateWithFuncs(funcMap, "templates/layout.html", "templates/admin_users.html"))
 	tmpl.Execute(w, map[string]interface{}{
 		"Title":          "Benutzerverwaltung",
 		"Users":          users,
@@ -371,7 +371,7 @@ func AdminUsersHandlerEnhanced(w http.ResponseWriter, r *http.Request) {
 // Helper functions
 
 func showLoginWithError(w http.ResponseWriter, r *http.Request, errorMsg, redirectURL string) {
-	tmpl := template.Must(template.ParseFiles("templates/login.html"))
+	tmpl := template.Must(LoadTemplate("templates/login.html"))
 	tmpl.Execute(w, map[string]interface{}{
 		"Title":       "Anmeldung",
 		"Error":       errorMsg,
@@ -382,7 +382,7 @@ func showLoginWithError(w http.ResponseWriter, r *http.Request, errorMsg, redire
 
 func showProfileWithError(w http.ResponseWriter, r *http.Request, errorMsg string, session *services.Session) {
 	user, _ := models.GetUserByID(session.UserID)
-	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/profile.html"))
+	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/profile.html"))
 	tmpl.Execute(w, map[string]interface{}{
 		"Title":   "Profil",
 		"User":    user,
@@ -392,7 +392,7 @@ func showProfileWithError(w http.ResponseWriter, r *http.Request, errorMsg strin
 }
 
 func showUserEditWithError(w http.ResponseWriter, r *http.Request, user *models.User, errorMsg string) {
-	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/admin_user_edit.html"))
+	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/admin_user_edit.html"))
 	tmpl.Execute(w, map[string]interface{}{
 		"Title":   "Benutzer bearbeiten",
 		"User":    user,
@@ -412,7 +412,7 @@ func showUsersListWithError(w http.ResponseWriter, r *http.Request, errorMsg str
 		},
 	}
 
-	tmpl := template.Must(template.New("").Funcs(funcMap).ParseFiles("templates/layout.html", "templates/admin_users.html"))
+	tmpl := template.Must(LoadTemplateWithFuncs(funcMap, "templates/layout.html", "templates/admin_users.html"))
 	tmpl.Execute(w, map[string]interface{}{
 		"Title":          "Benutzerverwaltung",
 		"Users":          users,

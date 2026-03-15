@@ -15,7 +15,7 @@ func AdminDashboardHandler(w http.ResponseWriter, r *http.Request) {
 	// Statistiken für Dashboard laden
 	stats := getAdminStatistiken()
 
-	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/admin_dashboard.html"))
+	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/admin_dashboard.html"))
 	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
 		"Title": "Admin Dashboard",
 		"Stats": stats,
@@ -41,7 +41,7 @@ func AdminObstartenHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/admin_obstarten.html"))
+	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/admin_obstarten.html"))
 	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
 		"Title":     "Obstarten verwalten",
 		"Obstarten": obstarten,
@@ -67,7 +67,7 @@ func AdminZieranpflanzungenHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/admin_zieranpflanzungen.html"))
+	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/admin_zieranpflanzungen.html"))
 	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
 		"Title":             "Zieranpflanzungen verwalten",
 		"Zieranpflanzungen": zieranpflanzungen,
@@ -226,7 +226,7 @@ func AdminBauindexHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/admin_bauindex.html"))
+	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/admin_bauindex.html"))
 	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
 		"Title":             "Bauindex verwalten",
 		"BauindexEintraege": bauindexEintraege,

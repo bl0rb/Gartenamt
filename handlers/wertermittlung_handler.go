@@ -295,7 +295,7 @@ func handleWertermittlungGet(w http.ResponseWriter, r *http.Request, parzelle *m
 	}
 
 	// Template laden und ausführen
-	tmpl, err := template.New("").Funcs(funcMap).ParseFiles("templates/layout.html", "templates/wertermittlung.html")
+	tmpl, err := LoadTemplateWithFuncs(funcMap, "templates/layout.html", "templates/wertermittlung.html")
 	if err != nil {
 		log.Printf("Template Parse Error: %v", err)
 		http.Error(w, "Template-Fehler", http.StatusInternalServerError)

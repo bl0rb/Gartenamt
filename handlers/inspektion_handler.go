@@ -58,7 +58,7 @@ func InspektionHandler(w http.ResponseWriter, r *http.Request) {
 
 	inspektion, _ := models.GetInspektionByParzelleID(parzelleID)
 
-	tmpl := template.Must(template.ParseFiles("templates/layout.html", "templates/inspektion.html"))
+	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/inspektion.html"))
 	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
 		"Title":                "Inspektion - Parzelle " + parzelle.Nummer,
 		"Parzelle":             parzelle,

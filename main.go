@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	"log"
 	"net/http"
 	"os"
@@ -16,6 +17,9 @@ import (
 
 	"github.com/gorilla/mux"
 )
+
+//go:embed templates static
+var embeddedFS embed.FS
 
 // openBrowser öffnet die Anwendung im Standard-Browser
 func openBrowser(url string) {
@@ -35,7 +39,10 @@ func openBrowser(url string) {
 }
 
 func main() {
-	// 1. Auth-Service initialisieren (ZUERST!)
+	// 1. Initialize embedded filesystem
+	handlers.SetEmbeddedFS(embeddedFS)
+
+	// 2. Auth-Service initialisieren (ZUERST!)
 	log.Println("🔐 Initialisiere Auth-Service...")
 	services.InitAuth()
 
@@ -57,7 +64,7 @@ func main() {
 	r := mux.NewRouter()
 
 	// Static files (UNGESCHÜTZT)
-	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static/"))))
+	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.FS(handlers.GetEmbeddedStaticFS()))))
 	r.PathPrefix("/exports/").Handler(http.StripPrefix("/exports/", http.FileServer(http.Dir("exports/"))))
 
 	// *** AUTHENTIFIZIERUNGS-ROUTEN (UNGESCHÜTZT) ***
