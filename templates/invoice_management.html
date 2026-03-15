@@ -1,0 +1,648 @@
+{{define "invoice_management.html"}}
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rechnungsverwaltung - Kleingarten-Verwaltung</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .invoice-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #ddd;
+        }
+
+        .tab-button {
+            padding: 10px 20px;
+            background: #f0f0f0;
+            border: none;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+        }
+
+        .tab-button.active {
+            background: white;
+            border-bottom-color: #4CAF50;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        .button {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .button:hover {
+            background: #45a049;
+        }
+
+        .records-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .records-table th,
+        .records-table td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .records-table th {
+            background: #f5f5f5;
+            font-weight: bold;
+        }
+
+        .delete-btn {
+            padding: 5px 10px;
+            background: #f44336;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .delete-btn:hover {
+            background: #da190b;
+        }
+
+        .success-message {
+            background: #dff0d8;
+            color: #3c763d;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 5px;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196F3;
+            padding: 10px;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    {{ template "layout.html" . }}
+
+    <div class="invoice-container">
+        <h1>💰 Rechnungs- & Gebührenverwaltung</h1>
+
+        <div id="message"></div>
+
+        <div class="tabs">
+            <button class="tab-button active" onclick="switchTab('organization')">Organisationsdaten</button>
+            <button class="tab-button" onclick="switchTab('utilities')">Wasser & Strom</button>
+            <button class="tab-button" onclick="switchTab('invoices')">Rechnungen Drucken</button>
+        </div>
+
+        <!-- Tab 1: Organization Settings -->
+        <div id="organization" class="tab-content active">
+            <h2>Organisationsdaten für Rechnungen</h2>
+            <div class="info-box">
+                Diese Informationen werden auf allen ausgedruckten Rechnungen angezeigt.
+            </div>
+
+            <form id="organizationForm">
+                <div class="form-group">
+                    <label for="name">Organisationsname:</label>
+                    <input type="text" id="name" name="name" required>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div class="form-group">
+                        <label for="strasse">Straße:</label>
+                        <input type="text" id="strasse" name="strasse">
+                    </div>
+                    <div class="form-group">
+                        <label for="hausnummer">Hausnummer:</label>
+                        <input type="text" id="hausnummer" name="hausnummer">
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div class="form-group">
+                        <label for="plz">PLZ:</label>
+                        <input type="text" id="plz" name="plz">
+                    </div>
+                    <div class="form-group">
+                        <label for="ort">Ort:</label>
+                        <input type="text" id="ort" name="ort">
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div class="form-group">
+                        <label for="telefon">Telefon:</label>
+                        <input type="tel" id="telefon" name="telefon">
+                    </div>
+                    <div class="form-group">
+                        <label for="email">E-Mail:</label>
+                        <input type="email" id="email" name="email">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="website">Website:</label>
+                    <input type="url" id="website" name="website">
+                </div>
+
+                <div class="section-title">📋 Bankdaten</div>
+
+                <div class="form-group">
+                    <label for="iban">IBAN:</label>
+                    <input type="text" id="iban" name="iban" placeholder="DE89 3704 0044 0532 0130 00">
+                </div>
+
+                <div class="form-group">
+                    <label for="bic">BIC:</label>
+                    <input type="text" id="bic" name="bic" placeholder="COBADEFFXXX">
+                </div>
+
+                <div class="form-group">
+                    <label for="kontoinhaber">Kontoinhaber:</label>
+                    <input type="text" id="kontoinhaber" name="kontoinhaber">
+                </div>
+
+                <div class="section-title">📋 Amtliche Nummern</div>
+
+                <div class="form-group">
+                    <label for="steuernummer">Steuernummer:</label>
+                    <input type="text" id="steuernummer" name="steuernummer">
+                </div>
+
+                <div class="form-group">
+                    <label for="registernummer">Registernummer / Vereinsnummer:</label>
+                    <input type="text" id="registernummer" name="registernummer">
+                </div>
+
+                <div class="form-group">
+                    <label for="logo_path">Logo-Pfad (für Rechnungen):</label>
+                    <input type="text" id="logo_path" name="logo_path" placeholder="/static/images/logo.png">
+                </div>
+
+                <button type="submit" class="button">Speichern</button>
+            </form>
+        </div>
+
+        <!-- Tab 2: Utilities Management -->
+        <div id="utilities" class="tab-content">
+            <h2>Wasser- und Stromverbrauch</h2>
+
+            <div class="form-group">
+                <label for="parzelleSelect">Parzelle auswählen:</label>
+                <select id="parzelleSelect" onchange="loadParzelleUtilities()">
+                    <option value="">-- Wählen Sie eine Parzelle --</option>
+                </select>
+            </div>
+
+            <div id="utilitiesContent" style="display: none;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                    <!-- Wasser Section -->
+                    <div>
+                        <div class="section-title">💧 Wasser</div>
+                        <form id="wasserForm">
+                            <div class="form-group">
+                                <label for="wasser_monat">Monat:</label>
+                                <select id="wasser_monat" required>
+                                    <option value="">-- Monat wählen --</option>
+                                    <option value="1">Januar</option>
+                                    <option value="2">Februar</option>
+                                    <option value="3">März</option>
+                                    <option value="4">April</option>
+                                    <option value="5">Mai</option>
+                                    <option value="6">Juni</option>
+                                    <option value="7">Juli</option>
+                                    <option value="8">August</option>
+                                    <option value="9">September</option>
+                                    <option value="10">Oktober</option>
+                                    <option value="11">November</option>
+                                    <option value="12">Dezember</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="wasser_jahr">Jahr:</label>
+                                <input type="number" id="wasser_jahr" min="2020" max="2099" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="wasser_verbrauch">Verbrauch (m³):</label>
+                                <input type="number" id="wasser_verbrauch" step="0.01" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="wasser_kosten">Kosten (EUR):</label>
+                                <input type="number" id="wasser_kosten" step="0.01" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="wasser_noten">Notizen:</label>
+                                <textarea id="wasser_noten" rows="3"></textarea>
+                            </div>
+                            <button type="button" class="button" onclick="saveWasser()">Eintrag hinzufügen</button>
+                        </form>
+
+                        <div class="section-title">Einträge</div>
+                        <div id="wasserList"></div>
+                    </div>
+
+                    <!-- Strom Section -->
+                    <div>
+                        <div class="section-title">⚡ Strom</div>
+                        <form id="stromForm">
+                            <div class="form-group">
+                                <label for="strom_monat">Monat:</label>
+                                <select id="strom_monat" required>
+                                    <option value="">-- Monat wählen --</option>
+                                    <option value="1">Januar</option>
+                                    <option value="2">Februar</option>
+                                    <option value="3">März</option>
+                                    <option value="4">April</option>
+                                    <option value="5">Mai</option>
+                                    <option value="6">Juni</option>
+                                    <option value="7">Juli</option>
+                                    <option value="8">August</option>
+                                    <option value="9">September</option>
+                                    <option value="10">Oktober</option>
+                                    <option value="11">November</option>
+                                    <option value="12">Dezember</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="strom_jahr">Jahr:</label>
+                                <input type="number" id="strom_jahr" min="2020" max="2099" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="strom_verbrauch">Verbrauch (kWh):</label>
+                                <input type="number" id="strom_verbrauch" step="0.01" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="strom_kosten">Kosten (EUR):</label>
+                                <input type="number" id="strom_kosten" step="0.01" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="strom_noten">Notizen:</label>
+                                <textarea id="strom_noten" rows="3"></textarea>
+                            </div>
+                            <button type="button" class="button" onclick="saveStrom()">Eintrag hinzufügen</button>
+                        </form>
+
+                        <div class="section-title">Einträge</div>
+                        <div id="stromList"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 3: Invoice Printing -->
+        <div id="invoices" class="tab-content">
+            <h2>Rechnungen Drucken</h2>
+            <div class="info-box">
+                Hier können Sie Rechnungen für Wasser und Strom ausdrucken.
+            </div>
+
+            <div class="form-group">
+                <label for="invoiceParzelleSelect">Parzelle auswählen:</label>
+                <select id="invoiceParzelleSelect">
+                    <option value="">-- Wählen Sie eine Parzelle --</option>
+                </select>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label for="invoiceMonth">Monat:</label>
+                    <select id="invoiceMonth" required>
+                        <option value="">-- Monat wählen --</option>
+                        <option value="1">Januar</option>
+                        <option value="2">Februar</option>
+                        <option value="3">März</option>
+                        <option value="4">April</option>
+                        <option value="5">Mai</option>
+                        <option value="6">Juni</option>
+                        <option value="7">Juli</option>
+                        <option value="8">August</option>
+                        <option value="9">September</option>
+                        <option value="10">Oktober</option>
+                        <option value="11">November</option>
+                        <option value="12">Dezember</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="invoiceYear">Jahr:</label>
+                    <input type="number" id="invoiceYear" min="2020" max="2099" value="2026" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="invoiceType">Rechnungstyp:</label>
+                    <select id="invoiceType" required>
+                        <option value="wasser">Wasser</option>
+                        <option value="strom">Strom</option>
+                        <option value="both">Beides</option>
+                    </select>
+                </div>
+            </div>
+
+            <button class="button" onclick="previewInvoice()">👁️ Vorschau</button>
+            <button class="button" onclick="printInvoice()" style="background: #2196F3;">🖨️ Drucken</button>
+
+            <div id="invoicePreview" style="margin-top: 30px;"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentParzelleId = null;
+        const today = new Date();
+        document.getElementById('wasser_jahr').value = today.getFullYear();
+        document.getElementById('strom_jahr').value = today.getFullYear();
+
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Show selected tab
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+
+            if (tabName === 'utilities' && !currentParzelleId) {
+                loadParzelleOptions();
+            }
+            if (tabName === 'invoices') {
+                loadParzelleOptions(true);
+            }
+        }
+
+        function loadParzelleOptions(forInvoices = false) {
+            const selectId = forInvoices ? 'invoiceParzelleSelect' : 'parzelleSelect';
+            // Load parzellen from API
+            fetch('/api/parzellen')
+                .then(r => r.json())
+                .then(parzellen => {
+                    const select = document.getElementById(selectId);
+                    parzellen.forEach(p => {
+                        const option = document.createElement('option');
+                        option.value = p.id;
+                        option.textContent = `${p.nummer} - ${p.paechter_name}`;
+                        select.appendChild(option);
+                    });
+                });
+        }
+
+        function loadParzelleUtilities() {
+            const select = document.getElementById('parzelleSelect');
+            currentParzelleId = select.value;
+
+            if (!currentParzelleId) {
+                document.getElementById('utilitiesContent').style.display = 'none';
+                return;
+            }
+
+            document.getElementById('utilitiesContent').style.display = 'block';
+
+            // Load Wasser records
+            fetch(`/admin/parzellen/${currentParzelleId}/wasser`)
+                .then(r => r.json())
+                .then(records => {
+                    const html = records ? records.map(r =>
+                        `<div style="border: 1px solid #ddd; padding: 10px; margin: 5px 0; border-radius: 3px;">
+                            <strong>${r.monat}/${r.jahr}:</strong> ${r.verbrauch} m³ - €${r.kosten.toFixed(2)}
+                            <button class="delete-btn" onclick="deleteWasser(${r.id})">X</button>
+                        </div>`
+                    ).join('') : '<p>Keine Einträge</p>';
+                    document.getElementById('wasserList').innerHTML = html;
+                });
+
+            // Load Strom records
+            fetch(`/admin/parzellen/${currentParzelleId}/strom`)
+                .then(r => r.json())
+                .then(records => {
+                    const html = records ? records.map(r =>
+                        `<div style="border: 1px solid #ddd; padding: 10px; margin: 5px 0; border-radius: 3px;">
+                            <strong>${r.monat}/${r.jahr}:</strong> ${r.verbrauch} kWh - €${r.kosten.toFixed(2)}
+                            <button class="delete-btn" onclick="deleteStrom(${r.id})">X</button>
+                        </div>`
+                    ).join('') : '<p>Keine Einträge</p>';
+                    document.getElementById('stromList').innerHTML = html;
+                });
+        }
+
+        function saveWasser() {
+            const data = {
+                monat: parseInt(document.getElementById('wasser_monat').value),
+                jahr: parseInt(document.getElementById('wasser_jahr').value),
+                verbrauch: parseFloat(document.getElementById('wasser_verbrauch').value),
+                kosten: parseFloat(document.getElementById('wasser_kosten').value),
+                noten: document.getElementById('wasser_noten').value
+            };
+
+            fetch(`/admin/parzellen/${currentParzelleId}/wasser`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(r => r.json())
+            .then(result => {
+                showMessage(`✅ Wassereintrag gespeichert`, 'success');
+                document.getElementById('wasserForm').reset();
+                loadParzelleUtilities();
+            })
+            .catch(e => showMessage(`❌ Fehler: ${e}`, 'error'));
+        }
+
+        function saveStrom() {
+            const data = {
+                monat: parseInt(document.getElementById('strom_monat').value),
+                jahr: parseInt(document.getElementById('strom_jahr').value),
+                verbrauch: parseFloat(document.getElementById('strom_verbrauch').value),
+                kosten: parseFloat(document.getElementById('strom_kosten').value),
+                noten: document.getElementById('strom_noten').value
+            };
+
+            fetch(`/admin/parzellen/${currentParzelleId}/strom`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(r => r.json())
+            .then(result => {
+                showMessage(`✅ Stromeintrag gespeichert`, 'success');
+                document.getElementById('stromForm').reset();
+                loadParzelleUtilities();
+            })
+            .catch(e => showMessage(`❌ Fehler: ${e}`, 'error'));
+        }
+
+        function deleteWasser(id) {
+            if (confirm('Wirklich löschen?')) {
+                fetch(`/admin/wasser/${id}/delete`, { method: 'POST' })
+                    .then(() => {
+                        showMessage('✅ Wassereintrag gelöscht', 'success');
+                        loadParzelleUtilities();
+                    });
+            }
+        }
+
+        function deleteStrom(id) {
+            if (confirm('Wirklich löschen?')) {
+                fetch(`/admin/strom/${id}/delete`, { method: 'POST' })
+                    .then(() => {
+                        showMessage('✅ Stromeintrag gelöscht', 'success');
+                        loadParzelleUtilities();
+                    });
+            }
+        }
+
+        function previewInvoice() {
+            const parzelleId = document.getElementById('invoiceParzelleSelect').value;
+            const month = document.getElementById('invoiceMonth').value;
+            const year = document.getElementById('invoiceYear').value;
+            const type = document.getElementById('invoiceType').value;
+
+            if (!parzelleId || !month || !year) {
+                showMessage('❌ Bitte füllen Sie alle Felder aus', 'error');
+                return;
+            }
+
+            fetch(`/admin/parzellen/${parzelleId}/invoice?month=${month}&year=${year}&type=${type}`)
+                .then(r => r.json())
+                .then(data => {
+                    document.getElementById('invoicePreview').innerHTML = `
+                        <div style="border: 2px solid #4CAF50; padding: 20px; background: white;">
+                            <h3>Rechnung Vorschau</h3>
+                            <p><strong>Parzelle:</strong> ${data.parzelle.nummer}</p>
+                            <p><strong>Pächter:</strong> ${data.parzelle.paechter_name}</p>
+                            <p><strong>Adresse:</strong> ${data.parzelle.paechter_adress}</p>
+                            <p><strong>Organistion:</strong> ${data.organization.name}</p>
+                            <p><strong>Zeitraum:</strong> ${data.month}/${data.year}</p>
+                            <p><strong>Rechnung Typ:</strong> ${data.invoiceType}</p>
+                        </div>
+                    `;
+                });
+        }
+
+        function printInvoice() {
+            showMessage('🖨️ Druckfunktion wird in Kürze implementiert', 'success');
+        }
+
+        function showMessage(msg, type) {
+            const msgEl = document.getElementById('message');
+            msgEl.innerHTML = `<div class="${type}-message">${msg}</div>`;
+            setTimeout(() => msgEl.innerHTML = '', 5000);
+        }
+
+        // Load organization settings on page load
+        window.addEventListener('load', () => {
+            fetch('/admin/organization-settings')
+                .then(r => r.json())
+                .then(org => {
+                    if (org.id) {
+                        document.getElementById('name').value = org.name || '';
+                        document.getElementById('strasse').value = org.strasse || '';
+                        document.getElementById('hausnummer').value = org.hausnummer || '';
+                        document.getElementById('plz').value = org.plz || '';
+                        document.getElementById('ort').value = org.ort || '';
+                        document.getElementById('telefon').value = org.telefon || '';
+                        document.getElementById('email').value = org.email || '';
+                        document.getElementById('website').value = org.website || '';
+                        document.getElementById('iban').value = org.iban || '';
+                        document.getElementById('bic').value = org.bic || '';
+                        document.getElementById('kontoinhaber').value = org.kontoinhaber || '';
+                        document.getElementById('steuernummer').value = org.steuernummer || '';
+                        document.getElementById('registernummer').value = org.registernummer || '';
+                        document.getElementById('logo_path').value = org.logo_path || '';
+                    }
+                });
+        });
+
+        document.getElementById('organizationForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            const org = {
+                name: document.getElementById('name').value,
+                strasse: document.getElementById('strasse').value,
+                hausnummer: document.getElementById('hausnummer').value,
+                plz: document.getElementById('plz').value,
+                ort: document.getElementById('ort').value,
+                telefon: document.getElementById('telefon').value,
+                email: document.getElementById('email').value,
+                website: document.getElementById('website').value,
+                iban: document.getElementById('iban').value,
+                bic: document.getElementById('bic').value,
+                kontoinhaber: document.getElementById('kontoinhaber').value,
+                steuernummer: document.getElementById('steuernummer').value,
+                registernummer: document.getElementById('registernummer').value,
+                logo_path: document.getElementById('logo_path').value
+            };
+
+            fetch('/admin/organization-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(org)
+            })
+            .then(r => r.json())
+            .then(result => {
+                showMessage('✅ Organisationsdaten gespeichert', 'success');
+            })
+            .catch(e => showMessage(`❌ Fehler: ${e}`, 'error'));
+        });
+    </script>
+</body>
+</html>
+{{end}}

@@ -1,13 +1,16 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"log"
 	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 
 	"kleingarten-verwaltung/handlers"
@@ -21,8 +24,13 @@ import (
 //go:embed templates static
 var embeddedFS embed.FS
 
-// openBrowser öffnet die Anwendung im Standard-Browser
-func openBrowser(url string) {
+// openBrowserApp öffnet die Anwendung im System-Browser
+func openBrowserApp(url string) {
+	openSystemBrowser(url)
+}
+
+// openSystemBrowser opens the URL in the system default browser
+func openSystemBrowser(url string) {
 	var err error
 	switch runtime.GOOS {
 	case "linux":
@@ -41,6 +49,13 @@ func openBrowser(url string) {
 func main() {
 	// 1. Initialize embedded filesystem
 	handlers.SetEmbeddedFS(embeddedFS)
+
+	// 1a. Certificate Manager initialisieren
+	log.Println("🔒 Initialisiere HTTPS-Zertifikate...")
+	certManager := services.NewCertManager()
+	if err := certManager.EnsureCertificate(); err != nil {
+		log.Fatal("Fehler beim Verwalten von Zertifikaten:", err)
+	}
 
 	// 2. Auth-Service initialisieren (ZUERST!)
 	log.Println("🔐 Initialisiere Auth-Service...")
@@ -123,6 +138,24 @@ func main() {
 	adminRoutes.HandleFunc("/users", middleware.RequireAdmin(handlers.AdminUsersHandlerEnhanced)).Methods("GET", "POST")
 	adminRoutes.HandleFunc("/users/{id}/edit", middleware.RequireAdmin(handlers.AdminUserEditHandler)).Methods("GET", "POST")
 
+	// *** INVOICE-/RECHNUNGS-VERWALTUNG (NUR ADMINISTRATOREN) ***
+	// Invoice management dashboard
+	adminRoutes.HandleFunc("/invoices", middleware.RequireAdmin(handlers.AdminInvoiceManagementHandler)).Methods("GET")
+
+	// Organization settings for invoices
+	adminRoutes.HandleFunc("/organization-settings", middleware.RequireAdmin(handlers.OrganizationSettingsHandler)).Methods("GET", "POST")
+
+	// Water (Wasser) records per parzelle
+	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/wasser", middleware.RequireAdmin(handlers.WasserHandler)).Methods("GET", "POST")
+	adminRoutes.HandleFunc("/wasser/{id}/delete", middleware.RequireAdmin(handlers.DeleteWasserHandler)).Methods("POST")
+
+	// Electricity (Strom) records per parzelle
+	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/strom", middleware.RequireAdmin(handlers.StromHandler)).Methods("GET", "POST")
+	adminRoutes.HandleFunc("/strom/{id}/delete", middleware.RequireAdmin(handlers.DeleteStromHandler)).Methods("POST")
+
+	// Invoice preview and generation
+	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/invoice", middleware.RequireAdmin(handlers.InvoicePreviewHandler)).Methods("GET")
+
 	// *** API-ROUTEN (für authentifizierte Benutzer) ***
 	r.HandleFunc("/api/obstarten/preise", middleware.RequireAuth(handlers.APIObstartenPreiseHandler)).Methods("GET")
 	r.HandleFunc("/api/zieranpflanzungen/preise", middleware.RequireAuth(handlers.APIZieranpflanzungsPreiseHandler)).Methods("GET")
@@ -131,29 +164,79 @@ func main() {
 
 	// Server starten
 	log.Println("\n" + strings.Repeat("=", 80))
-	log.Println("🚀 KLEINGARTEN-VERWALTUNG SERVER GESTARTET")
+	log.Println("🚀 KLEINGARTEN-VERWALTUNG SERVER GESTARTET (HTTPS)")
 	log.Println(strings.Repeat("=", 80))
-	log.Println("📍 URL: http://localhost:8080")
-	log.Println("🔐 Login: http://localhost:8080/login")
+	log.Println("📍 URL: https://localhost:8080")
+	log.Println("🔐 Login: https://localhost:8080/login")
 	log.Println("👤 Standard-Admin: siehe Konsole oben")
-	log.Println("📋 Admin-Interface: http://localhost:8080/admin")
-	log.Println("👥 Benutzerverwaltung: http://localhost:8080/admin/users")
-	log.Println("🔧 API-Endpoints: http://localhost:8080/api/")
+	log.Println("📋 Admin-Interface: https://localhost:8080/admin")
+	log.Println("👥 Benutzerverwaltung: https://localhost:8080/admin/users")
+	log.Println("🔧 API-Endpoints: https://localhost:8080/api/")
+	log.Println("🔒 Zertifikat: " + certManager.CertFile)
 	log.Println(strings.Repeat("=", 80))
 	log.Println("✅ System bereit für Anmeldungen")
 	log.Println("🔐 Vollständige Benutzerauthentifizierung aktiviert")
+	log.Println("🛡️  HTTPS mit selbstsigniertem Zertifikat")
 	log.Println()
 
-	// Browser automatisch öffnen (nur wenn nicht in Terminal-Only Mode)
-	if len(os.Args) == 1 || (len(os.Args) > 1 && os.Args[1] != "--no-browser") {
-		go func() {
-			time.Sleep(500 * time.Millisecond) // Kurze Verzögerung, um sicherzustellen, dass der Server läuft
-			log.Println("🌐 Öffne Browser...")
-			openBrowser("http://localhost:8080")
-		}()
-	} else {
-		log.Println("⚠️  Browser-Auto-Start deaktiviert (--no-browser Flag gesetzt)")
+	// Get TLS configuration
+	tlsConfig, err := certManager.GetTLSConfig()
+	if err != nil {
+		log.Fatal("Fehler beim Laden der TLS-Konfiguration:", err)
 	}
 
-	log.Fatal(http.ListenAndServe(":8080", r))
+	// Create HTTPS server
+	server := &http.Server{
+		Addr:      ":8080",
+		Handler:   r,
+		TLSConfig: tlsConfig,
+	}
+
+	// Signal handling for graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	// Start server in goroutine if using browser
+	if len(os.Args) == 1 || (len(os.Args) > 1 && os.Args[1] != "--no-browser") {
+		go func() {
+			if err := server.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
+				log.Printf("Server error: %v", err)
+			}
+		}()
+
+		// Launch browser in goroutine
+		go func() {
+			time.Sleep(500 * time.Millisecond)
+			log.Println("🌐 Öffne Browser...")
+			openBrowserApp("https://localhost:8080")
+		}()
+
+		// Wait for signal to shutdown
+		sig := <-sigChan
+		log.Printf("\n📛 Signal empfangen (%v), fahre herunter...", sig)
+
+		// Graceful shutdown with timeout
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := server.Shutdown(ctx); err != nil {
+			log.Printf("⚠️  Fehler beim Herunterfahren: %v", err)
+		}
+		log.Println("✅ Server heruntergefahren")
+	} else {
+		// Terminal-only mode: run server in main thread
+		go func() {
+			sig := <-sigChan
+			log.Printf("\n📛 Signal empfangen (%v), fahre herunter...", sig)
+
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			if err := server.Shutdown(ctx); err != nil {
+				log.Printf("⚠️  Fehler beim Herunterfahren: %v", err)
+			}
+		}()
+
+		log.Fatal(server.ListenAndServeTLS("", ""))
+	}
 }

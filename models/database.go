@@ -41,9 +41,10 @@ func createTables() error {
 		groesse REAL NOT NULL,
 		verein TEXT NOT NULL,
 		paechter_name TEXT,
-		email TEXT,           -- NEU
-		telefon TEXT,         -- NEU
-		notizen TEXT,         -- NEU
+		email TEXT,
+		telefon TEXT,
+		paechter_adress TEXT,  -- NEU: Pächter address for invoices
+		notizen TEXT,
 		kuendigung_datum DATETIME,
 		erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP
 	);`
@@ -170,18 +171,73 @@ func createTables() error {
 		FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL
 	);`
 
+	// 11. NEU: Wasser-Tabelle (Wasserverbrauch pro Parzelle)
+	wasserSQL := `
+	CREATE TABLE IF NOT EXISTS wasser (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		parzelle_id INTEGER NOT NULL,
+		monat INTEGER NOT NULL,
+		jahr INTEGER NOT NULL,
+		verbrauch REAL NOT NULL,
+		kosten REAL NOT NULL,
+		noten TEXT,
+		erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (parzelle_id) REFERENCES parzellen (id) ON DELETE CASCADE,
+		UNIQUE(parzelle_id, monat, jahr)
+	);`
+
+	// 12. NEU: Strom-Tabelle (Stromverbrauch pro Parzelle)
+	stromSQL := `
+	CREATE TABLE IF NOT EXISTS strom (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		parzelle_id INTEGER NOT NULL,
+		monat INTEGER NOT NULL,
+		jahr INTEGER NOT NULL,
+		verbrauch REAL NOT NULL,
+		kosten REAL NOT NULL,
+		noten TEXT,
+		erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (parzelle_id) REFERENCES parzellen (id) ON DELETE CASCADE,
+		UNIQUE(parzelle_id, monat, jahr)
+	);`
+
+	// 13. NEU: Organization-Settings-Tabelle (Kleingarten details für Rechnungen)
+	organizationSettingsSQL := `
+	CREATE TABLE IF NOT EXISTS organization_settings (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		name TEXT NOT NULL,
+		strasse TEXT,
+		hausnummer TEXT,
+		plz TEXT,
+		ort TEXT,
+		telefon TEXT,
+		email TEXT,
+		website TEXT,
+		iban TEXT,
+		bic TEXT,
+		kontoinhaber TEXT,
+		steuernummer TEXT,
+		registernummer TEXT,
+		logo_path TEXT,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);`
+
 	// Alle Tabellen erstellen
 	tables := map[string]string{
-		"parzellen":         parzellenSQL,
-		"users":             usersSQL, // NEU
-		"inspektionen":      inspektionenSQL,
-		"maengel":           maengelSQL,
-		"wertermittlungen":  wertermittlungenSQL,
-		"obstarten":         obstartenSQL,
-		"zieranpflanzungen": zieranpflanzungenSQL,
-		"bauindex_tabelle":  bauindexSQL,
-		"sessions":          sessionsSQL, // NEU
-		"audit_log":         auditLogSQL, // NEU
+		"parzellen":             parzellenSQL,
+		"users":                 usersSQL,
+		"inspektionen":          inspektionenSQL,
+		"maengel":               maengelSQL,
+		"wertermittlungen":      wertermittlungenSQL,
+		"obstarten":             obstartenSQL,
+		"zieranpflanzungen":     zieranpflanzungenSQL,
+		"bauindex_tabelle":      bauindexSQL,
+		"sessions":              sessionsSQL,
+		"audit_log":             auditLogSQL,
+		"wasser":                wasserSQL,
+		"strom":                 stromSQL,
+		"organization_settings": organizationSettingsSQL,
 	}
 
 	for tableName, tableSQL := range tables {
@@ -200,6 +256,10 @@ func createTables() error {
 		"CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);",
 		"CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_log(user_id);",
 		"CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp);",
+		"CREATE INDEX IF NOT EXISTS idx_wasser_parzelle ON wasser(parzelle_id);",
+		"CREATE INDEX IF NOT EXISTS idx_wasser_jahr_monat ON wasser(jahr, monat);",
+		"CREATE INDEX IF NOT EXISTS idx_strom_parzelle ON strom(parzelle_id);",
+		"CREATE INDEX IF NOT EXISTS idx_strom_jahr_monat ON strom(jahr, monat);",
 	}
 
 	for _, indexSQL := range indexes {
@@ -213,7 +273,49 @@ func createTables() error {
 		return err
 	}
 
+	// Datenbank-Migrationen
+	if err := runMigrations(); err != nil {
+		log.Printf("⚠️  Migration-Fehler: %v", err)
+	}
+
 	log.Println("🌱 Alle Tabellen und Indizes erfolgreich erstellt")
+	return nil
+}
+
+// runMigrations handles database schema upgrades for existing installations
+func runMigrations() error {
+	// Add paechter_adress column if it doesn't exist
+	rows, err := DB.Query("PRAGMA table_info(parzellen)")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	columnExists := false
+	for rows.Next() {
+		var cid int
+		var name string
+		var typeStr string
+		var notnull int
+		var dflt_value interface{}
+		var pk int
+		if err := rows.Scan(&cid, &name, &typeStr, &notnull, &dflt_value, &pk); err == nil {
+			if name == "paechter_adress" {
+				columnExists = true
+				break
+			}
+		}
+	}
+
+	if !columnExists {
+		_, err := DB.Exec("ALTER TABLE parzellen ADD COLUMN paechter_adress TEXT")
+		if err != nil {
+			log.Printf("⚠️  Could not add paechter_adress column: %v", err)
+		} else {
+			log.Println("✅ Added paechter_adress column to parzellen table")
+		}
+	}
+
 	return nil
 }
 
