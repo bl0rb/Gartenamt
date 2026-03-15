@@ -3,4 +3,16 @@ backups/
 *.csv
 exports/
 *.tar
-*linux-amd64
+
+# Build outputs - all in one place
+binary/
+build/
+release/
+
+# Temporary binaries
+app
+app-arm64
+app.exe
+kleingarten-verwaltung
+kleingarten-verwaltung-amd64
+kleingarten-verwaltung-linux-amd64

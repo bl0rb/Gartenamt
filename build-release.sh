@@ -7,34 +7,32 @@ set -e
 
 PROJECT_NAME="kleingarten-verwaltung"
 VERSION=$(git describe --tags --always 2>/dev/null || echo "dev")
-BUILD_DIR="build"
-RELEASE_DIR="release"
+BINARY_DIR="binary"
 
 echo "🔨 Building $PROJECT_NAME v$VERSION"
 
-# Create build directory
-mkdir -p "$BUILD_DIR"
-mkdir -p "$RELEASE_DIR"
+# Create binary directory
+mkdir -p "$BINARY_DIR"
 
 # Build binaries
 echo "📦 Building Linux (amd64)..."
-GOOS=linux GOARCH=amd64 go build -o "$BUILD_DIR/app-linux" main.go
+GOOS=linux GOARCH=amd64 go build -o "$BINARY_DIR/app-linux" main.go
 
 echo "📦 Building Windows (amd64)..."
-GOOS=windows GOARCH=amd64 go build -o "$BUILD_DIR/app.exe" main.go
+GOOS=windows GOARCH=amd64 go build -o "$BINARY_DIR/app.exe" main.go
 
 echo "📦 Building macOS (amd64)..."
-GOOS=darwin GOARCH=amd64 go build -o "$BUILD_DIR/app-macos-intel" main.go
+GOOS=darwin GOARCH=amd64 go build -o "$BINARY_DIR/app-macos-intel" main.go
 
 echo "📦 Building macOS (arm64)..."
-GOOS=darwin GOARCH=arm64 go build -o "$BUILD_DIR/app-macos-arm64" main.go
+GOOS=darwin GOARCH=arm64 go build -o "$BINARY_DIR/app-macos-arm64" main.go
 
 # Create macOS .app bundle for Intel
 echo "📦 Creating macOS Intel app bundle..."
-MACOS_APP_INTEL="$RELEASE_DIR/$PROJECT_NAME-macos-intel.app"
+MACOS_APP_INTEL="$BINARY_DIR/$PROJECT_NAME-macos-intel.app"
 mkdir -p "$MACOS_APP_INTEL/Contents/MacOS"
 mkdir -p "$MACOS_APP_INTEL/Contents/Resources"
-cp "$BUILD_DIR/app-macos-intel" "$MACOS_APP_INTEL/Contents/MacOS/$PROJECT_NAME"
+cp "$BINARY_DIR/app-macos-intel" "$MACOS_APP_INTEL/Contents/MacOS/$PROJECT_NAME"
 chmod +x "$MACOS_APP_INTEL/Contents/MacOS/$PROJECT_NAME"
 
 # Create Info.plist for macOS Intel
@@ -71,10 +69,10 @@ EOF
 
 # Create macOS .app bundle for ARM
 echo "📦 Creating macOS ARM64 app bundle..."
-MACOS_APP_ARM="$RELEASE_DIR/$PROJECT_NAME-macos-arm64.app"
+MACOS_APP_ARM="$BINARY_DIR/$PROJECT_NAME-macos-arm64.app"
 mkdir -p "$MACOS_APP_ARM/Contents/MacOS"
 mkdir -p "$MACOS_APP_ARM/Contents/Resources"
-cp "$BUILD_DIR/app-macos-arm64" "$MACOS_APP_ARM/Contents/MacOS/$PROJECT_NAME"
+cp "$BINARY_DIR/app-macos-arm64" "$MACOS_APP_ARM/Contents/MacOS/$PROJECT_NAME"
 chmod +x "$MACOS_APP_ARM/Contents/MacOS/$PROJECT_NAME"
 
 # Create Info.plist for macOS ARM
@@ -90,20 +88,20 @@ for APP_BUNDLE in "$MACOS_APP_INTEL" "$MACOS_APP_ARM"; do
     fi
 done
 
-# Create Windows installer wrapper (simple batch file)
+# Copy Windows exe to binary folder
+cp "$BINARY_DIR/app.exe" "$BINARY_DIR/kleingarten-verwaltung.exe"
+
+# Create Windows launcher
 echo "📦 Creating Windows launcher..."
-cat > "$RELEASE_DIR/kleingarten-verwaltung.bat" << 'EOF'
+cat > "$BINARY_DIR/kleingarten-verwaltung.bat" << 'EOF'
 @echo off
 cd /d "%~dp0"
-start "" "app.exe"
+start "" "kleingarten-verwaltung.exe"
 EOF
-
-# Copy Windows exe to release
-cp "$BUILD_DIR/app.exe" "$RELEASE_DIR/"
 
 # Create archives
 echo "📦 Creating archives..."
-cd "$RELEASE_DIR"
+cd "$BINARY_DIR"
 
 # macOS Intel
 ditto -c -k --sequesterRsrc "$PROJECT_NAME-macos-intel.app" "$PROJECT_NAME-macos-intel.zip"
@@ -117,17 +115,17 @@ cd ..
 
 # Create checksums
 echo "📦 Creating checksum..."
-cd "$RELEASE_DIR"
+cd "$BINARY_DIR"
 shasum -a 256 *.zip *.exe *.bat > CHECKSUMS.txt 2>/dev/null || true
 cd ..
 
 echo ""
 echo "🎉 Build complete!"
 echo ""
-echo "📦 Release artifacts in: $RELEASE_DIR/"
-ls -lh "$RELEASE_DIR/"
+echo "📦 Release artifacts in: $BINARY_DIR/"
+ls -lh "$BINARY_DIR/"
 echo ""
 echo "Usage:"
-echo "  macOS Intel: Double-click or run: open $PROJECT_NAME-macos-intel.app"
-echo "  macOS ARM:   Double-click or run: open $PROJECT_NAME-macos-arm64.app"
-echo "  Windows:     Double-click app.exe or kleingarten-verwaltung.bat"
+echo "  macOS Intel: Double-click or run: open $BINARY_DIR/$PROJECT_NAME-macos-intel.app"
+echo "  macOS ARM:   Double-click or run: open $BINARY_DIR/$PROJECT_NAME-macos-arm64.app"
+echo "  Windows:     Double-click $BINARY_DIR/kleingarten-verwaltung.exe or .bat"
