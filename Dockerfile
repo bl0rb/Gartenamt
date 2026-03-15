@@ -10,8 +10,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY go.mod go.sum ./
 RUN go mod download
 
+ARG TARGETARCH=amd64
 COPY . .
-RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -a -o kleingarten-verwaltung .
+RUN CGO_ENABLED=1 go build -a -o kleingarten-verwaltung .
 RUN ls -lh /build/kleingarten-verwaltung && echo "✅ Binary ready"
 
 # Runtime stage

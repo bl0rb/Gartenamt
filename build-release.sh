@@ -27,6 +27,32 @@ GOOS=darwin GOARCH=amd64 go build -o "$BINARY_DIR/app-macos-intel" main.go
 echo "📦 Building macOS (arm64)..."
 GOOS=darwin GOARCH=arm64 go build -o "$BINARY_DIR/app-macos-arm64" main.go
 
+# Build Docker image
+echo "🐳 Building Docker image..."
+DOCKER_BUILD_EXIT=0
+docker build -t "$PROJECT_NAME:$VERSION" -t "$PROJECT_NAME:latest" . > /tmp/docker_build.log 2>&1
+DOCKER_BUILD_EXIT=$?
+
+if [ $DOCKER_BUILD_EXIT -eq 0 ]; then
+    echo "✅ Docker image built: $PROJECT_NAME:$VERSION"
+    
+    # Save Docker image for NAS import
+    echo "💾 Exporting Docker image to tar.gz..."
+    DOCKER_EXPORT_FILE="$BINARY_DIR/$PROJECT_NAME-docker-$VERSION.tar.gz"
+    docker save "$PROJECT_NAME:latest" | gzip > "$DOCKER_EXPORT_FILE" 2>/dev/null
+    DOCKER_EXPORT_EXIT=$?
+    
+    if [ $DOCKER_EXPORT_EXIT -eq 0 ] && [ -f "$DOCKER_EXPORT_FILE" ]; then
+        DOCKER_SIZE=$(ls -lh "$DOCKER_EXPORT_FILE" | awk '{print $5}')
+        echo "✅ Docker image exported: $PROJECT_NAME-docker-$VERSION.tar.gz ($DOCKER_SIZE)"
+    else
+        echo "⚠️  Failed to export Docker image (exit code: $DOCKER_EXPORT_EXIT)"
+    fi
+else
+    echo "⚠️  Failed to build Docker image (exit code: $DOCKER_BUILD_EXIT)"
+    tail -20 /tmp/docker_build.log
+fi
+
 # Create macOS .app bundle for Intel
 echo "📦 Creating macOS Intel app bundle..."
 MACOS_APP_INTEL="$BINARY_DIR/$PROJECT_NAME-macos-intel.app"
@@ -116,7 +142,7 @@ cd ..
 # Create checksums
 echo "📦 Creating checksum..."
 cd "$BINARY_DIR"
-shasum -a 256 *.zip *.exe *.bat > CHECKSUMS.txt 2>/dev/null || true
+shasum -a 256 *.zip *.exe *.bat *.tar.gz 2>/dev/null | grep -v " $" > CHECKSUMS.txt || shasum -a 256 *.zip *.exe *.bat 2>/dev/null > CHECKSUMS.txt || true
 cd ..
 
 echo ""
@@ -126,6 +152,10 @@ echo "📦 Release artifacts in: $BINARY_DIR/"
 ls -lh "$BINARY_DIR/"
 echo ""
 echo "Usage:"
-echo "  macOS Intel: Double-click or run: open $BINARY_DIR/$PROJECT_NAME-macos-intel.app"
-echo "  macOS ARM:   Double-click or run: open $BINARY_DIR/$PROJECT_NAME-macos-arm64.app"
-echo "  Windows:     Double-click $BINARY_DIR/kleingarten-verwaltung.exe or .bat"
+echo "  macOS Intel:     Double-click or run: open $BINARY_DIR/$PROJECT_NAME-macos-intel.app"
+echo "  macOS ARM:       Double-click or run: open $BINARY_DIR/$PROJECT_NAME-macos-arm64.app"
+echo "  Windows:         Double-click $BINARY_DIR/kleingarten-verwaltung.exe or .bat"
+echo "  Linux:           Run: ./$BINARY_DIR/app-linux"
+echo "  Docker NAS:      1. Transfer $PROJECT_NAME-docker-$VERSION.tar.gz to NAS"
+echo "                   2. Load via NAS Docker GUI: docker load < $PROJECT_NAME-docker-$VERSION.tar.gz"
+echo "                   3. Create container with volume mount /data"
