@@ -83,8 +83,28 @@ Access at: `http://nas-ip:8080`
 ### Command Line
 ```bash
 docker load < kleingarten-verwaltung-docker-VERSION.tar.gz
-docker run -d --name kleingarten -p 8080:8080 -v kleingarten-data:/data kleingarten-verwaltung:latest
+docker run -d --name kleingarten -p 8080:8080 -v kleingarten-data:/data kleingarten-verwaltung:VERSION
 ```
+
+### Versioning for Builds
+
+Release builds now use an explicit project version from the VERSION file.
+
+1. Initial version is 0.1.1 (see VERSION file).
+2. Before each release, increase VERSION (for example 0.1.2 or 0.2.0).
+3. Run build script:
+
+```bash
+./build-release.sh
+```
+
+Optional one-off override:
+
+```bash
+./build-release.sh 0.2.0
+```
+
+Docker images are tagged with both VERSION and latest.
 
 ---
 

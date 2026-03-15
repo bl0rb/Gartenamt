@@ -58,7 +58,7 @@
                             <label for="role" class="form-label">Rolle</label>
                             <select class="form-select" id="role" name="role">
                                 <option value="user">Benutzer</option>
-                                <option value="admin">Administrator</option>
+                                <option value="admin">Verwaltung</option>
                             </select>
                         </div>
                         <div class="col-md-1 d-flex align-items-end">
@@ -101,7 +101,7 @@
                                     <i class="fas fa-user me-1"></i>
                                     {{.Username}}
                                     {{if eq .Username "admin"}}
-                                        <i class="fas fa-crown text-warning ms-1" title="Standard-Administrator"></i>
+                                        <i class="fas fa-crown text-warning ms-1" title="Standard-Verwaltungskonto"></i>
                                     {{end}}
                                 </td>
                                 <td>
@@ -109,7 +109,7 @@
                                 </td>
                                 <td>
                                     {{if eq .Role "admin"}}
-                                        <span class="badge bg-danger fs-6 px-2 py-1">Administrator</span>
+                                        <span class="badge bg-danger fs-6 px-2 py-1">Verwaltung</span>
                                     {{else}}
                                         <span class="badge bg-primary fs-6 px-2 py-1">Benutzer</span>
                                     {{end}}
@@ -165,7 +165,7 @@
                                             </button>
                                             {{end}}
                                         {{else}}
-                                        <button type="button" class="btn btn-outline-secondary" disabled title="Standard-Admin kann nicht deaktiviert werden">
+                                        <button type="button" class="btn btn-outline-secondary" disabled title="Standard-Verwaltungskonto kann nicht deaktiviert werden">
                                             <i class="fas fa-shield-alt"></i>
                                         </button>
                                         {{end}}
@@ -212,7 +212,7 @@
                                 <td>
                                     <strong>{{.Username}}</strong>
                                     {{if eq .Role "admin"}}
-                                        <small class="badge bg-danger ms-1">Admin</small>
+                                        <small class="badge bg-danger ms-1">Verwaltung</small>
                                     {{end}}
                                 </td>
                                 <td>
@@ -294,7 +294,7 @@
                             {{end}}
                             {{$adminCount}}
                         </h4>
-                        <p class="mb-0">Administratoren</p>
+                        <p class="mb-0">Verwaltungskonten</p>
                     </div>
                 </div>
             </div>

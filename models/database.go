@@ -43,6 +43,10 @@ func createTables() error {
 		paechter_name TEXT,
 		email TEXT,
 		telefon TEXT,
+		paechter_strasse TEXT,
+		paechter_hausnr TEXT,
+		paechter_plz TEXT,
+		paechter_ort TEXT,
 		paechter_adress TEXT,  -- NEU: Pächter address for invoices
 		notizen TEXT,
 		kuendigung_datum DATETIME,
@@ -284,14 +288,14 @@ func createTables() error {
 
 // runMigrations handles database schema upgrades for existing installations
 func runMigrations() error {
-	// Add paechter_adress column if it doesn't exist
+	// Add invoice address columns if they don't exist
 	rows, err := DB.Query("PRAGMA table_info(parzellen)")
 	if err != nil {
 		return err
 	}
 	defer rows.Close()
 
-	columnExists := false
+	existingColumns := make(map[string]bool)
 	for rows.Next() {
 		var cid int
 		var name string
@@ -300,19 +304,38 @@ func runMigrations() error {
 		var dflt_value interface{}
 		var pk int
 		if err := rows.Scan(&cid, &name, &typeStr, &notnull, &dflt_value, &pk); err == nil {
-			if name == "paechter_adress" {
-				columnExists = true
-				break
-			}
+			existingColumns[name] = true
 		}
 	}
 
-	if !columnExists {
+	if !existingColumns["paechter_adress"] {
 		_, err := DB.Exec("ALTER TABLE parzellen ADD COLUMN paechter_adress TEXT")
 		if err != nil {
 			log.Printf("⚠️  Could not add paechter_adress column: %v", err)
 		} else {
 			log.Println("✅ Added paechter_adress column to parzellen table")
+		}
+	}
+
+	addressColumns := []struct {
+		name string
+		sql  string
+	}{
+		{name: "paechter_strasse", sql: "ALTER TABLE parzellen ADD COLUMN paechter_strasse TEXT"},
+		{name: "paechter_hausnr", sql: "ALTER TABLE parzellen ADD COLUMN paechter_hausnr TEXT"},
+		{name: "paechter_plz", sql: "ALTER TABLE parzellen ADD COLUMN paechter_plz TEXT"},
+		{name: "paechter_ort", sql: "ALTER TABLE parzellen ADD COLUMN paechter_ort TEXT"},
+	}
+
+	for _, column := range addressColumns {
+		if existingColumns[column.name] {
+			continue
+		}
+
+		if _, err := DB.Exec(column.sql); err != nil {
+			log.Printf("⚠️  Could not add %s column: %v", column.name, err)
+		} else {
+			log.Printf("✅ Added %s column to parzellen table", column.name)
 		}
 	}
 

@@ -93,6 +93,7 @@ func main() {
 	// Parzellen-Management (für alle authentifizierten Benutzer)
 	r.HandleFunc("/parzellen", middleware.RequireAuth(handlers.ParzellenListHandler)).Methods("GET")
 	r.HandleFunc("/parzellen/neu", middleware.RequireAuth(handlers.ParzelleNeuHandler)).Methods("GET", "POST")
+	r.HandleFunc("/parzellen/{id}/edit", middleware.RequireAuth(handlers.ParzelleEditHandler)).Methods("GET", "POST")
 	r.HandleFunc("/parzellen/{id}", middleware.RequireAuth(handlers.ParzelleDetailHandler)).Methods("GET")
 
 	// Inspektion/Wertermittlung (für alle authentifizierten Benutzer)
@@ -161,6 +162,7 @@ func main() {
 	r.HandleFunc("/api/zieranpflanzungen/preise", middleware.RequireAuth(handlers.APIZieranpflanzungsPreiseHandler)).Methods("GET")
 	r.HandleFunc("/api/gemuese/preise", middleware.RequireAuth(handlers.APIGemusePreiseHandler)).Methods("GET")
 	r.HandleFunc("/api/bauindex", middleware.RequireAuth(handlers.APIBauindexHandler)).Methods("GET")
+	r.HandleFunc("/api/parzellen", middleware.RequireAuth(handlers.APIParzellenHandler)).Methods("GET")
 
 	// Server starten
 	log.Println("\n" + strings.Repeat("=", 80))

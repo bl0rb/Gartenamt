@@ -17,7 +17,7 @@ func AdminDashboardHandler(w http.ResponseWriter, r *http.Request) {
 
 	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/admin_dashboard.html"))
 	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
-		"Title": "Admin Dashboard",
+		"Title": "Verwaltung",
 		"Stats": stats,
 	}))
 }

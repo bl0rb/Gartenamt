@@ -1,12 +1,5 @@
-{{define "invoice_management.html"}}
-<!DOCTYPE html>
-<html lang="de">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rechnungsverwaltung - Kleingarten-Verwaltung</title>
-    <link rel="stylesheet" href="/static/style.css">
-    <style>
+{{define "content"}}
+<style>
         .invoice-container {
             max-width: 1200px;
             margin: 0 auto;
@@ -136,9 +129,6 @@
             margin-bottom: 15px;
         }
     </style>
-</head>
-<body>
-    {{ template "layout.html" . }}
 
     <div class="invoice-container">
         <h1>💰 Rechnungs- & Gebührenverwaltung</h1>
@@ -146,9 +136,9 @@
         <div id="message"></div>
 
         <div class="tabs">
-            <button class="tab-button active" onclick="switchTab('organization')">Organisationsdaten</button>
-            <button class="tab-button" onclick="switchTab('utilities')">Wasser & Strom</button>
-            <button class="tab-button" onclick="switchTab('invoices')">Rechnungen Drucken</button>
+            <button class="tab-button active" onclick="switchTab('organization', this)">Organisationsdaten</button>
+            <button class="tab-button" onclick="switchTab('utilities', this)">Wasser & Strom</button>
+            <button class="tab-button" onclick="switchTab('invoices', this)">Rechnungen Drucken</button>
         </div>
 
         <!-- Tab 1: Organization Settings -->
@@ -408,7 +398,7 @@
         document.getElementById('wasser_jahr').value = today.getFullYear();
         document.getElementById('strom_jahr').value = today.getFullYear();
 
-        function switchTab(tabName) {
+        function switchTab(tabName, tabButton) {
             // Hide all tabs
             document.querySelectorAll('.tab-content').forEach(tab => {
                 tab.classList.remove('active');
@@ -419,7 +409,9 @@
 
             // Show selected tab
             document.getElementById(tabName).classList.add('active');
-            event.target.classList.add('active');
+            if (tabButton) {
+                tabButton.classList.add('active');
+            }
 
             if (tabName === 'utilities' && !currentParzelleId) {
                 loadParzelleOptions();
@@ -436,13 +428,16 @@
                 .then(r => r.json())
                 .then(parzellen => {
                     const select = document.getElementById(selectId);
+                    const defaultLabel = forInvoices ? '-- Wählen Sie eine Parzelle --' : '-- Wählen Sie eine Parzelle --';
+                    select.innerHTML = `<option value="">${defaultLabel}</option>`;
                     parzellen.forEach(p => {
                         const option = document.createElement('option');
                         option.value = p.id;
                         option.textContent = `${p.nummer} - ${p.paechter_name}`;
                         select.appendChild(option);
                     });
-                });
+                })
+                .catch(e => showMessage(`❌ Fehler beim Laden der Parzellen: ${e}`, 'error'));
         }
 
         function loadParzelleUtilities() {
@@ -568,7 +563,7 @@
                             <h3>Rechnung Vorschau</h3>
                             <p><strong>Parzelle:</strong> ${data.parzelle.nummer}</p>
                             <p><strong>Pächter:</strong> ${data.parzelle.paechter_name}</p>
-                            <p><strong>Adresse:</strong> ${data.parzelle.paechter_adress}</p>
+                            <p><strong>Adresse:</strong><br>${formatInvoiceAddress(data.parzelle)}</p>
                             <p><strong>Organistion:</strong> ${data.organization.name}</p>
                             <p><strong>Zeitraum:</strong> ${data.month}/${data.year}</p>
                             <p><strong>Rechnung Typ:</strong> ${data.invoiceType}</p>
@@ -579,6 +574,18 @@
 
         function printInvoice() {
             showMessage('🖨️ Druckfunktion wird in Kürze implementiert', 'success');
+        }
+
+        function formatInvoiceAddress(parzelle) {
+            const streetLine = [parzelle.paechter_strasse, parzelle.paechter_hausnr].filter(Boolean).join(' ').trim();
+            const cityLine = [parzelle.paechter_plz, parzelle.paechter_ort].filter(Boolean).join(' ').trim();
+            const parts = [streetLine, cityLine].filter(Boolean);
+
+            if (parts.length) {
+                return parts.join('<br>');
+            }
+
+            return parzelle.paechter_adress || '-';
         }
 
         function showMessage(msg, type) {
@@ -643,6 +650,4 @@
             .catch(e => showMessage(`❌ Fehler: ${e}`, 'error'));
         });
     </script>
-</body>
-</html>
 {{end}}

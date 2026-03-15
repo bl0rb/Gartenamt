@@ -43,6 +43,39 @@
                             </div>
                         </div>
                         <div class="row mb-2">
+                            <div class="col-sm-3"><strong>E-Mail:</strong></div>
+                            <div class="col-sm-9">
+                                {{if .Parzelle.Email}}
+                                    <a href="mailto:{{.Parzelle.Email}}">{{.Parzelle.Email}}</a>
+                                {{else}}
+                                    <span class="text-muted">-</span>
+                                {{end}}
+                            </div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-sm-3"><strong>Telefon:</strong></div>
+                            <div class="col-sm-9">
+                                {{if .Parzelle.Telefon}}
+                                    <a href="tel:{{.Parzelle.Telefon}}">{{.Parzelle.Telefon}}</a>
+                                {{else}}
+                                    <span class="text-muted">-</span>
+                                {{end}}
+                            </div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-sm-3"><strong>Rechnungsadresse:</strong></div>
+                            <div class="col-sm-9">
+                                {{if or .Parzelle.PaechterStrasse .Parzelle.PaechterHausnr .Parzelle.PaechterPLZ .Parzelle.PaechterOrt}}
+                                    {{.Parzelle.PaechterStrasse}} {{.Parzelle.PaechterHausnr}}<br>
+                                    {{.Parzelle.PaechterPLZ}} {{.Parzelle.PaechterOrt}}
+                                {{else if .Parzelle.PaechterAdress}}
+                                    {{.Parzelle.PaechterAdress}}
+                                {{else}}
+                                    <span class="text-muted">-</span>
+                                {{end}}
+                            </div>
+                        </div>
+                        <div class="row mb-2">
                             <div class="col-sm-3"><strong>Kündigung:</strong></div>
                             <div class="col-sm-9">
                                 {{if .Parzelle.KuendigungDatum}}

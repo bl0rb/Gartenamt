@@ -2,6 +2,7 @@ package models
 
 import (
 	"database/sql"
+	"strings"
 	"time"
 )
 
@@ -13,32 +14,55 @@ type Parzelle struct {
 	PaechterName    string     `json:"paechter_name"`
 	Email           string     `json:"email"`
 	Telefon         string     `json:"telefon"`
-	PaechterAdress  string     `json:"paechter_adress"` // NEU: Straße, Hausnummer, PLZ, Ort
+	PaechterStrasse string     `json:"paechter_strasse"`
+	PaechterHausnr  string     `json:"paechter_hausnr"`
+	PaechterPLZ     string     `json:"paechter_plz"`
+	PaechterOrt     string     `json:"paechter_ort"`
+	PaechterAdress  string     `json:"paechter_adress"`
 	Notizen         string     `json:"notizen"`
 	KuendigungDatum *time.Time `json:"kuendigung_datum"`
 	ErstelltAm      time.Time  `json:"erstellt_am"`
 }
 
+func (p *Parzelle) SyncInvoiceAddress() {
+	streetLine := strings.TrimSpace(strings.TrimSpace(p.PaechterStrasse) + " " + strings.TrimSpace(p.PaechterHausnr))
+	cityLine := strings.TrimSpace(strings.TrimSpace(p.PaechterPLZ) + " " + strings.TrimSpace(p.PaechterOrt))
+
+	parts := make([]string, 0, 2)
+	if streetLine != "" {
+		parts = append(parts, streetLine)
+	}
+	if cityLine != "" {
+		parts = append(parts, cityLine)
+	}
+
+	if len(parts) > 0 {
+		p.PaechterAdress = strings.Join(parts, ", ")
+	}
+}
+
 func (p *Parzelle) Save() error {
+	p.SyncInvoiceAddress()
+
 	if p.ID == 0 {
-		query := `INSERT INTO parzellen (nummer, groesse, verein, paechter_name, email, telefon, paechter_adress, notizen, kuendigung_datum) 
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-		result, err := DB.Exec(query, p.Nummer, p.Groesse, p.Verein, p.PaechterName, p.Email, p.Telefon, p.PaechterAdress, p.Notizen, p.KuendigungDatum)
+		query := `INSERT INTO parzellen (nummer, groesse, verein, paechter_name, email, telefon, paechter_strasse, paechter_hausnr, paechter_plz, paechter_ort, paechter_adress, notizen, kuendigung_datum) 
+	                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		result, err := DB.Exec(query, p.Nummer, p.Groesse, p.Verein, p.PaechterName, p.Email, p.Telefon, p.PaechterStrasse, p.PaechterHausnr, p.PaechterPLZ, p.PaechterOrt, p.PaechterAdress, p.Notizen, p.KuendigungDatum)
 		if err != nil {
 			return err
 		}
 		id, _ := result.LastInsertId()
 		p.ID = int(id)
 	} else {
-		query := `UPDATE parzellen SET nummer=?, groesse=?, verein=?, paechter_name=?, email=?, telefon=?, paechter_adress=?, notizen=?, kuendigung_datum=? WHERE id=?`
-		_, err := DB.Exec(query, p.Nummer, p.Groesse, p.Verein, p.PaechterName, p.Email, p.Telefon, p.PaechterAdress, p.Notizen, p.KuendigungDatum, p.ID)
+		query := `UPDATE parzellen SET nummer=?, groesse=?, verein=?, paechter_name=?, email=?, telefon=?, paechter_strasse=?, paechter_hausnr=?, paechter_plz=?, paechter_ort=?, paechter_adress=?, notizen=?, kuendigung_datum=? WHERE id=?`
+		_, err := DB.Exec(query, p.Nummer, p.Groesse, p.Verein, p.PaechterName, p.Email, p.Telefon, p.PaechterStrasse, p.PaechterHausnr, p.PaechterPLZ, p.PaechterOrt, p.PaechterAdress, p.Notizen, p.KuendigungDatum, p.ID)
 		return err
 	}
 	return nil
 }
 
 func GetAllParzellen() ([]Parzelle, error) {
-	query := `SELECT id, nummer, groesse, verein, paechter_name, email, telefon, paechter_adress, notizen, kuendigung_datum, erstellt_am FROM parzellen ORDER BY nummer`
+	query := `SELECT id, nummer, groesse, verein, paechter_name, email, telefon, paechter_strasse, paechter_hausnr, paechter_plz, paechter_ort, paechter_adress, notizen, kuendigung_datum, erstellt_am FROM parzellen ORDER BY nummer`
 	rows, err := DB.Query(query)
 	if err != nil {
 		return nil, err
@@ -50,7 +74,7 @@ func GetAllParzellen() ([]Parzelle, error) {
 		var p Parzelle
 		var kuendigungDatum sql.NullTime
 		err := rows.Scan(&p.ID, &p.Nummer, &p.Groesse, &p.Verein, &p.PaechterName,
-			&p.Email, &p.Telefon, &p.PaechterAdress, &p.Notizen, &kuendigungDatum, &p.ErstelltAm)
+			&p.Email, &p.Telefon, &p.PaechterStrasse, &p.PaechterHausnr, &p.PaechterPLZ, &p.PaechterOrt, &p.PaechterAdress, &p.Notizen, &kuendigungDatum, &p.ErstelltAm)
 		if err != nil {
 			return nil, err
 		}
@@ -63,13 +87,13 @@ func GetAllParzellen() ([]Parzelle, error) {
 }
 
 func GetParzelleByID(id int) (*Parzelle, error) {
-	query := `SELECT id, nummer, groesse, verein, paechter_name, email, telefon, paechter_adress, notizen, kuendigung_datum, erstellt_am FROM parzellen WHERE id=?`
+	query := `SELECT id, nummer, groesse, verein, paechter_name, email, telefon, paechter_strasse, paechter_hausnr, paechter_plz, paechter_ort, paechter_adress, notizen, kuendigung_datum, erstellt_am FROM parzellen WHERE id=?`
 	row := DB.QueryRow(query, id)
 
 	var p Parzelle
 	var kuendigungDatum sql.NullTime
 	err := row.Scan(&p.ID, &p.Nummer, &p.Groesse, &p.Verein, &p.PaechterName,
-		&p.Email, &p.Telefon, &p.PaechterAdress, &p.Notizen, &kuendigungDatum, &p.ErstelltAm)
+		&p.Email, &p.Telefon, &p.PaechterStrasse, &p.PaechterHausnr, &p.PaechterPLZ, &p.PaechterOrt, &p.PaechterAdress, &p.Notizen, &kuendigungDatum, &p.ErstelltAm)
 	if err != nil {
 		return nil, err
 	}

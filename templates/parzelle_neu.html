@@ -1,23 +1,29 @@
 {{define "content"}}
 <div class="row">
     <div class="col-12">
-        <h2>Neue Parzelle anlegen</h2>
+        <h2>{{if .IsEdit}}Parzelle bearbeiten{{else}}Neue Parzelle anlegen{{end}}</h2>
         
         <form method="POST" class="needs-validation" novalidate>
+            {{if .Error}}
+            <div class="alert alert-danger" role="alert">
+                {{.Error}}
+            </div>
+            {{end}}
+
             <div class="card">
                 <div class="card-body">
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="nummer" class="form-label">Parzellennummer *</label>
-                                <input type="text" class="form-control" id="nummer" name="nummer" required>
+                                <input type="text" class="form-control" id="nummer" name="nummer" value="{{.Parzelle.Nummer}}" required>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="groesse" class="form-label">Größe (m²) *</label>
                                 <input type="number" class="form-control" id="groesse" name="groesse" 
-                                       step="0.1" min="1" required>
+                                       step="0.1" min="1" value="{{.Parzelle.Groesse}}" required>
                             </div>
                         </div>
                     </div>
@@ -26,13 +32,13 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="verein" class="form-label">Verein *</label>
-                                <input type="text" class="form-control" id="verein" name="verein" required>
+                                <input type="text" class="form-control" id="verein" name="verein" value="{{.Parzelle.Verein}}" required>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="paechter_name" class="form-label">Pächter Name</label>
-                                <input type="text" class="form-control" id="paechter_name" name="paechter_name">
+                                <input type="text" class="form-control" id="paechter_name" name="paechter_name" value="{{.Parzelle.PaechterName}}">
                             </div>
                         </div>
                     </div>
@@ -43,7 +49,7 @@
                             <div class="mb-3">
                                 <label for="email" class="form-label">E-Mail</label>
                                 <input type="email" class="form-control" id="email" name="email" 
-                                       placeholder="max.mustermann@email.de">
+                                       placeholder="max.mustermann@email.de" value="{{.Parzelle.Email}}">
                                 <div class="form-text">Optionale E-Mail-Adresse des Pächters</div>
                             </div>
                         </div>
@@ -51,8 +57,45 @@
                             <div class="mb-3">
                                 <label for="telefon" class="form-label">Telefonnummer</label>
                                 <input type="tel" class="form-control" id="telefon" name="telefon" 
-                                       placeholder="0123 456789">
+                                       placeholder="0123 456789" value="{{.Parzelle.Telefon}}">
                                 <div class="form-text">Optionale Telefonnummer des Pächters</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label for="paechter_strasse" class="form-label">Straße</label>
+                                <input type="text" class="form-control" id="paechter_strasse" name="paechter_strasse"
+                                       value="{{.Parzelle.PaechterStrasse}}" placeholder="Musterstraße">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="paechter_hausnr" class="form-label">Hausnummer</label>
+                                <input type="text" class="form-control" id="paechter_hausnr" name="paechter_hausnr"
+                                       value="{{.Parzelle.PaechterHausnr}}" placeholder="12a">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="paechter_plz" class="form-label">PLZ</label>
+                                <input type="text" class="form-control" id="paechter_plz" name="paechter_plz"
+                                       value="{{.Parzelle.PaechterPLZ}}" inputmode="numeric" pattern="[0-9]{5}" maxlength="5"
+                                       placeholder="12345">
+                                <div class="form-text">Nur Zahlen, typischerweise 5-stellig.</div>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label for="paechter_ort" class="form-label">Ort</label>
+                                <input type="text" class="form-control" id="paechter_ort" name="paechter_ort"
+                                       value="{{.Parzelle.PaechterOrt}}" placeholder="Musterstadt">
+                                <div class="form-text">Diese Adressdaten werden in der Rechnungsverwaltung verwendet.</div>
                             </div>
                         </div>
                     </div>
@@ -61,7 +104,7 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="kuendigung_datum" class="form-label">Kündigungsdatum</label>
-                                <input type="date" class="form-control" id="kuendigung_datum" name="kuendigung_datum">
+                                <input type="date" class="form-control" id="kuendigung_datum" name="kuendigung_datum" value="{{if .Parzelle.KuendigungDatum}}{{.Parzelle.KuendigungDatum.Format "2006-01-02"}}{{end}}">
                             </div>
                         </div>
                     </div>
@@ -72,7 +115,7 @@
                             <div class="mb-3">
                                 <label for="notizen" class="form-label">Interne Notizen</label>
                                 <textarea class="form-control" id="notizen" name="notizen" rows="3" 
-                                          placeholder="Interne Notizen zur Parzelle (z.B. Besonderheiten, wichtige Informationen...)"></textarea>
+                                          placeholder="Interne Notizen zur Parzelle (z.B. Besonderheiten, wichtige Informationen...)">{{.Parzelle.Notizen}}</textarea>
                                 <div class="form-text">Diese Notizen sind nur für interne Zwecke und erscheinen nicht in offiziellen Dokumenten</div>
                             </div>
                         </div>
@@ -81,8 +124,8 @@
             </div>
             
             <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-3">
-                <a href="/parzellen" class="btn btn-secondary me-md-2">Abbrechen</a>
-                <button type="submit" class="btn btn-success">Parzelle anlegen</button>
+                <a href="{{if .IsEdit}}/parzellen/{{.Parzelle.ID}}{{else}}/parzellen{{end}}" class="btn btn-secondary me-md-2">Abbrechen</a>
+                <button type="submit" class="btn btn-success">{{if .IsEdit}}Änderungen speichern{{else}}Parzelle anlegen{{end}}</button>
             </div>
         </form>
     </div>

@@ -22,10 +22,10 @@
                         <i class="fas fa-map"></i> Parzellen
                     </a>
                     
-                    <!-- Admin-Link nur für Administratoren -->
+                    <!-- Verwaltungs-Link nur für Verwaltung -->
                     {{if eq .Session.Role "admin"}}
                     <a class="nav-link me-3" href="/admin">
-                        <i class="fas fa-cog"></i> Admin
+                        <i class="fas fa-cog"></i> Verwaltung
                     </a>
                     {{end}}
                     
@@ -35,7 +35,7 @@
                            id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="fas fa-user"></i> {{.Session.Username}}
                             {{if eq .Session.Role "admin"}}
-                                <small class="badge bg-danger ms-1">Admin</small>
+                                <small class="badge bg-danger ms-1">Verwaltung</small>
                             {{end}}
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">

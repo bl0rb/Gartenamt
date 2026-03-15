@@ -63,3 +63,15 @@ func APIBauindexHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
+
+// APIParzellenHandler returns all parzellen for admin invoice utilities and selection UIs.
+func APIParzellenHandler(w http.ResponseWriter, r *http.Request) {
+	parzellen, err := models.GetAllParzellen()
+	if err != nil {
+		http.Error(w, "Fehler beim Laden der Parzellen", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(parzellen)
+}

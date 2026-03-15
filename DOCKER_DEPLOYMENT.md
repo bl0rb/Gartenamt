@@ -13,6 +13,29 @@ docker-compose -f docker-compose.nas.yml up -d
 docker logs -f kleingarten-verwaltung
 ```
 
+## Image Versioning (important)
+
+To avoid NAS image update conflicts with identical name+version:
+
+1. Increase VERSION before each release (for example 0.1.1 -> 0.1.2).
+2. Build and export again via ./build-release.sh.
+3. Import the new tar.gz and deploy the matching tag.
+
+Examples:
+
+```bash
+# Build with version from VERSION file
+./build-release.sh
+
+# Or override explicitly
+./build-release.sh 0.2.0
+
+# Run specific image tag
+docker run -d --name kleingarten -p 8080:8080 -v kleingarten-data:/data kleingarten-verwaltung:0.2.0
+```
+
+If you try to import the same version tag again, NAS tools may show an image conflict or update error.
+
 ## Troubleshooting
 
 ### Docker exits with code 1
@@ -61,7 +84,7 @@ cd kleingarten-verwaltung
 git checkout feature/docker-nas
 
 # Build for your NAS architecture
-docker build -t kleingarten-verwaltung:latest .
+docker build -t kleingarten-verwaltung:0.1.1 -t kleingarten-verwaltung:latest .
 
 # Run with debug logging
 docker run -it \

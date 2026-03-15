@@ -6,7 +6,25 @@
 set -e
 
 PROJECT_NAME="kleingarten-verwaltung"
-VERSION=$(git describe --tags --always 2>/dev/null || echo "dev")
+VERSION_FILE="VERSION"
+if [ -n "$1" ]; then
+    VERSION="$1"
+elif [ -f "$VERSION_FILE" ]; then
+    VERSION=$(tr -d '[:space:]' < "$VERSION_FILE")
+else
+    VERSION="0.1.1"
+    echo "$VERSION" > "$VERSION_FILE"
+fi
+
+if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z]+)*$ ]]; then
+    echo "❌ Invalid version format: $VERSION"
+    echo "   Expected format like: 0.1.1, 0.2.0, 1.0.0-rc1"
+    exit 1
+fi
+
+# Keep VERSION file aligned when version was passed as argument.
+echo "$VERSION" > "$VERSION_FILE"
+
 BINARY_DIR="binary"
 
 echo "🔨 Building $PROJECT_NAME v$VERSION"
@@ -80,9 +98,9 @@ cat > "$MACOS_APP_INTEL/Contents/Info.plist" << 'EOF'
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
+    <string>__APP_VERSION__</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>__APP_VERSION__</string>
     <key>NSHumanReadableCopyright</key>
     <string>© 2026 Community Garden Management</string>
     <key>NSRequiresIPhoneOS</key>
@@ -92,6 +110,9 @@ cat > "$MACOS_APP_INTEL/Contents/Info.plist" << 'EOF'
 </dict>
 </plist>
 EOF
+
+sed -i.bak "s/__APP_VERSION__/$VERSION/g" "$MACOS_APP_INTEL/Contents/Info.plist"
+rm -f "$MACOS_APP_INTEL/Contents/Info.plist.bak"
 
 # Create macOS .app bundle for ARM
 echo "📦 Creating macOS ARM64 app bundle..."
@@ -152,6 +173,8 @@ echo "📦 Release artifacts in: $BINARY_DIR/"
 ls -lh "$BINARY_DIR/"
 echo ""
 echo "Usage:"
+echo "  Release version: VERSION file (current: $VERSION)"
+echo "                   Override: ./build-release.sh 0.2.0"
 echo "  macOS amd64:     Double-click or run: open $BINARY_DIR/$PROJECT_NAME-macos-amd64.app"
 echo "  macOS ARM64:     Double-click or run: open $BINARY_DIR/$PROJECT_NAME-macos-arm64.app"
 echo "  Windows amd64:   Double-click $BINARY_DIR/$PROJECT_NAME.exe or .bat"

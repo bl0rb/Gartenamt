@@ -2,6 +2,7 @@ version: '3.8'
 
 services:
   kleingarten:
+    image: kleingarten-verwaltung:${IMAGE_TAG:-0.1.1}
     build:
       context: .
       dockerfile: Dockerfile
