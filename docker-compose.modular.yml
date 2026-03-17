@@ -1,0 +1,74 @@
+services:
+  verwaltung-app:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: kleingarten-verwaltung:modular
+    container_name: kleingarten-verwaltung
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_PATH=/data/kleingarten.db
+      - LICENSE_SERVER_URL=http://license-server:8090
+      - LICENSE_SERVER_CLIENT_TOKEN=${LICENSE_SERVER_CLIENT_TOKEN:-}
+      - LICENSE_PUBLIC_KEY=${LICENSE_PUBLIC_KEY:-}
+    volumes:
+      - kleingarten-data:/data
+    depends_on:
+      license-server:
+        condition: service_healthy
+    networks:
+      - internal
+    restart: unless-stopped
+
+  license-server:
+    platform: linux/amd64
+    build:
+      context: ./modules/license-server
+      dockerfile: Dockerfile
+    image: kleingarten-license-server:latest
+    container_name: kleingarten-license-server
+    ports:
+      - "8090:8090"
+    environment:
+      - LICENSE_PUBLIC_KEY=${LICENSE_PUBLIC_KEY:-}
+      - LICENSE_PRIVATE_KEY_BASE64=${LICENSE_PRIVATE_KEY_BASE64:-}
+      - LICENSE_SERVER_ADMIN_TOKEN=${LICENSE_SERVER_ADMIN_TOKEN:-change-me}
+      - LICENSE_SERVER_CLIENT_TOKEN=${LICENSE_SERVER_CLIENT_TOKEN:-}
+      - LICENSE_DB_PATH=/data/licenses.db
+    volumes:
+      - license-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8090/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - internal
+    restart: unless-stopped
+
+  public-web:
+    platform: linux/amd64
+    build:
+      context: ./modules/public-web
+      dockerfile: Dockerfile
+    image: kleingarten-public-web:latest
+    container_name: kleingarten-public-web
+    ports:
+      - "8081:80"
+      - "8443:443"
+    volumes:
+      - ./modules/public-web/certs:/etc/nginx/certs:ro
+    networks:
+      - public
+    restart: unless-stopped
+
+volumes:
+  kleingarten-data:
+  license-data:
+
+networks:
+  internal:
+  public:

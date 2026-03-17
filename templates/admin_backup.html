@@ -14,6 +14,16 @@
             Die Dateien verwenden Semikolon als Trennzeichen und UTF-8 Encoding für deutsche Umlaute.
         </div>
 
+        {{if eq .Success "restore"}}
+        <div class="alert alert-success"><i class="fas fa-check-circle"></i> Wiederherstellung erfolgreich abgeschlossen.</div>
+        {{end}}
+        {{if eq .Success "verify"}}
+        <div class="alert alert-success"><i class="fas fa-shield-alt"></i> Backup-Pruefung erfolgreich: {{.VerifyInfo}}</div>
+        {{end}}
+        {{if .Error}}
+        <div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> Aktion fehlgeschlagen: {{.Error}}</div>
+        {{end}}
+
         <!-- CSV EXPORT Sektion -->
         <div class="row mb-4">
             <div class="col-md-6">
@@ -162,14 +172,34 @@
             <div class="col-md-6">
                 <div class="card">
                     <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-database me-2"></i>Datenbank-Backup</h5>
+                        <h5 class="mb-0"><i class="fas fa-database me-2"></i>Verschluesseltes Datenbank-Backup</h5>
                     </div>
                     <div class="card-body">
-                        <p>Erstellt eine komplette Kopie der SQLite-Datenbank.</p>
+                        <p>Erstellt ein AES-GCM verschluesseltes Backup (.kgbak), geeignet fuer sichere Distribution und Restore.</p>
                         <form method="POST">
                             <input type="hidden" name="action" value="database_backup">
                             <button type="submit" class="btn btn-warning w-100">
-                                <i class="fas fa-database"></i> Datenbank-Backup erstellen
+                                <i class="fas fa-lock"></i> Verschluesseltes Backup erstellen
+                            </button>
+                        </form>
+
+                        <hr>
+                        <h6>Backup pruefen</h6>
+                        <form method="POST" enctype="multipart/form-data">
+                            <input type="hidden" name="action" value="database_verify">
+                            <input type="file" class="form-control mb-2" name="backup_file" accept=".kgbak" required>
+                            <button type="submit" class="btn btn-outline-primary w-100">
+                                <i class="fas fa-shield-alt"></i> Backup verifizieren
+                            </button>
+                        </form>
+
+                        <hr>
+                        <h6>Backup wiederherstellen</h6>
+                        <form method="POST" enctype="multipart/form-data" onsubmit="return confirm('Wirklich wiederherstellen? Die aktuelle Datenbank wird ersetzt.');">
+                            <input type="hidden" name="action" value="database_restore">
+                            <input type="file" class="form-control mb-2" name="backup_file" accept=".kgbak" required>
+                            <button type="submit" class="btn btn-danger w-100">
+                                <i class="fas fa-upload"></i> Wiederherstellung starten
                             </button>
                         </form>
                     </div>
@@ -185,7 +215,8 @@
                     <div class="card-body">
                         {{if eq .Success "import"}}
                         <div class="alert alert-success">
-                            <i class="fas fa-check"></i> Import erfolgreich für Tabelle: {{.Table}}
+                            <i class="fas fa-check"></i> Import erfolgreich fuer Tabelle: {{.Table}}<br>
+                            <small>{{.ImportInfo}}</small>
                         </div>
                         {{end}}
 
@@ -204,6 +235,19 @@
                         </ul>
                         {{else}}
                         <p class="text-muted">Noch keine Exports erstellt.</p>
+                        {{end}}
+
+                        <h6 class="mt-3">Verfuegbare Backups:</h6>
+                        {{if .BackupFiles}}
+                        <ul class="list-group list-group-flush">
+                            {{range .BackupFiles}}
+                            <li class="list-group-item">
+                                <small>{{.}}</small>
+                            </li>
+                            {{end}}
+                        </ul>
+                        {{else}}
+                        <p class="text-muted">Noch keine verschluesselten Backups erstellt.</p>
                         {{end}}
                     </div>
                 </div>

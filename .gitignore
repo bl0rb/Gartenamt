@@ -22,3 +22,4 @@ kleingarten-verwaltung-linux-amd64
 *.bak
 *.swp
 *.swo
+*.env

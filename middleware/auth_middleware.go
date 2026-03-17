@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"fmt"
 	"kleingarten-verwaltung/models"
 	"net/http"
 	"strings"
@@ -78,6 +79,25 @@ func RequirePermission(permission string, next http.HandlerFunc) http.HandlerFun
 			return
 		}
 		next.ServeHTTP(w, r)
+	})
+}
+
+// RequirePremiumFeature sperrt Premium-Funktionen ohne aktive Lizenz.
+func RequirePremiumFeature(feature string, next http.HandlerFunc) http.HandlerFunc {
+	return RequireAuth(func(w http.ResponseWriter, r *http.Request) {
+		if models.HasPremiumFeature(feature) {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		if strings.Contains(r.Header.Get("Accept"), "application/json") {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusPaymentRequired)
+			w.Write([]byte(fmt.Sprintf(`{"error":"premium_required","feature":"%s"}`, feature)))
+			return
+		}
+
+		http.Redirect(w, r, "/admin/system-info?license_error=premium_required", http.StatusSeeOther)
 	})
 }
 

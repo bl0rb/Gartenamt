@@ -3,7 +3,6 @@ package models
 import (
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -359,37 +358,12 @@ func GetAuditLogs(limit int) ([]AuditLog, error) {
 
 // Backup-Funktionen
 func CreateDatabaseBackup() (string, error) {
-	// Backup-Verzeichnis erstellen falls nicht vorhanden
-	backupDir := "backups"
-	if err := os.MkdirAll(backupDir, 0755); err != nil {
-		return "", err
-	}
-
-	// Backup-Dateiname mit Zeitstempel
-	timestamp := time.Now().Format("2006-01-02_15-04-05")
-	backupFile := fmt.Sprintf("kleingarten_backup_%s.db", timestamp)
-	backupPath := filepath.Join(backupDir, backupFile)
-
-	// SQLite-Datenbank kopieren
-	sourceFile, err := os.Open("kleingarten.db")
-	if err != nil {
-		return "", err
-	}
-	defer sourceFile.Close()
-
-	destFile, err := os.Create(backupPath)
-	if err != nil {
-		return "", err
-	}
-	defer destFile.Close()
-
-	// Datei kopieren
-	_, err = destFile.ReadFrom(sourceFile)
+	backupFile, err := CreateEncryptedDatabaseBackup()
 	if err != nil {
 		return "", err
 	}
 
-	log.Printf("Backup erstellt: %s", backupPath)
+	log.Printf("Verschluesseltes Backup erstellt: %s", backupFile)
 	return backupFile, nil
 }
 
@@ -411,7 +385,15 @@ func GetSystemInfo() SystemInfo {
 	DB.QueryRow("SELECT COUNT(*) FROM zieranpflanzungen WHERE aktiv = TRUE").Scan(&info.AnzahlZieranpflanzungen)
 
 	// Letztes Backup prüfen
-	if files, err := filepath.Glob("backups/kleingarten_backup_*.db"); err == nil && len(files) > 0 {
+	files := []string{}
+	if encryptedFiles, err := filepath.Glob("backups/kleingarten_backup_*.kgbak"); err == nil {
+		files = append(files, encryptedFiles...)
+	}
+	if legacyFiles, err := filepath.Glob("backups/kleingarten_backup_*.db"); err == nil {
+		files = append(files, legacyFiles...)
+	}
+
+	if len(files) > 0 {
 		// Neueste Backup-Datei finden
 		var neuesteDatei string
 		var neuesteZeit time.Time

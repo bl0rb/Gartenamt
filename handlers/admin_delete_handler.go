@@ -300,20 +300,83 @@ func AdminAuditLogHandler(w http.ResponseWriter, r *http.Request) {
 
 // AdminSystemInfoHandler - System-Informationen und Statistiken
 func AdminSystemInfoHandler(w http.ResponseWriter, r *http.Request) {
+	revealedBackupKey := ""
+	keySuccess := r.URL.Query().Get("key_success")
+	keyError := r.URL.Query().Get("key_error")
+
+	if r.Method == "POST" {
+		action := r.FormValue("action")
+		switch action {
+		case "reveal_backup_key":
+			fullKey, _, err := models.RevealBackupKey()
+			if err != nil {
+				keyError = "reveal_limit"
+			} else {
+				revealedBackupKey = fullKey
+				keySuccess = "revealed"
+			}
+		case "ack_backup_key":
+			if err := models.AcknowledgeBackupKeySaved(); err != nil {
+				http.Redirect(w, r, "/admin/system-info?key_error=ack_failed", http.StatusSeeOther)
+				return
+			}
+			http.Redirect(w, r, "/admin/system-info?key_success=acknowledged", http.StatusSeeOther)
+			return
+		case "activate_license":
+			licenseKey := strings.TrimSpace(r.FormValue("license_key"))
+			if licenseKey == "" {
+				http.Redirect(w, r, "/admin/system-info?license_error=missing_key", http.StatusSeeOther)
+				return
+			}
+
+			if _, err := models.ActivateLicenseKey(licenseKey); err != nil {
+				http.Redirect(w, r, "/admin/system-info?license_error=invalid_key", http.StatusSeeOther)
+				return
+			}
+
+			http.Redirect(w, r, "/admin/system-info?license_success=activated", http.StatusSeeOther)
+			return
+		case "deactivate_license":
+			if err := models.DeactivateLicense(); err != nil {
+				http.Redirect(w, r, "/admin/system-info?license_error=deactivate_failed", http.StatusSeeOther)
+				return
+			}
+			http.Redirect(w, r, "/admin/system-info?license_success=deactivated", http.StatusSeeOther)
+			return
+		default:
+			http.Redirect(w, r, "/admin/system-info?license_error=invalid_action", http.StatusSeeOther)
+			return
+		}
+	}
+
 	systemInfo := models.GetSystemInfo()
 	appMeta := getApplicationMetadata()
+	licenseStatus, _ := models.GetLicenseStatus()
+	backupKeyState, _ := models.GetBackupKeyState()
+	if backupKeyState == nil {
+		backupKeyState = &models.BackupKeyState{}
+	}
 
 	funcMap := template.FuncMap{
 		"divMB": func(size int64) float64 {
 			return float64(size) / (1024 * 1024)
 		},
+		"featureName": models.FeatureDisplayName,
 	}
 
 	tmpl := template.Must(LoadTemplateWithFuncs(funcMap, "templates/layout.html", "templates/admin_system_info.html"))
 	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
-		"Title":      "System-Information",
-		"SystemInfo": systemInfo,
-		"AppMeta":    appMeta,
+		"Title":           "System-Information",
+		"SystemInfo":      systemInfo,
+		"AppMeta":         appMeta,
+		"LicenseStatus":   licenseStatus,
+		"PremiumFeatures": models.RequiredPremiumFeatures(),
+		"LicenseSuccess":  r.URL.Query().Get("license_success"),
+		"LicenseError":    r.URL.Query().Get("license_error"),
+		"BackupKeyState":  backupKeyState,
+		"BackupKey":       revealedBackupKey,
+		"KeySuccess":      keySuccess,
+		"KeyError":        keyError,
 	}))
 }
 

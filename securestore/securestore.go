@@ -4,7 +4,9 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"os"
 	"path/filepath"
@@ -15,6 +17,7 @@ var (
 	keyOnce sync.Once
 	keyData []byte
 	keyErr  error
+	keySrc  string
 )
 
 func loadKey() ([]byte, error) {
@@ -23,11 +26,13 @@ func loadKey() ([]byte, error) {
 			decoded, err := base64.StdEncoding.DecodeString(envKey)
 			if err == nil && len(decoded) == 32 {
 				keyData = decoded
+				keySrc = "env:APP_SECRET_KEY(base64)"
 				return
 			}
 
 			if len(envKey) == 32 {
 				keyData = []byte(envKey)
+				keySrc = "env:APP_SECRET_KEY(raw)"
 				return
 			}
 
@@ -46,6 +51,7 @@ func loadKey() ([]byte, error) {
 			decoded, decodeErr := base64.StdEncoding.DecodeString(string(content))
 			if decodeErr == nil && len(decoded) == 32 {
 				keyData = decoded
+				keySrc = "file:" + keyPath
 				return
 			}
 			keyErr = errors.New("invalid secret key file contents")
@@ -70,6 +76,7 @@ func loadKey() ([]byte, error) {
 		}
 
 		keyData = generated
+		keySrc = "generated:file:" + keyPath
 	})
 
 	return keyData, keyErr
@@ -102,6 +109,57 @@ func EncryptString(plainText string) (string, error) {
 
 	sealed := gcm.Seal(nonce, nonce, []byte(plainText), nil)
 	return base64.StdEncoding.EncodeToString(sealed), nil
+}
+
+// EncryptBytes encrypts arbitrary byte payloads with AES-GCM.
+func EncryptBytes(plain []byte) ([]byte, error) {
+	key, err := loadKey()
+	if err != nil {
+		return nil, err
+	}
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := rand.Read(nonce); err != nil {
+		return nil, err
+	}
+
+	return gcm.Seal(nonce, nonce, plain, nil), nil
+}
+
+// DecryptBytes decrypts byte payloads previously encrypted by EncryptBytes.
+func DecryptBytes(cipherPayload []byte) ([]byte, error) {
+	key, err := loadKey()
+	if err != nil {
+		return nil, err
+	}
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(cipherPayload) < gcm.NonceSize() {
+		return nil, errors.New("ciphertext too short")
+	}
+
+	nonce := cipherPayload[:gcm.NonceSize()]
+	message := cipherPayload[gcm.NonceSize():]
+	return gcm.Open(nil, nonce, message, nil)
 }
 
 func DecryptString(cipherText string) (string, error) {
@@ -141,4 +199,29 @@ func DecryptString(cipherText string) (string, error) {
 	}
 
 	return string(plainText), nil
+}
+
+func KeyBase64() (string, error) {
+	key, err := loadKey()
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(key), nil
+}
+
+func KeyFingerprint() (string, error) {
+	key, err := loadKey()
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(key)
+	return hex.EncodeToString(sum[:8]), nil
+}
+
+func KeySource() string {
+	_, _ = loadKey()
+	if keySrc == "" {
+		return "unknown"
+	}
+	return keySrc
 }

@@ -18,6 +18,21 @@ type CSVService struct {
 	exportDir string
 }
 
+type CSVImportReport struct {
+	Table        string
+	TotalRows    int
+	ImportedRows int
+	SkippedRows  int
+	ErrorRows    int
+	Errors       []string
+}
+
+type CSVHealthReport struct {
+	ForeignKeyOK  bool
+	ForeignKeyMsg string
+	Counts        map[string]int
+}
+
 func NewCSVService() *CSVService {
 	exportDir := "exports"
 	os.MkdirAll(exportDir, 0755)
@@ -370,10 +385,10 @@ func (s *CSVService) ExportBauindex() (string, error) {
 
 // Import-Funktionen
 
-func (s *CSVService) ImportFromFile(fileHeader *multipart.FileHeader, tableName string) error {
+func (s *CSVService) ImportFromFile(fileHeader *multipart.FileHeader, tableName string) (*CSVImportReport, error) {
 	file, err := fileHeader.Open()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer file.Close()
 
@@ -383,11 +398,11 @@ func (s *CSVService) ImportFromFile(fileHeader *multipart.FileHeader, tableName 
 
 	records, err := reader.ReadAll()
 	if err != nil {
-		return fmt.Errorf("CSV-Parsing-Fehler: %v", err)
+		return nil, fmt.Errorf("CSV-Parsing-Fehler: %v", err)
 	}
 
 	if len(records) < 2 {
-		return fmt.Errorf("CSV-Datei muss mindestens Header und eine Datenzeile enthalten")
+		return nil, fmt.Errorf("CSV-Datei muss mindestens Header und eine Datenzeile enthalten")
 	}
 
 	// Header validieren und Import durchführen
@@ -401,37 +416,40 @@ func (s *CSVService) ImportFromFile(fileHeader *multipart.FileHeader, tableName 
 	case "bauindex":
 		return s.importBauindex(records)
 	default:
-		return fmt.Errorf("unbekannte Tabelle: %s", tableName)
+		return nil, fmt.Errorf("unbekannte Tabelle: %s", tableName)
 	}
 }
 
-func (s *CSVService) importParzellen(records [][]string) error {
+func (s *CSVService) importParzellen(records [][]string) (*CSVImportReport, error) {
 	headers := records[0]
 	// ERWEITERTE Header mit neuen Feldern
 	expectedHeaders := []string{"ID", "Nummer", "Groesse", "Verein", "Paechter_Name", "Email", "Telefon", "Notizen", "Kuendigung_Datum", "Erstellt_Am"}
+	report := &CSVImportReport{Table: "parzellen", TotalRows: len(records) - 1}
 
 	if !validateHeaders(headers, expectedHeaders) {
-		return fmt.Errorf("ungültige Header. Erwartet: %v", expectedHeaders)
+		return nil, fmt.Errorf("ungültige Header. Erwartet: %v", expectedHeaders)
 	}
 
 	// Transaktion für Bulk-Import
 	tx, err := models.DB.Begin()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer tx.Rollback()
 
 	// ERWEITERTE Query mit neuen Feldern
 	stmt, err := tx.Prepare(`INSERT OR REPLACE INTO parzellen (id, nummer, groesse, verein, paechter_name, email, telefon, notizen, kuendigung_datum, erstellt_am) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer stmt.Close()
 
-	importCount := 0
 	for lineNum, record := range records[1:] { // Skip header
 		if len(record) < len(expectedHeaders) {
 			log.Printf("Zeile %d übersprungen: zu wenige Spalten", lineNum+2)
+			report.SkippedRows++
+			report.ErrorRows++
+			report.Errors = append(report.Errors, fmt.Sprintf("Zeile %d: zu wenige Spalten", lineNum+2))
 			continue
 		}
 
@@ -445,42 +463,48 @@ func (s *CSVService) importParzellen(records [][]string) error {
 			record[5], record[6], record[7], kuendigungDatum, erstelltAm)
 		if err != nil {
 			log.Printf("Fehler beim Import von Zeile %d: %v", lineNum+2, err)
+			report.ErrorRows++
+			report.Errors = append(report.Errors, fmt.Sprintf("Zeile %d: %v", lineNum+2, err))
 			continue
 		}
-		importCount++
+		report.ImportedRows++
 	}
 
 	if err := tx.Commit(); err != nil {
-		return err
+		return nil, err
 	}
 
-	log.Printf("Parzellen-Import erfolgreich: %d Datensätze", importCount)
-	return nil
+	report.SkippedRows += report.TotalRows - report.ImportedRows - report.ErrorRows
+	log.Printf("Parzellen-Import erfolgreich: %d Datensätze", report.ImportedRows)
+	return report, nil
 }
 
-func (s *CSVService) importObstarten(records [][]string) error {
+func (s *CSVService) importObstarten(records [][]string) (*CSVImportReport, error) {
 	headers := records[0]
 	expectedHeaders := []string{"ID", "Name", "Kategorie", "Einheit", "Standardpreis", "Max_Anzahl", "Beschreibung", "Aktiv"}
+	report := &CSVImportReport{Table: "obstarten", TotalRows: len(records) - 1}
 
 	if !validateHeaders(headers, expectedHeaders) {
-		return fmt.Errorf("ungültige Header. Erwartet: %v", expectedHeaders)
+		return nil, fmt.Errorf("ungültige Header. Erwartet: %v", expectedHeaders)
 	}
 
 	tx, err := models.DB.Begin()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer tx.Rollback()
 
 	stmt, err := tx.Prepare(`INSERT OR REPLACE INTO obstarten (id, name, kategorie, einheit, standardpreis, max_anzahl, beschreibung, aktiv) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer stmt.Close()
 
-	importCount := 0
-	for _, record := range records[1:] {
+	for lineNum, record := range records[1:] {
 		if len(record) < len(expectedHeaders) {
+			report.SkippedRows++
+			report.ErrorRows++
+			report.Errors = append(report.Errors, fmt.Sprintf("Zeile %d: zu wenige Spalten", lineNum+2))
 			continue
 		}
 
@@ -492,42 +516,48 @@ func (s *CSVService) importObstarten(records [][]string) error {
 		_, err := stmt.Exec(id, record[1], record[2], record[3], standardpreis, maxAnzahl, record[6], aktiv)
 		if err != nil {
 			log.Printf("Fehler beim Import von Obstart %s: %v", record[1], err)
+			report.ErrorRows++
+			report.Errors = append(report.Errors, fmt.Sprintf("Zeile %d: %v", lineNum+2, err))
 			continue
 		}
-		importCount++
+		report.ImportedRows++
 	}
 
 	if err := tx.Commit(); err != nil {
-		return err
+		return nil, err
 	}
 
-	log.Printf("Obstarten-Import erfolgreich: %d Datensätze", importCount)
-	return nil
+	report.SkippedRows += report.TotalRows - report.ImportedRows - report.ErrorRows
+	log.Printf("Obstarten-Import erfolgreich: %d Datensätze", report.ImportedRows)
+	return report, nil
 }
 
-func (s *CSVService) importZieranpflanzungen(records [][]string) error {
+func (s *CSVService) importZieranpflanzungen(records [][]string) (*CSVImportReport, error) {
 	headers := records[0]
 	expectedHeaders := []string{"ID", "Name", "Kategorie", "Preis_Pro_QM", "Beschreibung", "Max_Flaeche", "Aktiv"}
+	report := &CSVImportReport{Table: "zieranpflanzungen", TotalRows: len(records) - 1}
 
 	if !validateHeaders(headers, expectedHeaders) {
-		return fmt.Errorf("ungültige Header. Erwartet: %v", expectedHeaders)
+		return nil, fmt.Errorf("ungültige Header. Erwartet: %v", expectedHeaders)
 	}
 
 	tx, err := models.DB.Begin()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer tx.Rollback()
 
 	stmt, err := tx.Prepare(`INSERT OR REPLACE INTO zieranpflanzungen (id, name, kategorie, preis_pro_qm, beschreibung, max_flaeche, aktiv) VALUES (?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer stmt.Close()
 
-	importCount := 0
-	for _, record := range records[1:] {
+	for lineNum, record := range records[1:] {
 		if len(record) < len(expectedHeaders) {
+			report.SkippedRows++
+			report.ErrorRows++
+			report.Errors = append(report.Errors, fmt.Sprintf("Zeile %d: zu wenige Spalten", lineNum+2))
 			continue
 		}
 
@@ -546,42 +576,48 @@ func (s *CSVService) importZieranpflanzungen(records [][]string) error {
 		_, err := stmt.Exec(id, record[1], record[2], preisProQM, record[4], maxFlaeche, aktiv)
 		if err != nil {
 			log.Printf("Fehler beim Import von Zieranpflanzung %s: %v", record[1], err)
+			report.ErrorRows++
+			report.Errors = append(report.Errors, fmt.Sprintf("Zeile %d: %v", lineNum+2, err))
 			continue
 		}
-		importCount++
+		report.ImportedRows++
 	}
 
 	if err := tx.Commit(); err != nil {
-		return err
+		return nil, err
 	}
 
-	log.Printf("Zieranpflanzungen-Import erfolgreich: %d Datensätze", importCount)
-	return nil
+	report.SkippedRows += report.TotalRows - report.ImportedRows - report.ErrorRows
+	log.Printf("Zieranpflanzungen-Import erfolgreich: %d Datensätze", report.ImportedRows)
+	return report, nil
 }
 
-func (s *CSVService) importBauindex(records [][]string) error {
+func (s *CSVService) importBauindex(records [][]string) (*CSVImportReport, error) {
 	headers := records[0]
 	expectedHeaders := []string{"Jahr", "Bauindex"}
+	report := &CSVImportReport{Table: "bauindex", TotalRows: len(records) - 1}
 
 	if !validateHeaders(headers, expectedHeaders) {
-		return fmt.Errorf("ungültige Header. Erwartet: %v", expectedHeaders)
+		return nil, fmt.Errorf("ungültige Header. Erwartet: %v", expectedHeaders)
 	}
 
 	tx, err := models.DB.Begin()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer tx.Rollback()
 
 	stmt, err := tx.Prepare(`INSERT OR REPLACE INTO bauindex_tabelle (jahr, bauindex) VALUES (?, ?)`)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer stmt.Close()
 
-	importCount := 0
-	for _, record := range records[1:] {
+	for lineNum, record := range records[1:] {
 		if len(record) < 2 {
+			report.SkippedRows++
+			report.ErrorRows++
+			report.Errors = append(report.Errors, fmt.Sprintf("Zeile %d: zu wenige Spalten", lineNum+2))
 			continue
 		}
 
@@ -591,17 +627,51 @@ func (s *CSVService) importBauindex(records [][]string) error {
 		_, err := stmt.Exec(jahr, bauindex)
 		if err != nil {
 			log.Printf("Fehler beim Import von Bauindex %d: %v", jahr, err)
+			report.ErrorRows++
+			report.Errors = append(report.Errors, fmt.Sprintf("Zeile %d: %v", lineNum+2, err))
 			continue
 		}
-		importCount++
+		report.ImportedRows++
 	}
 
 	if err := tx.Commit(); err != nil {
-		return err
+		return nil, err
 	}
 
-	log.Printf("Bauindex-Import erfolgreich: %d Datensätze", importCount)
-	return nil
+	report.SkippedRows += report.TotalRows - report.ImportedRows - report.ErrorRows
+	log.Printf("Bauindex-Import erfolgreich: %d Datensätze", report.ImportedRows)
+	return report, nil
+}
+
+func (s *CSVService) VerifyCSVHealth() (*CSVHealthReport, error) {
+	report := &CSVHealthReport{
+		Counts: map[string]int{},
+	}
+
+	countTables := []string{"parzellen", "inspektionen", "wertermittlungen", "obstarten", "zieranpflanzungen", "bauindex_tabelle"}
+	for _, table := range countTables {
+		var count int
+		if err := models.DB.QueryRow("SELECT COUNT(*) FROM " + table).Scan(&count); err != nil {
+			return nil, err
+		}
+		report.Counts[table] = count
+	}
+
+	rows, err := models.DB.Query("PRAGMA foreign_key_check")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	if rows.Next() {
+		report.ForeignKeyOK = false
+		report.ForeignKeyMsg = "Foreign-Key-Verletzungen gefunden"
+		return report, nil
+	}
+
+	report.ForeignKeyOK = true
+	report.ForeignKeyMsg = "Keine Foreign-Key-Verletzungen"
+	return report, nil
 }
 
 // Hilfsfunktionen

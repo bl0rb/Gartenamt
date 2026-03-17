@@ -97,8 +97,8 @@ func main() {
 	r.HandleFunc("/parzellen/{id}", middleware.RequireAuth(handlers.ParzelleDetailHandler)).Methods("GET")
 
 	// Inspektion/Wertermittlung (für alle authentifizierten Benutzer)
-	r.HandleFunc("/inspektion/{parzelle_id}", middleware.RequireAuth(handlers.InspektionHandler)).Methods("GET", "POST")
-	r.HandleFunc("/wertermittlung/{parzelle_id}", middleware.RequireAuth(handlers.WertermittlungHandler)).Methods("GET", "POST")
+	r.HandleFunc("/inspektion/{parzelle_id}", middleware.RequirePremiumFeature(models.FeatureInspektion, handlers.InspektionHandler)).Methods("GET", "POST")
+	r.HandleFunc("/wertermittlung/{parzelle_id}", middleware.RequirePremiumFeature(models.FeatureWertermittlung, handlers.WertermittlungHandler)).Methods("GET", "POST")
 	r.HandleFunc("/protokoll/{typ}/{id}", middleware.RequireAuth(handlers.ProtokollHandler)).Methods("GET")
 
 	// *** BENUTZER-PROFIL ROUTEN (für alle authentifizierten Benutzer) ***
@@ -138,7 +138,7 @@ func main() {
 	// System-Management
 	adminRoutes.HandleFunc("/backup", middleware.RequirePermission("backup.manage", handlers.AdminBackupHandler)).Methods("GET", "POST")
 	adminRoutes.HandleFunc("/audit-log", middleware.RequirePermission("audit.view", handlers.AdminAuditLogHandler)).Methods("GET")
-	adminRoutes.HandleFunc("/system-info", middleware.RequirePermission("system.settings", handlers.AdminSystemInfoHandler)).Methods("GET")
+	adminRoutes.HandleFunc("/system-info", middleware.RequirePermission("system.settings", handlers.AdminSystemInfoHandler)).Methods("GET", "POST")
 
 	// *** BENUTZER-VERWALTUNG ***
 	adminRoutes.HandleFunc("/users", middleware.RequirePermission("users.manage", handlers.AdminUsersHandlerEnhanced)).Methods("GET", "POST")
@@ -162,12 +162,12 @@ func main() {
 	// Invoice preview and generation
 	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/invoice", middleware.RequirePermission("invoices.manage", handlers.InvoicePreviewHandler)).Methods("GET")
 	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/invoice/history", middleware.RequirePermission("invoices.manage", handlers.InvoiceHistoryHandler)).Methods("GET")
-	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/invoice/pdf", middleware.RequirePermission("invoices.manage", handlers.InvoicePDFDownloadHandler)).Methods("GET")
-	adminRoutes.HandleFunc("/invoices/export", middleware.RequirePermission("invoices.manage", handlers.AdminBulkInvoiceExportHandler)).Methods("GET")
-	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/email/send", middleware.RequirePermission("invoices.manage", handlers.SendParzelleEmailHandler)).Methods("POST")
-	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/email/info", middleware.RequirePermission("invoices.manage", handlers.SendParzelleInfoMailHandler)).Methods("POST")
+	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/invoice/pdf", middleware.RequirePermission("invoices.manage", middleware.RequirePremiumFeature(models.FeatureInvoicePrint, handlers.InvoicePDFDownloadHandler))).Methods("GET")
+	adminRoutes.HandleFunc("/invoices/export", middleware.RequirePermission("invoices.manage", middleware.RequirePremiumFeature(models.FeatureInvoicePrint, handlers.AdminBulkInvoiceExportHandler))).Methods("GET")
+	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/email/send", middleware.RequirePermission("invoices.manage", middleware.RequirePremiumFeature(models.FeatureMailing, handlers.SendParzelleEmailHandler))).Methods("POST")
+	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/email/info", middleware.RequirePermission("invoices.manage", middleware.RequirePremiumFeature(models.FeatureMailing, handlers.SendParzelleInfoMailHandler))).Methods("POST")
 	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/email/history", middleware.RequirePermission("invoices.manage", handlers.ParzelleEmailHistoryHandler)).Methods("GET")
-	adminRoutes.HandleFunc("/emails/send-bulk", middleware.RequirePermission("invoices.manage", handlers.SendBulkParzelleEmailHandler)).Methods("POST")
+	adminRoutes.HandleFunc("/emails/send-bulk", middleware.RequirePermission("invoices.manage", middleware.RequirePremiumFeature(models.FeatureMailing, handlers.SendBulkParzelleEmailHandler))).Methods("POST")
 
 	// *** API-ROUTEN (für authentifizierte Benutzer) ***
 	r.HandleFunc("/api/obstarten/preise", middleware.RequireAuth(handlers.APIObstartenPreiseHandler)).Methods("GET")
