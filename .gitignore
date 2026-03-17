@@ -16,6 +16,9 @@ app.exe
 kleingarten-verwaltung
 kleingarten-verwaltung-amd64
 kleingarten-verwaltung-linux-amd64
+/modules/license-server/kleingarten-license-server
+/modules/license-server/license-server
+*.test
 .DS_Store
 *.log
 *.tmp
