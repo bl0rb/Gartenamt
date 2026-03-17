@@ -16,3 +16,9 @@ app.exe
 kleingarten-verwaltung
 kleingarten-verwaltung-amd64
 kleingarten-verwaltung-linux-amd64
+.DS_Store
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
