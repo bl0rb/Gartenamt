@@ -22,6 +22,14 @@ func AdminDashboardHandler(w http.ResponseWriter, r *http.Request) {
 	}))
 }
 
+// AdminVerwaltungHandler shows central organization and mail server settings.
+func AdminVerwaltungHandler(w http.ResponseWriter, r *http.Request) {
+	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/admin_verwaltung.html"))
+	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
+		"Title": "Vereins- und Maileinstellungen",
+	}))
+}
+
 // AdminObstartenHandler - CRUD für Obstarten
 func AdminObstartenHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {

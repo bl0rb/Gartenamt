@@ -220,11 +220,38 @@ func createTables() error {
 		iban TEXT,
 		bic TEXT,
 		kontoinhaber TEXT,
+		smtp_host TEXT,
+		smtp_port INTEGER DEFAULT 465,
+		smtp_username TEXT,
+		smtp_password_enc TEXT,
+		smtp_from_address TEXT,
+		smtp_from_name TEXT,
+		smtp_tls_mode TEXT DEFAULT 'tls',
+		imap_host TEXT,
+		imap_port INTEGER DEFAULT 993,
+		imap_username TEXT,
+		imap_password_enc TEXT,
+		imap_secure BOOLEAN DEFAULT 1,
 		steuernummer TEXT,
 		registernummer TEXT,
 		logo_path TEXT,
 		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);`
+
+	emailLogsSQL := `
+	CREATE TABLE IF NOT EXISTS email_logs (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		parzelle_id INTEGER,
+		recipient TEXT NOT NULL,
+		subject TEXT NOT NULL,
+		message TEXT,
+		attachment_types TEXT,
+		status TEXT NOT NULL,
+		error_message TEXT,
+		created_by TEXT,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (parzelle_id) REFERENCES parzellen (id) ON DELETE SET NULL
 	);`
 
 	// Alle Tabellen erstellen
@@ -242,6 +269,7 @@ func createTables() error {
 		"wasser":                wasserSQL,
 		"strom":                 stromSQL,
 		"organization_settings": organizationSettingsSQL,
+		"email_logs":            emailLogsSQL,
 	}
 
 	for tableName, tableSQL := range tables {
@@ -264,6 +292,8 @@ func createTables() error {
 		"CREATE INDEX IF NOT EXISTS idx_wasser_jahr_monat ON wasser(jahr, monat);",
 		"CREATE INDEX IF NOT EXISTS idx_strom_parzelle ON strom(parzelle_id);",
 		"CREATE INDEX IF NOT EXISTS idx_strom_jahr_monat ON strom(jahr, monat);",
+		"CREATE INDEX IF NOT EXISTS idx_email_logs_parzelle ON email_logs(parzelle_id);",
+		"CREATE INDEX IF NOT EXISTS idx_email_logs_created_at ON email_logs(created_at);",
 	}
 
 	for _, indexSQL := range indexes {
@@ -336,6 +366,82 @@ func runMigrations() error {
 			log.Printf("⚠️  Could not add %s column: %v", column.name, err)
 		} else {
 			log.Printf("✅ Added %s column to parzellen table", column.name)
+		}
+	}
+
+	organizationColumns := []struct {
+		name string
+		sql  string
+	}{
+		{name: "smtp_host", sql: "ALTER TABLE organization_settings ADD COLUMN smtp_host TEXT"},
+		{name: "smtp_port", sql: "ALTER TABLE organization_settings ADD COLUMN smtp_port INTEGER DEFAULT 465"},
+		{name: "smtp_username", sql: "ALTER TABLE organization_settings ADD COLUMN smtp_username TEXT"},
+		{name: "smtp_password_enc", sql: "ALTER TABLE organization_settings ADD COLUMN smtp_password_enc TEXT"},
+		{name: "smtp_from_address", sql: "ALTER TABLE organization_settings ADD COLUMN smtp_from_address TEXT"},
+		{name: "smtp_from_name", sql: "ALTER TABLE organization_settings ADD COLUMN smtp_from_name TEXT"},
+		{name: "smtp_tls_mode", sql: "ALTER TABLE organization_settings ADD COLUMN smtp_tls_mode TEXT DEFAULT 'tls'"},
+		{name: "imap_host", sql: "ALTER TABLE organization_settings ADD COLUMN imap_host TEXT"},
+		{name: "imap_port", sql: "ALTER TABLE organization_settings ADD COLUMN imap_port INTEGER DEFAULT 993"},
+		{name: "imap_username", sql: "ALTER TABLE organization_settings ADD COLUMN imap_username TEXT"},
+		{name: "imap_password_enc", sql: "ALTER TABLE organization_settings ADD COLUMN imap_password_enc TEXT"},
+		{name: "imap_secure", sql: "ALTER TABLE organization_settings ADD COLUMN imap_secure BOOLEAN DEFAULT 1"},
+	}
+
+	rows, err = DB.Query("PRAGMA table_info(organization_settings)")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	existingOrganizationColumns := make(map[string]bool)
+	for rows.Next() {
+		var cid int
+		var name string
+		var typeStr string
+		var notnull int
+		var dfltValue interface{}
+		var pk int
+		if err := rows.Scan(&cid, &name, &typeStr, &notnull, &dfltValue, &pk); err == nil {
+			existingOrganizationColumns[name] = true
+		}
+	}
+
+	for _, column := range organizationColumns {
+		if existingOrganizationColumns[column.name] {
+			continue
+		}
+
+		if _, err := DB.Exec(column.sql); err != nil {
+			log.Printf("⚠️  Could not add %s column: %v", column.name, err)
+		} else {
+			log.Printf("✅ Added %s column to organization_settings table", column.name)
+		}
+	}
+
+	rows, err = DB.Query("PRAGMA table_info(email_logs)")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	existingEmailLogColumns := make(map[string]bool)
+	for rows.Next() {
+		var cid int
+		var name string
+		var typeStr string
+		var notnull int
+		var dfltValue interface{}
+		var pk int
+		if err := rows.Scan(&cid, &name, &typeStr, &notnull, &dfltValue, &pk); err == nil {
+			existingEmailLogColumns[name] = true
+		}
+	}
+
+	if !existingEmailLogColumns["message"] {
+		if _, err := DB.Exec("ALTER TABLE email_logs ADD COLUMN message TEXT"); err != nil {
+			log.Printf("⚠️  Could not add message column to email_logs: %v", err)
+		} else {
+			log.Println("✅ Added message column to email_logs table")
 		}
 	}
 

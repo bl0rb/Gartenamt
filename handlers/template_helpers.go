@@ -6,6 +6,7 @@ import (
 	"kleingarten-verwaltung/middleware"
 	"net/http"
 	"path/filepath"
+	"strings"
 )
 
 // LoadTemplate loads a template from embedded files
@@ -87,5 +88,36 @@ func GetEmbeddedStaticFS() fs.FS {
 
 func AddSessionToData(r *http.Request, data map[string]interface{}) map[string]interface{} {
 	data["Session"] = middleware.GetSessionFromContext(r.Context())
+	data["IsAdminPage"] = strings.HasPrefix(r.URL.Path, "/admin")
+
+	section := ""
+	switch {
+	case r.URL.Path == "/admin":
+		section = "dashboard"
+	case strings.HasPrefix(r.URL.Path, "/admin/obstarten"):
+		section = "obstarten"
+	case strings.HasPrefix(r.URL.Path, "/admin/zieranpflanzungen"):
+		section = "zieranpflanzungen"
+	case strings.HasPrefix(r.URL.Path, "/admin/bauindex"):
+		section = "bauindex"
+	case strings.HasPrefix(r.URL.Path, "/admin/verwaltung"):
+		section = "verwaltung"
+	case strings.HasPrefix(r.URL.Path, "/admin/users"):
+		section = "users"
+	case strings.HasPrefix(r.URL.Path, "/admin/invoices"):
+		section = "invoices"
+	case strings.HasPrefix(r.URL.Path, "/admin/parzellen"):
+		section = "parzellen"
+	case strings.HasPrefix(r.URL.Path, "/admin/protokolle"):
+		section = "protokolle"
+	case strings.HasPrefix(r.URL.Path, "/admin/backup"):
+		section = "backup"
+	case strings.HasPrefix(r.URL.Path, "/admin/audit-log"):
+		section = "audit"
+	case strings.HasPrefix(r.URL.Path, "/admin/system-info"):
+		section = "system"
+	}
+
+	data["AdminSection"] = section
 	return data
 }

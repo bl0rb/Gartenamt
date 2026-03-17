@@ -548,14 +548,14 @@ async function ladePeiseVonAPI() {
             aktuellerBauindex = bauindexData.bauindex;
         }
         
-        console.log('📊 Preise erfolgreich von API geladen:', {
+        console.log('Preise erfolgreich von API geladen:', {
             obstarten: Object.keys(obstPreisTabelle).length,
             zieranpflanzungen: Object.keys(zieranpflanzungsPreise).length,
             bauindex: aktuellerBauindex
         });
         
     } catch (error) {
-        console.error('❌ Fehler beim Laden der Preise von API:', error);
+        console.error('Fehler beim Laden der Preise von API:', error);
         // Fallback auf hardcoded Werte
         ladeHardcodedFallback();
     }
@@ -723,7 +723,7 @@ function updateManuellVorschau() {
         const maxErlaubt = grundwert * 0.15;
         let warnung = "";
         if (zeitwert > maxErlaubt) {
-            warnung = `<div class="alert alert-danger mt-2">⚠️ <strong>Warnung:</strong> Der eingegebene Wert (${zeitwert.toFixed(2)} €) überschreitet den maximal zulässigen Restwert von 15% (${maxErlaubt.toFixed(2)} €)!</div>`;
+            warnung = `<div class="alert alert-danger mt-2"><strong>Warnung:</strong> Der eingegebene Wert (${zeitwert.toFixed(2)} €) überschreitet den maximal zulässigen Restwert von 15% (${maxErlaubt.toFixed(2)} €)!</div>`;
         }
         
         vorschauDiv.innerHTML = `
@@ -987,7 +987,7 @@ function berechneVorschau() {
         details.push(`Zieranpflanzungen: ${zierWert.toFixed(2)} €`);
     }
     
-    alert(`Berechnete Wertermittlung (Bauindex ${aktuellerBauindex}):\n\n${details.join('\n')}\n\n🌱 GESAMTWERT: ${gesamtwert.toFixed(2)} €`);
+    alert(`Berechnete Wertermittlung (Bauindex ${aktuellerBauindex}):\n\n${details.join('\n')}\n\nGESAMTWERT: ${gesamtwert.toFixed(2)} €`);
 }
 </script>
 

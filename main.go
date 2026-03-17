@@ -111,6 +111,7 @@ func main() {
 	// Dashboard
 	adminRoutes.HandleFunc("", middleware.RequireAdmin(handlers.AdminDashboardHandler)).Methods("GET")
 	adminRoutes.HandleFunc("/", middleware.RequireAdmin(handlers.AdminDashboardHandler)).Methods("GET")
+	adminRoutes.HandleFunc("/verwaltung", middleware.RequireAdmin(handlers.AdminVerwaltungHandler)).Methods("GET")
 
 	// Daten-Management
 	adminRoutes.HandleFunc("/obstarten", middleware.RequireAdmin(handlers.AdminObstartenHandler)).Methods("GET", "POST")
@@ -156,6 +157,13 @@ func main() {
 
 	// Invoice preview and generation
 	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/invoice", middleware.RequireAdmin(handlers.InvoicePreviewHandler)).Methods("GET")
+	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/invoice/history", middleware.RequireAdmin(handlers.InvoiceHistoryHandler)).Methods("GET")
+	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/invoice/pdf", middleware.RequireAdmin(handlers.InvoicePDFDownloadHandler)).Methods("GET")
+	adminRoutes.HandleFunc("/invoices/export", middleware.RequireAdmin(handlers.AdminBulkInvoiceExportHandler)).Methods("GET")
+	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/email/send", middleware.RequireAdmin(handlers.SendParzelleEmailHandler)).Methods("POST")
+	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/email/info", middleware.RequireAdmin(handlers.SendParzelleInfoMailHandler)).Methods("POST")
+	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/email/history", middleware.RequireAdmin(handlers.ParzelleEmailHistoryHandler)).Methods("GET")
+	adminRoutes.HandleFunc("/emails/send-bulk", middleware.RequireAdmin(handlers.SendBulkParzelleEmailHandler)).Methods("POST")
 
 	// *** API-ROUTEN (für authentifizierte Benutzer) ***
 	r.HandleFunc("/api/obstarten/preise", middleware.RequireAuth(handlers.APIObstartenPreiseHandler)).Methods("GET")

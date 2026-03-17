@@ -51,15 +51,26 @@ func populateParzelleFromForm(parzelle *models.Parzelle, r *http.Request) error 
 	return nil
 }
 
+func getConfiguredVerein() (string, error) {
+	org, err := models.GetOrganizationSettings()
+	if err != nil {
+		return "", err
+	}
+
+	return strings.TrimSpace(org.Name), nil
+}
+
 func renderParzelleForm(w http.ResponseWriter, r *http.Request, title string, parzelle models.Parzelle, isEdit bool, errMsg string) {
 	session := middleware.GetSessionFromContext(r.Context())
+	organizationName, _ := getConfiguredVerein()
 	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/parzelle_neu.html"))
 	tmpl.Execute(w, map[string]interface{}{
-		"Title":    title,
-		"Session":  session,
-		"Parzelle": parzelle,
-		"IsEdit":   isEdit,
-		"Error":    errMsg,
+		"Title":            title,
+		"Session":          session,
+		"Parzelle":         parzelle,
+		"IsEdit":           isEdit,
+		"Error":            errMsg,
+		"OrganizationName": organizationName,
 	})
 }
 
@@ -86,12 +97,25 @@ func ParzellenListHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func ParzelleNeuHandler(w http.ResponseWriter, r *http.Request) {
+	vereinName, err := getConfiguredVerein()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if vereinName == "" {
+		renderParzelleForm(w, r, "Neue Parzelle", models.Parzelle{}, false, "Bitte zuerst in der Verwaltung einen Vereinsnamen speichern.")
+		return
+	}
+
 	if r.Method == "POST" {
 		parzelle := models.Parzelle{}
 		if err := populateParzelleFromForm(&parzelle, r); err != nil {
 			renderParzelleForm(w, r, "Neue Parzelle", parzelle, false, "Die PLZ darf nur aus Zahlen bestehen.")
 			return
 		}
+
+		parzelle.Verein = vereinName
 
 		if err := parzelle.Save(); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -102,7 +126,7 @@ func ParzelleNeuHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	renderParzelleForm(w, r, "Neue Parzelle", models.Parzelle{}, false, "")
+	renderParzelleForm(w, r, "Neue Parzelle", models.Parzelle{Verein: vereinName}, false, "")
 }
 
 func ParzelleEditHandler(w http.ResponseWriter, r *http.Request) {
@@ -119,6 +143,12 @@ func ParzelleEditHandler(w http.ResponseWriter, r *http.Request) {
 		if err := populateParzelleFromForm(parzelle, r); err != nil {
 			renderParzelleForm(w, r, "Parzelle bearbeiten", *parzelle, true, "Die PLZ darf nur aus Zahlen bestehen.")
 			return
+		}
+
+		if strings.TrimSpace(parzelle.Verein) == "" {
+			if vereinName, cfgErr := getConfiguredVerein(); cfgErr == nil && vereinName != "" {
+				parzelle.Verein = vereinName
+			}
 		}
 
 		if saveErr := parzelle.Save(); saveErr != nil {

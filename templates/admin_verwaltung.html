@@ -1,0 +1,599 @@
+{{define "content"}}
+<style>
+    :root {
+        --verwaltung-bg: #f3f7f4;
+        --verwaltung-surface: #ffffff;
+        --verwaltung-border: #d9e3dd;
+        --verwaltung-head: #e5efe8;
+        --verwaltung-accent: #1f8f4d;
+        --verwaltung-accent-dark: #176c3a;
+        --verwaltung-muted: #607568;
+        --verwaltung-danger: #c1372e;
+        --verwaltung-danger-dark: #9f2c24;
+    }
+
+    .settings-container {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 26px;
+        background: linear-gradient(170deg, #fbfdfb 0%, var(--verwaltung-bg) 100%);
+        border: 1px solid var(--verwaltung-border);
+        border-radius: 14px;
+        box-shadow: 0 18px 35px rgba(27, 57, 40, 0.08);
+    }
+
+    .settings-headline {
+        margin: 0 0 10px;
+        font-size: 1.9rem;
+        color: #1f3527;
+        letter-spacing: 0.01em;
+    }
+
+    .settings-subtitle {
+        margin: 0 0 18px;
+        color: var(--verwaltung-muted);
+        font-size: 0.98rem;
+    }
+
+    .settings-jumpnav {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+
+    .button {
+        min-height: 44px;
+        padding: 10px 14px;
+        background: var(--verwaltung-accent);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 700;
+        width: 100%;
+        text-align: center;
+        transition: background 0.2s ease, transform 0.2s ease;
+    }
+
+    .button:hover {
+        background: var(--verwaltung-accent-dark);
+        transform: translateY(-1px);
+    }
+
+    .button-critical {
+        background: var(--verwaltung-danger);
+    }
+
+    .button-critical:hover {
+        background: var(--verwaltung-danger-dark);
+    }
+
+    .settings-table-wrap {
+        background: var(--verwaltung-surface);
+        border: 1px solid var(--verwaltung-border);
+        border-radius: 12px;
+        overflow: hidden;
+    }
+
+    .settings-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .settings-table thead th {
+        background: var(--verwaltung-head);
+        color: #294936;
+        font-size: 0.82rem;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        text-align: left;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--verwaltung-border);
+    }
+
+    .settings-table td {
+        padding: 12px 14px;
+        border-bottom: 1px solid #edf2ee;
+        vertical-align: top;
+    }
+
+    .section-row td {
+        background: #f4f9f5;
+        color: #1f402d;
+        font-size: 0.85rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        border-bottom: 1px solid var(--verwaltung-border);
+    }
+
+    .setting-label {
+        font-weight: 700;
+        color: #203428;
+        margin-bottom: 4px;
+    }
+
+    .setting-meta {
+        color: #6e8276;
+        font-size: 0.86rem;
+    }
+
+    .settings-table input,
+    .settings-table select {
+        width: 100%;
+        border: 1px solid #cfdcd4;
+        border-radius: 8px;
+        padding: 9px 10px;
+        box-sizing: border-box;
+        background: #fff;
+    }
+
+    .settings-table input:focus,
+    .settings-table select:focus {
+        outline: none;
+        border-color: var(--verwaltung-accent);
+        box-shadow: 0 0 0 0.2rem rgba(31, 143, 77, 0.15);
+    }
+
+    .info-box {
+        background: #e8f5eb;
+        border-left: 4px solid var(--verwaltung-accent);
+        padding: 11px 12px;
+        border-radius: 8px;
+        margin-bottom: 14px;
+        color: #315641;
+    }
+
+    .button-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 16px;
+    }
+
+    .button-group .button {
+        width: auto;
+        min-width: 240px;
+        padding-left: 18px;
+        padding-right: 18px;
+    }
+
+    .success-message {
+        background: #dff0d8;
+        color: #3c763d;
+        padding: 10px;
+        border-radius: 6px;
+        margin-bottom: 10px;
+    }
+
+    .error-message {
+        background: #f8d7da;
+        color: #721c24;
+        padding: 10px;
+        border-radius: 6px;
+        margin-bottom: 10px;
+    }
+
+    @media (max-width: 960px) {
+        .settings-table thead {
+            display: none;
+        }
+
+        .settings-table,
+        .settings-table tbody,
+        .settings-table tr,
+        .settings-table td {
+            display: block;
+            width: 100%;
+        }
+
+        .settings-table tr {
+            border-bottom: 1px solid #e6ece8;
+            padding-bottom: 8px;
+            margin-bottom: 8px;
+        }
+
+        .section-row td {
+            border-bottom: 0;
+            margin-top: 12px;
+            border-radius: 8px;
+        }
+
+        .settings-table td {
+            border-bottom: 0;
+            padding: 8px 12px;
+        }
+
+        .button-group .button {
+            width: 100%;
+            min-width: 0;
+        }
+    }
+</style>
+
+<div class="settings-container">
+    <h1 class="settings-headline">Verwaltung</h1>
+    <p class="settings-subtitle">Stammdaten, Bankverbindung und Mailserver in einer zentralen, tabellarischen Ansicht verwalten.</p>
+    <div id="message"></div>
+
+    <div class="info-box">
+        Diese Stammdaten werden fuer neue Parzellen und den Mailversand verwendet.
+    </div>
+
+    <div class="settings-nav settings-jumpnav">
+        <button type="button" class="button" data-target="section-verein">Vereinsdaten</button>
+        <button type="button" class="button" data-target="section-bank">Bankdaten</button>
+        <button type="button" class="button" data-target="section-amtlich">Amtliche Nummern</button>
+        <button type="button" class="button" data-target="section-smtp">SMTP Versand</button>
+        <button type="button" class="button" data-target="section-imap">IMAP Zugriff</button>
+    </div>
+
+    <form id="organizationForm">
+        <div class="settings-table-wrap">
+            <table class="settings-table">
+                <thead>
+                    <tr>
+                        <th style="width: 34%;">Einstellung</th>
+                        <th style="width: 46%;">Wert</th>
+                        <th style="width: 20%;">Hinweis</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="section-row" id="section-verein"><td colspan="3">Vereinsdaten</td></tr>
+                    <tr>
+                        <td>
+                            <div class="setting-label">Vereinsname</div>
+                            <div class="setting-meta">Name fuer Rechnungen und Parzellen</div>
+                        </td>
+                        <td><input type="text" id="name" name="name" required></td>
+                        <td>Pflichtfeld</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="setting-label">Strasse</div>
+                            <div class="setting-meta">Postanschrift</div>
+                        </td>
+                        <td><input type="text" id="strasse" name="strasse"></td>
+                        <td>Optional</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="setting-label">Hausnummer</div>
+                            <div class="setting-meta">Postanschrift</div>
+                        </td>
+                        <td><input type="text" id="hausnummer" name="hausnummer"></td>
+                        <td>Optional</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="setting-label">PLZ</div>
+                            <div class="setting-meta">Postleitzahl</div>
+                        </td>
+                        <td><input type="text" id="plz" name="plz"></td>
+                        <td>Optional</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="setting-label">Ort</div>
+                            <div class="setting-meta">Stadt/Gemeinde</div>
+                        </td>
+                        <td><input type="text" id="ort" name="ort"></td>
+                        <td>Optional</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="setting-label">Telefon</div>
+                            <div class="setting-meta">Kontakt fuer Mitglieder</div>
+                        </td>
+                        <td><input type="tel" id="telefon" name="telefon"></td>
+                        <td>Optional</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="setting-label">E-Mail</div>
+                            <div class="setting-meta">Allgemeine Vereinsadresse</div>
+                        </td>
+                        <td><input type="email" id="email" name="email"></td>
+                        <td>Optional</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="setting-label">Website</div>
+                            <div class="setting-meta">Oeffentliche Vereinsseite</div>
+                        </td>
+                        <td><input type="url" id="website" name="website"></td>
+                        <td>Optional</td>
+                    </tr>
+
+                    <tr class="section-row" id="section-bank"><td colspan="3">Bankdaten</td></tr>
+                    <tr>
+                        <td>
+                            <div class="setting-label">IBAN</div>
+                            <div class="setting-meta">Kontodaten fuer Rechnungen</div>
+                        </td>
+                        <td><input type="text" id="iban" name="iban"></td>
+                        <td>Optional</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="setting-label">BIC</div>
+                            <div class="setting-meta">Internationale Bankkennung</div>
+                        </td>
+                        <td><input type="text" id="bic" name="bic"></td>
+                        <td>Optional</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="setting-label">Kontoinhaber</div>
+                            <div class="setting-meta">Name des Kontoinhabers</div>
+                        </td>
+                        <td><input type="text" id="kontoinhaber" name="kontoinhaber"></td>
+                        <td>Optional</td>
+                    </tr>
+
+                    <tr class="section-row" id="section-amtlich"><td colspan="3">Amtliche Nummern</td></tr>
+                    <tr>
+                        <td>
+                            <div class="setting-label">Steuernummer</div>
+                            <div class="setting-meta">Fuer Belege und Nachweise</div>
+                        </td>
+                        <td><input type="text" id="steuernummer" name="steuernummer"></td>
+                        <td>Optional</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="setting-label">Registernummer / Vereinsnummer</div>
+                            <div class="setting-meta">Offizielle Registrierung</div>
+                        </td>
+                        <td><input type="text" id="registernummer" name="registernummer"></td>
+                        <td>Optional</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="setting-label">Logo-Pfad</div>
+                            <div class="setting-meta">Logo fuer Rechnungen</div>
+                        </td>
+                        <td><input type="text" id="logo_path" name="logo_path" placeholder="/static/images/logo.png"></td>
+                        <td>Pfad im System</td>
+                    </tr>
+
+                    <tr class="section-row" id="section-smtp"><td colspan="3">SMTP Versand</td></tr>
+                    <tr>
+                        <td>
+                            <div class="setting-label">SMTP Host</div>
+                            <div class="setting-meta">Mailserver fuer Versand</div>
+                        </td>
+                        <td><input type="text" id="smtp_host" name="smtp_host" placeholder="smtp.example.de"></td>
+                        <td>z.B. smtp.anbieter.de</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="setting-label">SMTP Port</div>
+                            <div class="setting-meta">Standard meist 465 oder 587</div>
+                        </td>
+                        <td><input type="number" id="smtp_port" name="smtp_port" min="1" max="65535" value="465"></td>
+                        <td>1 - 65535</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="setting-label">SMTP Benutzername</div>
+                            <div class="setting-meta">Login fuer den Versand</div>
+                        </td>
+                        <td><input type="text" id="smtp_username" name="smtp_username"></td>
+                        <td>Optional je nach Anbieter</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="setting-label">SMTP Passwort</div>
+                            <div class="setting-meta">Nur zum Aendern eintragen</div>
+                        </td>
+                        <td>
+                            <input type="password" id="smtp_password" name="smtp_password" placeholder="Nur eingeben zum Aendern">
+                            <small id="smtpPasswordStatus" class="setting-meta"></small>
+                        </td>
+                        <td>Wird sicher gespeichert</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="setting-label">Absenderadresse</div>
+                            <div class="setting-meta">Von-Adresse fuer E-Mails</div>
+                        </td>
+                        <td><input type="email" id="smtp_from_address" name="smtp_from_address"></td>
+                        <td>Pflicht bei Versand</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="setting-label">Absendername</div>
+                            <div class="setting-meta">Anzeigename im Postfach</div>
+                        </td>
+                        <td><input type="text" id="smtp_from_name" name="smtp_from_name"></td>
+                        <td>z.B. Vereinsname</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="setting-label">Sicherheitsmodus</div>
+                            <div class="setting-meta">Verschluesselung fuer SMTP</div>
+                        </td>
+                        <td>
+                            <select id="smtp_tls_mode" name="smtp_tls_mode">
+                                <option value="tls">TLS / SSL</option>
+                                <option value="starttls">STARTTLS</option>
+                            </select>
+                        </td>
+                        <td>Empfehlung: TLS</td>
+                    </tr>
+
+                    <tr class="section-row" id="section-imap"><td colspan="3">IMAP Zugriff</td></tr>
+                    <tr>
+                        <td>
+                            <div class="setting-label">IMAP Host</div>
+                            <div class="setting-meta">Server fuer Posteingang</div>
+                        </td>
+                        <td><input type="text" id="imap_host" name="imap_host" placeholder="imap.example.de"></td>
+                        <td>z.B. imap.anbieter.de</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="setting-label">IMAP Port</div>
+                            <div class="setting-meta">Standard meist 993</div>
+                        </td>
+                        <td><input type="number" id="imap_port" name="imap_port" min="1" max="65535" value="993"></td>
+                        <td>1 - 65535</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="setting-label">IMAP Benutzername</div>
+                            <div class="setting-meta">Login fuer Abruf</div>
+                        </td>
+                        <td><input type="text" id="imap_username" name="imap_username"></td>
+                        <td>Optional je nach Anbieter</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="setting-label">IMAP Passwort</div>
+                            <div class="setting-meta">Nur zum Aendern eintragen</div>
+                        </td>
+                        <td>
+                            <input type="password" id="imap_password" name="imap_password" placeholder="Nur eingeben zum Aendern">
+                            <small id="imapPasswordStatus" class="setting-meta"></small>
+                        </td>
+                        <td>Wird sicher gespeichert</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="setting-label">Sichere IMAP-Verbindung</div>
+                            <div class="setting-meta">SSL/TLS fuer Abruf aktivieren</div>
+                        </td>
+                        <td>
+                            <label class="setting-meta" style="display:flex; align-items:center; gap:8px; margin:0;">
+                                <input type="checkbox" id="imap_secure" name="imap_secure" checked style="width:auto;">
+                                Aktiv
+                            </label>
+                        </td>
+                        <td>Empfohlen</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="button-group">
+            <button type="submit" class="button">Einstellungen speichern</button>
+            <button type="button" class="button button-critical" id="clearPasswordsButton">Passwortfelder leeren</button>
+        </div>
+    </form>
+</div>
+
+<script>
+    function showMessage(msg, type) {
+        const msgEl = document.getElementById('message');
+        msgEl.innerHTML = `<div class="${type}-message">${msg}</div>`;
+        setTimeout(() => msgEl.innerHTML = '', 5000);
+    }
+
+    window.addEventListener('load', () => {
+        fetch('/admin/organization-settings')
+            .then(r => r.json())
+            .then(org => {
+                if (!org || !org.id) {
+                    return;
+                }
+
+                document.getElementById('name').value = org.name || '';
+                document.getElementById('strasse').value = org.strasse || '';
+                document.getElementById('hausnummer').value = org.hausnummer || '';
+                document.getElementById('plz').value = org.plz || '';
+                document.getElementById('ort').value = org.ort || '';
+                document.getElementById('telefon').value = org.telefon || '';
+                document.getElementById('email').value = org.email || '';
+                document.getElementById('website').value = org.website || '';
+                document.getElementById('iban').value = org.iban || '';
+                document.getElementById('bic').value = org.bic || '';
+                document.getElementById('kontoinhaber').value = org.kontoinhaber || '';
+                document.getElementById('smtp_host').value = org.smtp_host || '';
+                document.getElementById('smtp_port').value = org.smtp_port || 465;
+                document.getElementById('smtp_username').value = org.smtp_username || '';
+                document.getElementById('smtp_from_address').value = org.smtp_from_address || '';
+                document.getElementById('smtp_from_name').value = org.smtp_from_name || '';
+                document.getElementById('smtp_tls_mode').value = org.smtp_tls_mode || 'tls';
+                document.getElementById('imap_host').value = org.imap_host || '';
+                document.getElementById('imap_port').value = org.imap_port || 993;
+                document.getElementById('imap_username').value = org.imap_username || '';
+                document.getElementById('imap_secure').checked = !!org.imap_secure;
+                document.getElementById('smtpPasswordStatus').textContent = org.smtp_password_configured ? 'SMTP-Passwort ist gespeichert' : 'Noch kein SMTP-Passwort gespeichert';
+                document.getElementById('imapPasswordStatus').textContent = org.imap_password_configured ? 'IMAP-Passwort ist gespeichert' : 'Noch kein IMAP-Passwort gespeichert';
+                document.getElementById('steuernummer').value = org.steuernummer || '';
+                document.getElementById('registernummer').value = org.registernummer || '';
+                document.getElementById('logo_path').value = org.logo_path || '';
+            })
+            .catch(e => {
+                showMessage(`Fehler beim Laden der Organisationsdaten: ${e}`, 'error');
+            });
+
+        document.querySelectorAll('.settings-nav .button').forEach(button => {
+            button.addEventListener('click', () => {
+                const targetId = button.getAttribute('data-target');
+                const target = document.getElementById(targetId);
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+
+        const clearPasswordsButton = document.getElementById('clearPasswordsButton');
+        if (clearPasswordsButton) {
+            clearPasswordsButton.addEventListener('click', () => {
+                document.getElementById('smtp_password').value = '';
+                document.getElementById('imap_password').value = '';
+                showMessage('Passwortfelder wurden geleert (nicht gespeichert).', 'success');
+            });
+        }
+    });
+
+    document.getElementById('organizationForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        const org = {
+            name: document.getElementById('name').value,
+            strasse: document.getElementById('strasse').value,
+            hausnummer: document.getElementById('hausnummer').value,
+            plz: document.getElementById('plz').value,
+            ort: document.getElementById('ort').value,
+            telefon: document.getElementById('telefon').value,
+            email: document.getElementById('email').value,
+            website: document.getElementById('website').value,
+            iban: document.getElementById('iban').value,
+            bic: document.getElementById('bic').value,
+            kontoinhaber: document.getElementById('kontoinhaber').value,
+            smtp_host: document.getElementById('smtp_host').value,
+            smtp_port: parseInt(document.getElementById('smtp_port').value, 10) || 465,
+            smtp_username: document.getElementById('smtp_username').value,
+            smtp_password: document.getElementById('smtp_password').value,
+            smtp_from_address: document.getElementById('smtp_from_address').value,
+            smtp_from_name: document.getElementById('smtp_from_name').value,
+            smtp_tls_mode: document.getElementById('smtp_tls_mode').value,
+            imap_host: document.getElementById('imap_host').value,
+            imap_port: parseInt(document.getElementById('imap_port').value, 10) || 993,
+            imap_username: document.getElementById('imap_username').value,
+            imap_password: document.getElementById('imap_password').value,
+            imap_secure: document.getElementById('imap_secure').checked,
+            steuernummer: document.getElementById('steuernummer').value,
+            registernummer: document.getElementById('registernummer').value,
+            logo_path: document.getElementById('logo_path').value
+        };
+
+        fetch('/admin/organization-settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(org)
+        })
+        .then(r => r.json())
+        .then(() => {
+            showMessage('Organisationsdaten gespeichert', 'success');
+            document.getElementById('smtp_password').value = '';
+            document.getElementById('imap_password').value = '';
+        })
+        .catch(e => showMessage(`Fehler: ${e}`, 'error'));
+    });
+</script>
+{{end}}

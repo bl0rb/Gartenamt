@@ -29,49 +29,17 @@
                     </a>
                     {{end}}
                     
-                    <!-- Benutzer-Dropdown -->
-                    <div class="dropdown">
-                        <a class="nav-link dropdown-toggle text-light" href="#" role="button" 
-                           id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="fas fa-user"></i> {{.Session.Username}}
-                            {{if eq .Session.Role "admin"}}
-                                <small class="badge bg-danger ms-1">Verwaltung</small>
-                            {{end}}
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
-                            <li>
-                                <h6 class="dropdown-header">
-                                    <i class="fas fa-user"></i> {{.Session.Username}}
-                                </h6>
-                            </li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li>
-                                <a class="dropdown-item" href="/profile">
-                                    <i class="fas fa-user-edit"></i> Profil
-                                </a>
-                            </li>
-                            {{if eq .Session.Role "admin"}}
-                            <li>
-                                <a class="dropdown-item" href="/admin/users">
-                                    <i class="fas fa-users"></i> Benutzerverwaltung
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item" href="/admin/audit-log">
-                                    <i class="fas fa-history"></i> Audit-Log
-                                </a>
-                            </li>
-                            {{end}}
-                            <li><hr class="dropdown-divider"></li>
-                            <li>
-                                <form method="POST" action="/logout" class="d-inline">
-                                    <button type="submit" class="dropdown-item text-danger">
-                                        <i class="fas fa-sign-out-alt"></i> Abmelden
-                                    </button>
-                                </form>
-                            </li>
-                        </ul>
-                    </div>
+                    <span class="nav-link text-light me-2">
+                        <i class="fas fa-user"></i> {{.Session.Username}}
+                        {{if eq .Session.Role "admin"}}
+                            <small class="badge bg-danger ms-1">Verwaltung</small>
+                        {{end}}
+                    </span>
+                    <form method="POST" action="/logout" class="d-inline">
+                        <button type="submit" class="btn btn-link nav-link text-light p-0" title="Abmelden" aria-label="Abmelden">
+                            <i class="fas fa-power-off"></i>
+                        </button>
+                    </form>
                 {{else}}
                     <!-- Nicht authentifiziert - Login-Button -->
                     <a class="btn btn-outline-light" href="/login">
@@ -94,33 +62,75 @@
     </div>
     {{end}}
     
+    {{if and .Session (eq .Session.Role "admin") .IsAdminPage}}
+    <div class="container-fluid mt-4 px-3 px-lg-4">
+        <div class="admin-layout" id="adminLayout">
+            <aside class="admin-sidebar">
+                <div class="admin-sidebar-head">
+                    <p class="admin-sidebar-title">Admin-Menue</p>
+                    <button type="button" class="btn btn-sm sidebar-toggle" id="adminSidebarToggle" title="Sidebar ein-/ausblenden" aria-label="Sidebar ein-/ausblenden">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                </div>
+                <div class="admin-sidebar-scroll">
+                    <div>
+                        <p class="sidebar-section-title">Uebersicht</p>
+                        <a href="/admin" class="sidebar-link {{if eq .AdminSection "dashboard"}}active{{end}}"><i class="fas fa-home"></i><span>Dashboard</span></a>
+                    </div>
+
+                    <div>
+                        <p class="sidebar-section-title">Stammdaten</p>
+                        <a href="/admin/obstarten" class="sidebar-link {{if eq .AdminSection "obstarten"}}active{{end}}"><i class="fas fa-apple-alt"></i><span>Obstarten</span></a>
+                        <a href="/admin/zieranpflanzungen" class="sidebar-link {{if eq .AdminSection "zieranpflanzungen"}}active{{end}}"><i class="fas fa-seedling"></i><span>Zieranpflanzungen</span></a>
+                        <a href="/admin/bauindex" class="sidebar-link {{if eq .AdminSection "bauindex"}}active{{end}}"><i class="fas fa-building"></i><span>Bauindex</span></a>
+                        <a href="/admin/verwaltung" class="sidebar-link {{if eq .AdminSection "verwaltung"}}active{{end}}"><i class="fas fa-sliders-h"></i><span>Einstellungen</span></a>
+                    </div>
+
+                    <div>
+                        <p class="sidebar-section-title">Verwaltung</p>
+                        <a href="/admin/users" class="sidebar-link {{if eq .AdminSection "users"}}active{{end}}"><i class="fas fa-users-cog"></i><span>Benutzer</span></a>
+                        <a href="/admin/invoices" class="sidebar-link {{if eq .AdminSection "invoices"}}active{{end}}"><i class="fas fa-file-invoice"></i><span>Rechnungen</span></a>
+                        <a href="/admin/parzellen" class="sidebar-link {{if eq .AdminSection "parzellen"}}active{{end}}"><i class="fas fa-map"></i><span>Parzellen</span></a>
+                        <a href="/admin/protokolle" class="sidebar-link {{if eq .AdminSection "protokolle"}}active{{end}}"><i class="fas fa-clipboard-list"></i><span>Protokolle</span></a>
+                    </div>
+
+                    <div>
+                        <p class="sidebar-section-title">Sicherheit</p>
+                        <a href="/admin/backup" class="sidebar-link {{if eq .AdminSection "backup"}}active{{end}}"><i class="fas fa-download"></i><span>Backup</span></a>
+                        <a href="/admin/audit-log" class="sidebar-link {{if eq .AdminSection "audit"}}active{{end}}"><i class="fas fa-history"></i><span>Audit-Log</span></a>
+                        <a href="/admin/system-info" class="sidebar-link {{if eq .AdminSection "system"}}active{{end}}"><i class="fas fa-info-circle"></i><span>System-Info</span></a>
+                    </div>
+                </div>
+            </aside>
+
+            <main class="admin-main">
+                {{template "content" .}}
+            </main>
+        </div>
+    </div>
+    {{else}}
     <div class="container mt-4">
         {{template "content" .}}
     </div>
+    {{end}}
     
-    <!-- Footer mit Session-Info -->
-    <footer class="bg-light mt-5 py-3">
+    <footer class="mt-5 py-3" style="border-top: 1px solid var(--color-border); background: var(--color-surface);">
         <div class="container">
-            <div class="row">
-                <div class="col-md-6">
-                    <small class="text-muted">
-                        <i class="fas fa-seedling"></i> Kleingarten-Verwaltung 
-                        {{if .Session}}
-                        | Angemeldet als: <strong>{{.Session.Username}}</strong>
-                        {{else}}
-                        | <a href="/login">Anmeldung erforderlich</a>
-                        {{end}}
-                    </small>
-                </div>
-                <div class="col-md-6 text-end">
-                    <small class="text-muted">
-                        {{if .Session}}
-                            <i class="fas fa-shield-alt text-success"></i> Sichere Verbindung
-                        {{else}}
-                            <i class="fas fa-shield-alt text-warning"></i> Nicht angemeldet
-                        {{end}}
-                    </small>
-                </div>
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <small class="text-muted">
+                    <i class="fas fa-seedling" style="color: var(--color-primary);"></i>
+                    Kleingarten-Verwaltung
+                    {{if .Session}}
+                    &nbsp;&middot;&nbsp; Angemeldet als <strong>{{.Session.Username}}</strong>
+                    {{else}}
+                    &nbsp;&middot;&nbsp; <a href="/login" class="text-muted">Anmeldung erforderlich</a>
+                    {{end}}
+                </small>
+                {{if .Session}}
+                <small class="text-muted">
+                    <i class="fas fa-lock" style="color: var(--color-primary);"></i> Gesicherte Sitzung
+                </small>
+                {{end}}
             </div>
         </div>
     </footer>
@@ -141,6 +151,26 @@
     // CSRF-Schutz für alle Formulare
     document.addEventListener('DOMContentLoaded', function() {
         // Hier können später CSRF-Tokens hinzugefügt werden
+
+        const layout = document.getElementById('adminLayout');
+        const toggle = document.getElementById('adminSidebarToggle');
+        const storageKey = 'adminSidebarCollapsed';
+
+        if (layout && toggle) {
+            const applyState = (collapsed) => {
+                layout.classList.toggle('sidebar-collapsed', collapsed);
+                toggle.setAttribute('aria-pressed', collapsed ? 'true' : 'false');
+            };
+
+            const saved = localStorage.getItem(storageKey);
+            applyState(saved === '1');
+
+            toggle.addEventListener('click', function() {
+                const collapsed = !layout.classList.contains('sidebar-collapsed');
+                applyState(collapsed);
+                localStorage.setItem(storageKey, collapsed ? '1' : '0');
+            });
+        }
     });
     </script>
     {{end}}
