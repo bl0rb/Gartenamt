@@ -105,65 +105,69 @@ func main() {
 	r.HandleFunc("/profile", middleware.RequireAuth(handlers.ProfileHandler)).Methods("GET")
 	r.HandleFunc("/change-password", middleware.RequireAuth(handlers.ChangePasswordHandler)).Methods("POST")
 
-	// *** ADMIN-ROUTEN (NUR ADMINISTRATOREN) ***
+	// *** ADMIN-ROUTEN (BACKOFFICE + BERECHTIGUNGEN) ***
 	adminRoutes := r.PathPrefix("/admin").Subrouter()
 
 	// Dashboard
-	adminRoutes.HandleFunc("", middleware.RequireAdmin(handlers.AdminDashboardHandler)).Methods("GET")
-	adminRoutes.HandleFunc("/", middleware.RequireAdmin(handlers.AdminDashboardHandler)).Methods("GET")
-	adminRoutes.HandleFunc("/verwaltung", middleware.RequireAdmin(handlers.AdminVerwaltungHandler)).Methods("GET")
+	adminRoutes.HandleFunc("", middleware.RequirePermission("dashboard.access", handlers.AdminDashboardHandler)).Methods("GET")
+	adminRoutes.HandleFunc("/", middleware.RequirePermission("dashboard.access", handlers.AdminDashboardHandler)).Methods("GET")
+	adminRoutes.HandleFunc("/verwaltung", middleware.RequirePermission("settings.manage", handlers.AdminVerwaltungHandler)).Methods("GET")
 
 	// Daten-Management
-	adminRoutes.HandleFunc("/obstarten", middleware.RequireAdmin(handlers.AdminObstartenHandler)).Methods("GET", "POST")
-	adminRoutes.HandleFunc("/obstarten/{id}/delete", middleware.RequireAdmin(handlers.AdminObstartenLoeschenHandler)).Methods("POST")
-	adminRoutes.HandleFunc("/zieranpflanzungen", middleware.RequireAdmin(handlers.AdminZieranpflanzungenHandler)).Methods("GET", "POST")
-	adminRoutes.HandleFunc("/zieranpflanzungen/{id}/delete", middleware.RequireAdmin(handlers.AdminZieranpflanzungenLoeschenHandler)).Methods("POST")
-	adminRoutes.HandleFunc("/bauindex", middleware.RequireAdmin(handlers.AdminBauindexHandler)).Methods("GET", "POST")
-	adminRoutes.HandleFunc("/bauindex/{jahr}/delete", middleware.RequireAdmin(handlers.AdminBauindexLoeschenHandler)).Methods("POST")
+	adminRoutes.HandleFunc("/obstarten", middleware.RequirePermission("stammdaten.manage", handlers.AdminObstartenHandler)).Methods("GET", "POST")
+	adminRoutes.HandleFunc("/obstarten/{id}/delete", middleware.RequirePermission("stammdaten.manage", handlers.AdminObstartenLoeschenHandler)).Methods("POST")
+	adminRoutes.HandleFunc("/zieranpflanzungen", middleware.RequirePermission("stammdaten.manage", handlers.AdminZieranpflanzungenHandler)).Methods("GET", "POST")
+	adminRoutes.HandleFunc("/zieranpflanzungen/{id}/delete", middleware.RequirePermission("stammdaten.manage", handlers.AdminZieranpflanzungenLoeschenHandler)).Methods("POST")
+	adminRoutes.HandleFunc("/bauindex", middleware.RequirePermission("stammdaten.manage", handlers.AdminBauindexHandler)).Methods("GET", "POST")
+	adminRoutes.HandleFunc("/bauindex/{jahr}/delete", middleware.RequirePermission("stammdaten.manage", handlers.AdminBauindexLoeschenHandler)).Methods("POST")
+	adminRoutes.HandleFunc("/parzellen", middleware.RequirePermission("parzellen.manage", handlers.ParzellenListHandler)).Methods("GET")
+	adminRoutes.HandleFunc("/parzellen/neu", middleware.RequirePermission("parzellen.manage", handlers.ParzelleNeuHandler)).Methods("GET", "POST")
+	adminRoutes.HandleFunc("/parzellen/{id}/edit", middleware.RequirePermission("parzellen.manage", handlers.ParzelleEditHandler)).Methods("GET", "POST")
+	adminRoutes.HandleFunc("/parzellen/{id}", middleware.RequirePermission("parzellen.manage", handlers.ParzelleDetailHandler)).Methods("GET")
 
 	// Parzellen-Verwaltung (Löschen)
-	adminRoutes.HandleFunc("/parzellen", middleware.RequireAdmin(handlers.AdminParzellenVerwaltungHandler)).Methods("GET")
-	adminRoutes.HandleFunc("/parzellen/{id}/delete", middleware.RequireAdmin(handlers.AdminParzellenLoeschenHandler)).Methods("GET", "POST")
+	adminRoutes.HandleFunc("/parzellen/verwalten", middleware.RequirePermission("parzellen.manage", handlers.AdminParzellenVerwaltungHandler)).Methods("GET")
+	adminRoutes.HandleFunc("/parzellen/{id}/delete", middleware.RequirePermission("parzellen.manage", handlers.AdminParzellenLoeschenHandler)).Methods("GET", "POST")
 
 	// Protokoll-Verwaltung (Löschen)
-	adminRoutes.HandleFunc("/protokolle", middleware.RequireAdmin(handlers.AdminProtokollVerwaltungHandler)).Methods("GET")
-	adminRoutes.HandleFunc("/inspektionen/{id}/delete", middleware.RequireAdmin(handlers.AdminInspektionLoeschenHandler)).Methods("POST")
-	adminRoutes.HandleFunc("/wertermittlungen/{id}/delete", middleware.RequireAdmin(handlers.AdminWertermittlungLoeschenHandler)).Methods("POST")
-	adminRoutes.HandleFunc("/bulk-delete", middleware.RequireAdmin(handlers.AdminBulkDeleteHandler)).Methods("POST")
+	adminRoutes.HandleFunc("/protokolle", middleware.RequirePermission("protokolle.manage", handlers.AdminProtokollVerwaltungHandler)).Methods("GET")
+	adminRoutes.HandleFunc("/inspektionen/{id}/delete", middleware.RequirePermission("protokolle.manage", handlers.AdminInspektionLoeschenHandler)).Methods("POST")
+	adminRoutes.HandleFunc("/wertermittlungen/{id}/delete", middleware.RequirePermission("protokolle.manage", handlers.AdminWertermittlungLoeschenHandler)).Methods("POST")
+	adminRoutes.HandleFunc("/bulk-delete", middleware.RequirePermission("protokolle.manage", handlers.AdminBulkDeleteHandler)).Methods("POST")
 
 	// System-Management
-	adminRoutes.HandleFunc("/backup", middleware.RequireAdmin(handlers.AdminBackupHandler)).Methods("GET", "POST")
-	adminRoutes.HandleFunc("/audit-log", middleware.RequireAdmin(handlers.AdminAuditLogHandler)).Methods("GET")
-	adminRoutes.HandleFunc("/system-info", middleware.RequireAdmin(handlers.AdminSystemInfoHandler)).Methods("GET")
+	adminRoutes.HandleFunc("/backup", middleware.RequirePermission("backup.manage", handlers.AdminBackupHandler)).Methods("GET", "POST")
+	adminRoutes.HandleFunc("/audit-log", middleware.RequirePermission("audit.view", handlers.AdminAuditLogHandler)).Methods("GET")
+	adminRoutes.HandleFunc("/system-info", middleware.RequirePermission("system.settings", handlers.AdminSystemInfoHandler)).Methods("GET")
 
-	// *** BENUTZER-VERWALTUNG (NUR ADMINISTRATOREN) ***
-	adminRoutes.HandleFunc("/users", middleware.RequireAdmin(handlers.AdminUsersHandlerEnhanced)).Methods("GET", "POST")
-	adminRoutes.HandleFunc("/users/{id}/edit", middleware.RequireAdmin(handlers.AdminUserEditHandler)).Methods("GET", "POST")
+	// *** BENUTZER-VERWALTUNG ***
+	adminRoutes.HandleFunc("/users", middleware.RequirePermission("users.manage", handlers.AdminUsersHandlerEnhanced)).Methods("GET", "POST")
+	adminRoutes.HandleFunc("/users/{id}/edit", middleware.RequirePermission("users.manage", handlers.AdminUserEditHandler)).Methods("GET", "POST")
 
-	// *** INVOICE-/RECHNUNGS-VERWALTUNG (NUR ADMINISTRATOREN) ***
+	// *** INVOICE-/RECHNUNGS-VERWALTUNG ***
 	// Invoice management dashboard
-	adminRoutes.HandleFunc("/invoices", middleware.RequireAdmin(handlers.AdminInvoiceManagementHandler)).Methods("GET")
+	adminRoutes.HandleFunc("/invoices", middleware.RequirePermission("invoices.manage", handlers.AdminInvoiceManagementHandler)).Methods("GET")
 
 	// Organization settings for invoices
-	adminRoutes.HandleFunc("/organization-settings", middleware.RequireAdmin(handlers.OrganizationSettingsHandler)).Methods("GET", "POST")
+	adminRoutes.HandleFunc("/organization-settings", middleware.RequirePermission("settings.manage", handlers.OrganizationSettingsHandler)).Methods("GET", "POST")
 
 	// Water (Wasser) records per parzelle
-	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/wasser", middleware.RequireAdmin(handlers.WasserHandler)).Methods("GET", "POST")
-	adminRoutes.HandleFunc("/wasser/{id}/delete", middleware.RequireAdmin(handlers.DeleteWasserHandler)).Methods("POST")
+	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/wasser", middleware.RequirePermission("invoices.manage", handlers.WasserHandler)).Methods("GET", "POST")
+	adminRoutes.HandleFunc("/wasser/{id}/delete", middleware.RequirePermission("invoices.manage", handlers.DeleteWasserHandler)).Methods("POST")
 
 	// Electricity (Strom) records per parzelle
-	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/strom", middleware.RequireAdmin(handlers.StromHandler)).Methods("GET", "POST")
-	adminRoutes.HandleFunc("/strom/{id}/delete", middleware.RequireAdmin(handlers.DeleteStromHandler)).Methods("POST")
+	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/strom", middleware.RequirePermission("invoices.manage", handlers.StromHandler)).Methods("GET", "POST")
+	adminRoutes.HandleFunc("/strom/{id}/delete", middleware.RequirePermission("invoices.manage", handlers.DeleteStromHandler)).Methods("POST")
 
 	// Invoice preview and generation
-	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/invoice", middleware.RequireAdmin(handlers.InvoicePreviewHandler)).Methods("GET")
-	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/invoice/history", middleware.RequireAdmin(handlers.InvoiceHistoryHandler)).Methods("GET")
-	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/invoice/pdf", middleware.RequireAdmin(handlers.InvoicePDFDownloadHandler)).Methods("GET")
-	adminRoutes.HandleFunc("/invoices/export", middleware.RequireAdmin(handlers.AdminBulkInvoiceExportHandler)).Methods("GET")
-	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/email/send", middleware.RequireAdmin(handlers.SendParzelleEmailHandler)).Methods("POST")
-	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/email/info", middleware.RequireAdmin(handlers.SendParzelleInfoMailHandler)).Methods("POST")
-	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/email/history", middleware.RequireAdmin(handlers.ParzelleEmailHistoryHandler)).Methods("GET")
-	adminRoutes.HandleFunc("/emails/send-bulk", middleware.RequireAdmin(handlers.SendBulkParzelleEmailHandler)).Methods("POST")
+	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/invoice", middleware.RequirePermission("invoices.manage", handlers.InvoicePreviewHandler)).Methods("GET")
+	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/invoice/history", middleware.RequirePermission("invoices.manage", handlers.InvoiceHistoryHandler)).Methods("GET")
+	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/invoice/pdf", middleware.RequirePermission("invoices.manage", handlers.InvoicePDFDownloadHandler)).Methods("GET")
+	adminRoutes.HandleFunc("/invoices/export", middleware.RequirePermission("invoices.manage", handlers.AdminBulkInvoiceExportHandler)).Methods("GET")
+	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/email/send", middleware.RequirePermission("invoices.manage", handlers.SendParzelleEmailHandler)).Methods("POST")
+	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/email/info", middleware.RequirePermission("invoices.manage", handlers.SendParzelleInfoMailHandler)).Methods("POST")
+	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/email/history", middleware.RequirePermission("invoices.manage", handlers.ParzelleEmailHistoryHandler)).Methods("GET")
+	adminRoutes.HandleFunc("/emails/send-bulk", middleware.RequirePermission("invoices.manage", handlers.SendBulkParzelleEmailHandler)).Methods("POST")
 
 	// *** API-ROUTEN (für authentifizierte Benutzer) ***
 	r.HandleFunc("/api/obstarten/preise", middleware.RequireAuth(handlers.APIObstartenPreiseHandler)).Methods("GET")

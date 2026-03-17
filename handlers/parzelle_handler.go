@@ -18,6 +18,17 @@ import (
 var plzPattern = regexp.MustCompile(`^\d+$`)
 var errInvalidPLZ = errors.New("invalid plz")
 
+func isAdminParzellenScope(r *http.Request) bool {
+	return strings.HasPrefix(r.URL.Path, "/admin/parzellen")
+}
+
+func parzellenBasePath(r *http.Request) string {
+	if isAdminParzellenScope(r) {
+		return "/admin/parzellen"
+	}
+	return "/parzellen"
+}
+
 func populateParzelleFromForm(parzelle *models.Parzelle, r *http.Request) error {
 	parzelle.Nummer = strings.TrimSpace(r.FormValue("nummer"))
 	parzelle.Verein = strings.TrimSpace(r.FormValue("verein"))
@@ -61,20 +72,24 @@ func getConfiguredVerein() (string, error) {
 }
 
 func renderParzelleForm(w http.ResponseWriter, r *http.Request, title string, parzelle models.Parzelle, isEdit bool, errMsg string) {
-	session := middleware.GetSessionFromContext(r.Context())
 	organizationName, _ := getConfiguredVerein()
 	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/parzelle_neu.html"))
-	tmpl.Execute(w, map[string]interface{}{
-		"Title":            title,
-		"Session":          session,
-		"Parzelle":         parzelle,
-		"IsEdit":           isEdit,
-		"Error":            errMsg,
-		"OrganizationName": organizationName,
-	})
+	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
+		"Title":             title,
+		"Parzelle":          parzelle,
+		"IsEdit":            isEdit,
+		"Error":             errMsg,
+		"OrganizationName":  organizationName,
+		"ParzellenBasePath": parzellenBasePath(r),
+	}))
 }
 
 func HomeHandler(w http.ResponseWriter, r *http.Request) {
+	session := middleware.GetSessionFromContext(r.Context())
+	if session != nil && models.IsBackofficeRole(session.Role) {
+		http.Redirect(w, r, "/admin", http.StatusSeeOther)
+		return
+	}
 	http.Redirect(w, r, "/parzellen", http.StatusSeeOther)
 }
 
@@ -85,15 +100,13 @@ func ParzellenListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Session aus Context laden
-	session := middleware.GetSessionFromContext(r.Context())
-
 	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/parzellen.html"))
-	tmpl.Execute(w, map[string]interface{}{
-		"Title":     "Parzellenverwaltung",
-		"Parzellen": parzellen,
-		"Session":   session, // NEU: Session für Layout
-	})
+	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
+		"Title":             "Parzellenverwaltung",
+		"Parzellen":         parzellen,
+		"ParzellenBasePath": parzellenBasePath(r),
+		"IsAdminParzellen":  isAdminParzellenScope(r),
+	}))
 }
 
 func ParzelleNeuHandler(w http.ResponseWriter, r *http.Request) {
@@ -122,7 +135,7 @@ func ParzelleNeuHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		http.Redirect(w, r, "/parzellen", http.StatusSeeOther)
+		http.Redirect(w, r, parzellenBasePath(r), http.StatusSeeOther)
 		return
 	}
 
@@ -156,7 +169,7 @@ func ParzelleEditHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		http.Redirect(w, r, "/parzellen/"+strconv.Itoa(parzelle.ID), http.StatusSeeOther)
+		http.Redirect(w, r, parzellenBasePath(r)+"/"+strconv.Itoa(parzelle.ID), http.StatusSeeOther)
 		return
 	}
 
@@ -173,9 +186,6 @@ func ParzelleDetailHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Session aus Context laden
-	session := middleware.GetSessionFromContext(r.Context())
-
 	// Aktuelle Inspektion und Wertermittlung laden
 	inspektion, _ := models.GetInspektionByParzelleID(id)
 	wertermittlung, _ := models.GetWertermittlungByParzelleID(id)
@@ -191,13 +201,13 @@ func ParzelleDetailHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tmpl := template.Must(LoadTemplateWithFuncs(funcMap, "templates/layout.html", "templates/parzelle_detail.html"))
-	err = tmpl.ExecuteTemplate(w, "layout.html", map[string]interface{}{
-		"Title":          "Parzelle " + parzelle.Nummer,
-		"Parzelle":       parzelle,
-		"Inspektion":     inspektion,
-		"Wertermittlung": wertermittlung,
-		"Session":        session, // NEU: Session für Layout
-	})
+	err = tmpl.ExecuteTemplate(w, "layout.html", AddSessionToData(r, map[string]interface{}{
+		"Title":             "Parzelle " + parzelle.Nummer,
+		"Parzelle":          parzelle,
+		"Inspektion":        inspektion,
+		"Wertermittlung":    wertermittlung,
+		"ParzellenBasePath": parzellenBasePath(r),
+	}))
 
 	if err != nil {
 		http.Error(w, "Template error: "+err.Error(), http.StatusInternalServerError)

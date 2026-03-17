@@ -4,6 +4,7 @@ import (
 	"html/template"
 	"io/fs"
 	"kleingarten-verwaltung/middleware"
+	"kleingarten-verwaltung/models"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -87,12 +88,19 @@ func GetEmbeddedStaticFS() fs.FS {
 // AddSessionToData copies session from context into your template data map.
 
 func AddSessionToData(r *http.Request, data map[string]interface{}) map[string]interface{} {
-	data["Session"] = middleware.GetSessionFromContext(r.Context())
+	session := middleware.GetSessionFromContext(r.Context())
+	data["Session"] = session
+
+	if session != nil {
+		data["IsBackoffice"] = models.IsBackofficeRole(session.Role)
+		data["RoleLabel"] = models.RoleDisplayName(session.Role)
+	}
+
 	data["IsAdminPage"] = strings.HasPrefix(r.URL.Path, "/admin")
 
 	section := ""
 	switch {
-	case r.URL.Path == "/admin":
+	case r.URL.Path == "/admin" || r.URL.Path == "/admin/":
 		section = "dashboard"
 	case strings.HasPrefix(r.URL.Path, "/admin/obstarten"):
 		section = "obstarten"

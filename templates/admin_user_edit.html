@@ -44,9 +44,41 @@
                             <div class="mb-3">
                                 <label for="role" class="form-label">Rolle</label>
                                 <select class="form-select" id="role" name="role">
-                                    <option value="user" {{if eq .User.Role "user"}}selected{{end}}>Benutzer</option>
-                                    <option value="admin" {{if eq .User.Role "admin"}}selected{{end}}>Verwaltung</option>
+                                    {{range .RoleOptions}}
+                                    <option value="{{.}}" {{if eq $.User.Role .}}selected{{end}}>{{roleLabel .}}</option>
+                                    {{end}}
                                 </select>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Rechte dieser Rolle</label>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>Berechtigung</th>
+                                                <th class="text-center">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {{range .PermissionCatalog}}
+                                            <tr>
+                                                <td>
+                                                    <strong>{{.Label}}</strong>
+                                                    <div class="small text-muted">{{.Category}}</div>
+                                                </td>
+                                                <td class="text-center">
+                                                    {{if hasPermission $.User.Role .Key}}
+                                                    <span class="text-success"><i class="fas fa-check-circle"></i></span>
+                                                    {{else}}
+                                                    <span class="text-muted"><i class="fas fa-minus-circle"></i></span>
+                                                    {{end}}
+                                                </td>
+                                            </tr>
+                                            {{end}}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
 
                             <div class="form-check mb-3">

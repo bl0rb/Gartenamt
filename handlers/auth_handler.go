@@ -18,6 +18,11 @@ import (
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	// Bereits eingeloggte Benutzer zur Hauptseite weiterleiten
 	if middleware.IsAuthenticated(r) {
+		session := middleware.GetSessionFromContext(r.Context())
+		if session != nil && models.IsBackofficeRole(session.Role) {
+			http.Redirect(w, r, "/admin", http.StatusSeeOther)
+			return
+		}
 		http.Redirect(w, r, "/parzellen", http.StatusSeeOther)
 		return
 	}
@@ -55,7 +60,11 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		if redirectURL != "" && !strings.Contains(redirectURL, "login") {
 			http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 		} else {
-			http.Redirect(w, r, "/parzellen", http.StatusSeeOther)
+			if models.IsBackofficeRole(session.Role) {
+				http.Redirect(w, r, "/admin", http.StatusSeeOther)
+			} else {
+				http.Redirect(w, r, "/parzellen", http.StatusSeeOther)
+			}
 		}
 		return
 	}
@@ -107,12 +116,11 @@ func ProfileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/profile.html"))
-	tmpl.Execute(w, map[string]interface{}{
+	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
 		"Title":   "Profil",
 		"User":    user,
-		"Session": session,
 		"Success": successMsg,
-	})
+	}))
 }
 
 // ChangePasswordHandler handles password changes for current user
@@ -279,12 +287,13 @@ func AdminUserEditHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// GET request - show edit form
-	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/admin_user_edit.html"))
-	tmpl.Execute(w, map[string]interface{}{
-		"Title":   "Benutzer bearbeiten",
-		"User":    user,
-		"Session": middleware.GetSessionFromContext(r.Context()),
-	})
+	tmpl := template.Must(LoadTemplateWithFuncs(adminUsersTemplateFuncMap(), "templates/layout.html", "templates/admin_user_edit.html"))
+	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
+		"Title":             "Benutzer bearbeiten",
+		"User":              user,
+		"RoleOptions":       models.GetAllRoles(),
+		"PermissionCatalog": models.PermissionCatalog(),
+	}))
 }
 
 // AdminUsersHandlerEnhanced shows enhanced user management
@@ -310,10 +319,7 @@ func AdminUsersHandlerEnhanced(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		userRole := models.RoleUser
-		if role == "admin" {
-			userRole = models.RoleAdmin
-		}
+		userRole := models.UserRole(models.NormalizeRole(role))
 
 		_, err := models.CreateUser(username, email, password, userRole)
 		if err != nil {
@@ -351,21 +357,15 @@ func AdminUsersHandlerEnhanced(w http.ResponseWriter, r *http.Request) {
 		successMsg = "Benutzer erfolgreich reaktiviert"
 	}
 
-	// Define template functions
-	funcMap := template.FuncMap{
-		"contains": func(s, substr string) bool {
-			return strings.Contains(s, substr)
-		},
-	}
-
-	tmpl := template.Must(LoadTemplateWithFuncs(funcMap, "templates/layout.html", "templates/admin_users.html"))
-	tmpl.Execute(w, map[string]interface{}{
-		"Title":          "Benutzerverwaltung",
-		"Users":          users,
-		"ActiveSessions": activeSessions,
-		"Session":        middleware.GetSessionFromContext(r.Context()),
-		"Success":        successMsg,
-	})
+	tmpl := template.Must(LoadTemplateWithFuncs(adminUsersTemplateFuncMap(), "templates/layout.html", "templates/admin_users.html"))
+	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
+		"Title":             "Benutzerverwaltung",
+		"Users":             users,
+		"ActiveSessions":    activeSessions,
+		"Success":           successMsg,
+		"RoleOptions":       models.GetAllRoles(),
+		"PermissionCatalog": models.PermissionCatalog(),
+	}))
 }
 
 // Helper functions
@@ -383,43 +383,60 @@ func showLoginWithError(w http.ResponseWriter, r *http.Request, errorMsg, redire
 func showProfileWithError(w http.ResponseWriter, r *http.Request, errorMsg string, session *services.Session) {
 	user, _ := models.GetUserByID(session.UserID)
 	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/profile.html"))
-	tmpl.Execute(w, map[string]interface{}{
-		"Title":   "Profil",
-		"User":    user,
-		"Session": session,
-		"Error":   errorMsg,
-	})
+	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
+		"Title": "Profil",
+		"User":  user,
+		"Error": errorMsg,
+	}))
 }
 
 func showUserEditWithError(w http.ResponseWriter, r *http.Request, user *models.User, errorMsg string) {
-	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/admin_user_edit.html"))
-	tmpl.Execute(w, map[string]interface{}{
-		"Title":   "Benutzer bearbeiten",
-		"User":    user,
-		"Session": middleware.GetSessionFromContext(r.Context()),
-		"Error":   errorMsg,
-	})
+	tmpl := template.Must(LoadTemplateWithFuncs(adminUsersTemplateFuncMap(), "templates/layout.html", "templates/admin_user_edit.html"))
+	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
+		"Title":             "Benutzer bearbeiten",
+		"User":              user,
+		"Error":             errorMsg,
+		"RoleOptions":       models.GetAllRoles(),
+		"PermissionCatalog": models.PermissionCatalog(),
+	}))
 }
 
 func showUsersListWithError(w http.ResponseWriter, r *http.Request, errorMsg string) {
 	users, _ := models.GetAllUsers()
 	activeSessions := services.GlobalAuth.GetActiveSessions()
 
-	// Define template functions
-	funcMap := template.FuncMap{
+	tmpl := template.Must(LoadTemplateWithFuncs(adminUsersTemplateFuncMap(), "templates/layout.html", "templates/admin_users.html"))
+	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
+		"Title":             "Benutzerverwaltung",
+		"Users":             users,
+		"ActiveSessions":    activeSessions,
+		"Error":             errorMsg,
+		"RoleOptions":       models.GetAllRoles(),
+		"PermissionCatalog": models.PermissionCatalog(),
+	}))
+}
+
+func adminUsersTemplateFuncMap() template.FuncMap {
+	return template.FuncMap{
 		"contains": func(s, substr string) bool {
 			return strings.Contains(s, substr)
 		},
+		"add": func(a, b int) int {
+			return a + b
+		},
+		"roleLabel": func(role string) string {
+			return models.RoleDisplayName(role)
+		},
+		"roleBadgeClass": func(role string) string {
+			return models.RoleBadgeClass(role)
+		},
+		"hasPermission": func(role, permission string) bool {
+			return models.RoleHasPermission(role, permission)
+		},
+		"isBackoffice": func(role string) bool {
+			return models.IsBackofficeRole(role)
+		},
 	}
-
-	tmpl := template.Must(LoadTemplateWithFuncs(funcMap, "templates/layout.html", "templates/admin_users.html"))
-	tmpl.Execute(w, map[string]interface{}{
-		"Title":          "Benutzerverwaltung",
-		"Users":          users,
-		"ActiveSessions": activeSessions,
-		"Session":        middleware.GetSessionFromContext(r.Context()),
-		"Error":          errorMsg,
-	})
 }
 
 func getClientIP(r *http.Request) string {

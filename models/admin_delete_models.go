@@ -10,6 +10,8 @@ import (
 	"time"
 )
 
+var appStartedAt = time.Now()
+
 // ParzelleStatistik für Admin-Übersicht
 type ParzelleStatistik struct {
 	Parzelle               *Parzelle  `json:"parzelle"`
@@ -394,7 +396,7 @@ func CreateDatabaseBackup() (string, error) {
 // System-Informations-Funktionen
 func GetSystemInfo() SystemInfo {
 	var info SystemInfo
-	info.SystemStart = time.Now() // Vereinfacht - sollte echte Startzeit sein
+	info.SystemStart = appStartedAt
 
 	// Datenbank-Größe
 	if stat, err := os.Stat("kleingarten.db"); err == nil {

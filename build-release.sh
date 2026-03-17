@@ -12,7 +12,7 @@ if [ -n "$1" ]; then
 elif [ -f "$VERSION_FILE" ]; then
     VERSION=$(tr -d '[:space:]' < "$VERSION_FILE")
 else
-    VERSION="0.1.1"
+    VERSION="0.1.2"
     echo "$VERSION" > "$VERSION_FILE"
 fi
 

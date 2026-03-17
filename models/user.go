@@ -23,12 +23,122 @@ type User struct {
 type UserRole string
 
 const (
-	RoleAdmin UserRole = "admin"
-	RoleUser  UserRole = "user"
+	RoleAdmin         UserRole = "admin"
+	RoleVorstand      UserRole = "vorstand"
+	RoleKassenwart    UserRole = "kassenwart"
+	RoleWertermittler UserRole = "wertermittler"
+	RoleUser          UserRole = "user"
 )
+
+type PermissionDefinition struct {
+	Key      string
+	Label    string
+	Category string
+}
+
+func NormalizeRole(role string) string {
+	switch role {
+	case string(RoleAdmin), string(RoleVorstand), string(RoleKassenwart), string(RoleWertermittler), string(RoleUser):
+		return role
+	default:
+		return string(RoleUser)
+	}
+}
+
+func RoleDisplayName(role string) string {
+	switch role {
+	case string(RoleAdmin):
+		return "Admin"
+	case string(RoleVorstand):
+		return "Vorstand"
+	case string(RoleKassenwart):
+		return "Kassenwart"
+	case string(RoleWertermittler):
+		return "Wertermittler"
+	default:
+		return "Benutzer"
+	}
+}
+
+func RoleBadgeClass(role string) string {
+	switch role {
+	case string(RoleAdmin):
+		return "bg-danger"
+	case string(RoleVorstand):
+		return "bg-dark"
+	case string(RoleKassenwart):
+		return "bg-warning text-dark"
+	case string(RoleWertermittler):
+		return "bg-info text-dark"
+	default:
+		return "bg-primary"
+	}
+}
+
+func IsBackofficeRole(role string) bool {
+	switch role {
+	case string(RoleAdmin), string(RoleVorstand), string(RoleKassenwart), string(RoleWertermittler):
+		return true
+	default:
+		return false
+	}
+}
+
+func GetBackofficeRoles() []string {
+	return []string{string(RoleWertermittler), string(RoleKassenwart), string(RoleVorstand), string(RoleAdmin)}
+}
+
+func GetAllRoles() []string {
+	return []string{string(RoleUser), string(RoleWertermittler), string(RoleKassenwart), string(RoleVorstand), string(RoleAdmin)}
+}
+
+func PermissionCatalog() []PermissionDefinition {
+	return []PermissionDefinition{
+		{Key: "dashboard.access", Label: "Dashboard", Category: "Allgemein"},
+		{Key: "stammdaten.manage", Label: "Stammdaten verwalten", Category: "Verwaltung"},
+		{Key: "parzellen.manage", Label: "Parzellen & zugehoerige Daten", Category: "Verwaltung"},
+		{Key: "protokolle.manage", Label: "Protokolle verwalten", Category: "Verwaltung"},
+		{Key: "invoices.manage", Label: "Rechnungen & E-Mail", Category: "Finanzen"},
+		{Key: "backup.manage", Label: "Backup & CSV", Category: "Sicherheit"},
+		{Key: "audit.view", Label: "Audit-Log", Category: "Sicherheit"},
+		{Key: "users.manage", Label: "Benutzer & Gruppen", Category: "Sicherheit"},
+		{Key: "settings.manage", Label: "Vereins-/Maileinstellungen", Category: "Einstellungen"},
+		{Key: "system.settings", Label: "Systemeinstellungen", Category: "Einstellungen"},
+	}
+}
+
+func DefaultRolePermissions(role string) map[string]bool {
+	permissions := map[string]bool{}
+
+	for _, permission := range PermissionCatalog() {
+		permissions[permission.Key] = false
+	}
+
+	if role == string(RoleAdmin) || role == string(RoleVorstand) {
+		for _, permission := range PermissionCatalog() {
+			permissions[permission.Key] = true
+		}
+		return permissions
+	}
+
+	if role == string(RoleKassenwart) || role == string(RoleWertermittler) {
+		for _, permission := range PermissionCatalog() {
+			permissions[permission.Key] = permission.Key != "system.settings"
+		}
+	}
+
+	return permissions
+}
+
+func RoleHasPermission(role, permission string) bool {
+	permissions := DefaultRolePermissions(role)
+	return permissions[permission]
+}
 
 // CreateUser erstellt einen neuen Benutzer mit verschlüsseltem Passwort
 func CreateUser(username, email, password string, role UserRole) (*User, error) {
+	role = UserRole(NormalizeRole(string(role)))
+
 	// Passwort hashen
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
@@ -195,6 +305,8 @@ func (u *User) ChangePassword(newPassword string) error {
 
 // UpdateUser updates user information (admin only)
 func UpdateUser(id int, username, email, role string, active bool) error {
+	role = NormalizeRole(role)
+
 	query := `UPDATE users SET username = ?, email = ?, role = ?, active = ? WHERE id = ?`
 	_, err := DB.Exec(query, username, email, role, active, id)
 	return err

@@ -7,7 +7,11 @@ import (
 	"kleingarten-verwaltung/models"
 	"log"
 	"net/http"
+	"os"
+	"runtime"
+	"runtime/debug"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -297,12 +301,69 @@ func AdminAuditLogHandler(w http.ResponseWriter, r *http.Request) {
 // AdminSystemInfoHandler - System-Informationen und Statistiken
 func AdminSystemInfoHandler(w http.ResponseWriter, r *http.Request) {
 	systemInfo := models.GetSystemInfo()
+	appMeta := getApplicationMetadata()
 
-	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/admin_system_info.html"))
+	funcMap := template.FuncMap{
+		"divMB": func(size int64) float64 {
+			return float64(size) / (1024 * 1024)
+		},
+	}
+
+	tmpl := template.Must(LoadTemplateWithFuncs(funcMap, "templates/layout.html", "templates/admin_system_info.html"))
 	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
 		"Title":      "System-Information",
 		"SystemInfo": systemInfo,
+		"AppMeta":    appMeta,
 	}))
+}
+
+func getApplicationMetadata() map[string]string {
+	metadata := map[string]string{
+		"Version":   readApplicationVersion(),
+		"BuildTime": "Unbekannt",
+		"Revision":  "Unbekannt",
+		"GoVersion": runtime.Version(),
+		"Platform":  runtime.GOOS + "/" + runtime.GOARCH,
+	}
+
+	if buildInfo, ok := debug.ReadBuildInfo(); ok {
+		for _, setting := range buildInfo.Settings {
+			switch setting.Key {
+			case "vcs.revision":
+				if setting.Value != "" {
+					metadata["Revision"] = setting.Value
+				}
+			case "vcs.time":
+				if setting.Value != "" {
+					metadata["BuildTime"] = setting.Value
+				}
+			}
+		}
+	}
+
+	if metadata["BuildTime"] == "Unbekannt" {
+		if executablePath, err := os.Executable(); err == nil {
+			if executableInfo, statErr := os.Stat(executablePath); statErr == nil {
+				metadata["BuildTime"] = executableInfo.ModTime().Format("02.01.2006 15:04:05")
+			}
+		}
+	}
+
+	return metadata
+}
+
+func readApplicationVersion() string {
+	content, err := os.ReadFile("VERSION")
+	if err != nil {
+		return "Unbekannt"
+	}
+
+	version := strings.TrimSpace(string(content))
+	if version == "" {
+		return "Unbekannt"
+	}
+
+	return version
 }
 
 // Hilfsfunktion am Ende der Datei hinzufügen

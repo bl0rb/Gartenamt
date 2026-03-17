@@ -125,7 +125,7 @@
             </div>
             
             <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-3">
-                <a href="{{if .IsEdit}}/parzellen/{{.Parzelle.ID}}{{else}}/parzellen{{end}}" class="btn btn-secondary me-md-2">Abbrechen</a>
+                <a href="{{if .IsEdit}}{{.ParzellenBasePath}}/{{.Parzelle.ID}}{{else}}{{.ParzellenBasePath}}{{end}}" class="btn btn-secondary me-md-2">Abbrechen</a>
                 <button type="submit" class="btn btn-success">{{if .IsEdit}}Änderungen speichern{{else}}Parzelle anlegen{{end}}</button>
             </div>
         </form>

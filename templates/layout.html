@@ -23,7 +23,7 @@
                     </a>
                     
                     <!-- Verwaltungs-Link nur für Verwaltung -->
-                    {{if eq .Session.Role "admin"}}
+                    {{if .IsBackoffice}}
                     <a class="nav-link me-3" href="/admin">
                         <i class="fas fa-cog"></i> Verwaltung
                     </a>
@@ -31,8 +31,8 @@
                     
                     <span class="nav-link text-light me-2">
                         <i class="fas fa-user"></i> {{.Session.Username}}
-                        {{if eq .Session.Role "admin"}}
-                            <small class="badge bg-danger ms-1">Verwaltung</small>
+                        {{if .IsBackoffice}}
+                            <small class="badge bg-danger ms-1">{{.RoleLabel}}</small>
                         {{end}}
                     </span>
                     <form method="POST" action="/logout" class="d-inline">
@@ -62,15 +62,12 @@
     </div>
     {{end}}
     
-    {{if and .Session (eq .Session.Role "admin") .IsAdminPage}}
+    {{if and .Session .IsBackoffice .IsAdminPage}}
     <div class="container-fluid mt-4 px-3 px-lg-4">
         <div class="admin-layout" id="adminLayout">
             <aside class="admin-sidebar">
                 <div class="admin-sidebar-head">
                     <p class="admin-sidebar-title">Admin-Menue</p>
-                    <button type="button" class="btn btn-sm sidebar-toggle" id="adminSidebarToggle" title="Sidebar ein-/ausblenden" aria-label="Sidebar ein-/ausblenden">
-                        <i class="fas fa-bars"></i>
-                    </button>
                 </div>
                 <div class="admin-sidebar-scroll">
                     <div>
@@ -152,25 +149,6 @@
     document.addEventListener('DOMContentLoaded', function() {
         // Hier können später CSRF-Tokens hinzugefügt werden
 
-        const layout = document.getElementById('adminLayout');
-        const toggle = document.getElementById('adminSidebarToggle');
-        const storageKey = 'adminSidebarCollapsed';
-
-        if (layout && toggle) {
-            const applyState = (collapsed) => {
-                layout.classList.toggle('sidebar-collapsed', collapsed);
-                toggle.setAttribute('aria-pressed', collapsed ? 'true' : 'false');
-            };
-
-            const saved = localStorage.getItem(storageKey);
-            applyState(saved === '1');
-
-            toggle.addEventListener('click', function() {
-                const collapsed = !layout.classList.contains('sidebar-collapsed');
-                applyState(collapsed);
-                localStorage.setItem(storageKey, collapsed ? '1' : '0');
-            });
-        }
     });
     </script>
     {{end}}

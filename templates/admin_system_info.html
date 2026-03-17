@@ -1,0 +1,112 @@
+{{define "content"}}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-info-circle"></i> System-Info</h2>
+            <a href="/admin" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Zurück
+            </a>
+        </div>
+
+        <div class="row g-4 mb-4">
+            <div class="col-lg-6">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-box me-2"></i>Build-Informationen</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-sm-4"><strong>Version</strong></div>
+                            <div class="col-sm-8"><span class="badge bg-primary fs-6 px-2 py-1">{{.AppMeta.Version}}</span></div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-sm-4"><strong>Build-Zeit</strong></div>
+                            <div class="col-sm-8">{{.AppMeta.BuildTime}}</div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-sm-4"><strong>Revision</strong></div>
+                            <div class="col-sm-8"><code>{{.AppMeta.Revision}}</code></div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-sm-4"><strong>Go-Version</strong></div>
+                            <div class="col-sm-8">{{.AppMeta.GoVersion}}</div>
+                        </div>
+                        <div class="row">
+                            <div class="col-sm-4"><strong>Plattform</strong></div>
+                            <div class="col-sm-8">{{.AppMeta.Platform}}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-server me-2"></i>Laufzeit</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-sm-5"><strong>App gestartet</strong></div>
+                            <div class="col-sm-7">{{.SystemInfo.SystemStart.Format "02.01.2006 15:04:05"}}</div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-sm-5"><strong>Datenbankgröße</strong></div>
+                            <div class="col-sm-7">{{printf "%.2f MB" (divMB .SystemInfo.DatabaseSize)}}</div>
+                        </div>
+                        <div class="row">
+                            <div class="col-sm-5"><strong>Letztes Backup</strong></div>
+                            <div class="col-sm-7">
+                                {{if .SystemInfo.LetztesBackup}}
+                                    {{.SystemInfo.LetztesBackup.Format "02.01.2006 15:04:05"}}
+                                {{else}}
+                                    <span class="text-muted">Noch kein Backup gefunden</span>
+                                {{end}}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Statistiken</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-sm-6 col-xl-2">
+                        <div class="border rounded p-3 h-100 bg-light">
+                            <div class="text-muted small mb-1">Parzellen</div>
+                            <div class="fs-3 fw-bold">{{.SystemInfo.AnzahlParzellen}}</div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-xl-2">
+                        <div class="border rounded p-3 h-100 bg-light">
+                            <div class="text-muted small mb-1">Inspektionen</div>
+                            <div class="fs-3 fw-bold">{{.SystemInfo.AnzahlInspektionen}}</div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-xl-2">
+                        <div class="border rounded p-3 h-100 bg-light">
+                            <div class="text-muted small mb-1">Wertermittlungen</div>
+                            <div class="fs-3 fw-bold">{{.SystemInfo.AnzahlWertermittlungen}}</div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-xl-3">
+                        <div class="border rounded p-3 h-100 bg-light">
+                            <div class="text-muted small mb-1">Obstarten</div>
+                            <div class="fs-3 fw-bold">{{.SystemInfo.AnzahlObstarten}}</div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-xl-3">
+                        <div class="border rounded p-3 h-100 bg-light">
+                            <div class="text-muted small mb-1">Zieranpflanzungen</div>
+                            <div class="fs-3 fw-bold">{{.SystemInfo.AnzahlZieranpflanzungen}}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}

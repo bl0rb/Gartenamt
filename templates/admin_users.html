@@ -57,8 +57,9 @@
                         <div class="col-md-2">
                             <label for="role" class="form-label">Rolle</label>
                             <select class="form-select" id="role" name="role">
-                                <option value="user">Benutzer</option>
-                                <option value="admin">Verwaltung</option>
+                                {{range .RoleOptions}}
+                                <option value="{{.}}">{{roleLabel .}}</option>
+                                {{end}}
                             </select>
                         </div>
                         <div class="col-md-1 d-flex align-items-end">
@@ -108,11 +109,7 @@
                                     <a href="mailto:{{.Email}}" class="text-decoration-none">{{.Email}}</a>
                                 </td>
                                 <td>
-                                    {{if eq .Role "admin"}}
-                                        <span class="badge bg-danger fs-6 px-2 py-1">Verwaltung</span>
-                                    {{else}}
-                                        <span class="badge bg-primary fs-6 px-2 py-1">Benutzer</span>
-                                    {{end}}
+                                    <span class="badge {{roleBadgeClass .Role}} fs-6 px-2 py-1">{{roleLabel .Role}}</span>
                                 </td>
                                 <td>
                                     {{if .Active}}
@@ -186,6 +183,46 @@
             </div>
         </div>
 
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-check-square me-2"></i>Gruppenrechte-Matrix</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered align-middle">
+                        <thead>
+                            <tr>
+                                <th>Berechtigung</th>
+                                {{range .RoleOptions}}
+                                <th class="text-center">{{roleLabel .}}</th>
+                                {{end}}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{range .PermissionCatalog}}
+                            <tr>
+                                <td>
+                                    <strong>{{.Label}}</strong>
+                                    <div class="text-muted small">{{.Category}} ({{.Key}})</div>
+                                </td>
+                                {{$permission := .Key}}
+                                {{range $.RoleOptions}}
+                                <td class="text-center">
+                                    {{if hasPermission . $permission}}
+                                    <span class="text-success"><i class="fas fa-check-circle"></i></span>
+                                    {{else}}
+                                    <span class="text-muted"><i class="fas fa-minus-circle"></i></span>
+                                    {{end}}
+                                </td>
+                                {{end}}
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
         <!-- Aktive Sessions Übersicht -->
         {{if .ActiveSessions}}
         <div class="card mt-4">
@@ -211,8 +248,8 @@
                             <tr>
                                 <td>
                                     <strong>{{.Username}}</strong>
-                                    {{if eq .Role "admin"}}
-                                        <small class="badge bg-danger ms-1">Verwaltung</small>
+                                    {{if isBackoffice .Role}}
+                                        <small class="badge {{roleBadgeClass .Role}} ms-1">{{roleLabel .Role}}</small>
                                     {{end}}
                                 </td>
                                 <td>
@@ -286,15 +323,15 @@
                     <div class="card-body text-center">
                         <i class="fas fa-user-shield fa-3x mb-2"></i>
                         <h4>
-                            {{$adminCount := 0}}
+                            {{$backofficeCount := 0}}
                             {{range .Users}}
-                                {{if eq .Role "admin"}}
-                                    {{$adminCount = add $adminCount 1}}
+                                {{if isBackoffice .Role}}
+                                    {{$backofficeCount = add $backofficeCount 1}}
                                 {{end}}
                             {{end}}
-                            {{$adminCount}}
+                            {{$backofficeCount}}
                         </h4>
-                        <p class="mb-0">Verwaltungskonten</p>
+                        <p class="mb-0">Backoffice-Konten</p>
                     </div>
                 </div>
             </div>

@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"kleingarten-verwaltung/models"
 	"net/http"
 	"strings"
 
@@ -56,6 +57,30 @@ func RequireAdmin(next http.HandlerFunc) http.HandlerFunc {
 	})
 }
 
+// RequireBackoffice erlaubt Zugriff für Rollen mit Verwaltungszugriff.
+func RequireBackoffice(next http.HandlerFunc) http.HandlerFunc {
+	return RequireAuth(func(w http.ResponseWriter, r *http.Request) {
+		session := GetSessionFromContext(r.Context())
+		if session == nil || !models.IsBackofficeRole(session.Role) {
+			http.Error(w, "Zugriff verweigert - Verwaltungsrechte erforderlich", http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// RequirePermission erlaubt Zugriff nur bei expliziter Berechtigung.
+func RequirePermission(permission string, next http.HandlerFunc) http.HandlerFunc {
+	return RequireAuth(func(w http.ResponseWriter, r *http.Request) {
+		session := GetSessionFromContext(r.Context())
+		if session == nil || !models.RoleHasPermission(session.Role, permission) {
+			http.Error(w, "Zugriff verweigert - Berechtigung fehlt", http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // OptionalAuth Middleware für Routen die sowohl authenticated als auch anonymous funktionieren
 func OptionalAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -102,6 +127,12 @@ func IsAuthenticated(r *http.Request) bool {
 func IsAdmin(r *http.Request) bool {
 	session := GetSessionFromContext(r.Context())
 	return session != nil && session.Role == "admin"
+}
+
+// IsBackoffice prüft ob die aktuelle Rolle Verwaltungszugriff hat.
+func IsBackoffice(r *http.Request) bool {
+	session := GetSessionFromContext(r.Context())
+	return session != nil && models.IsBackofficeRole(session.Role)
 }
 
 // GetCurrentUser gibt den aktuellen Benutzer zurück
