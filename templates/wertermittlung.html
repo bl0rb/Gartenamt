@@ -198,32 +198,42 @@
                 <div class="card-body">
                     <div class="row">
                         <div class="col-md-6">
+                            <!-- C. STROM -->
                             <div class="form-check mb-2">
                                 <input type="checkbox" class="form-check-input" id="strom_vorhanden" name="strom_vorhanden" value="true" {{if and .Wertermittlung (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom").Aktiv}}checked{{end}}>
                                 <label class="form-check-label fw-bold" for="strom_vorhanden">Elektroanschluss vorhanden</label>
                             </div>
-                            <label for="strom_quelle" class="form-label">Herkunft/Anrechenbarkeit</label>
-                            <select class="form-select mb-2" id="strom_quelle" name="strom_quelle" disabled>
-                                <option value="eigen_netz" {{if or (not .Wertermittlung) (eq (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom").Quelle "eigen_netz") (eq (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom").Quelle "")}}selected{{end}}>Eigene Kosten (Stromnetz / Gemeinschaftsanlage)</option>
-                                <option value="fhh_bis_parzellengrenze" {{if and .Wertermittlung (eq (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom").Quelle "fhh_bis_parzellengrenze")}}selected{{end}}>FHH bis Parzellengrenze gestellt (nur D2 anrechenbar)</option>
-                                <option value="nachbar" {{if and .Wertermittlung (eq (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom").Quelle "nachbar")}}selected{{end}}>Von Nachbarparzelle gespeist (nicht anrechenbar)</option>
-                                <option value="fhh_nachverdichtung" {{if and .Wertermittlung (eq (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom").Quelle "fhh_nachverdichtung")}}selected{{end}}>FHH-Sanierung/Nachverdichtung (nicht anrechenbar)</option>
-                            </select>
-                            <select class="form-select" id="strom_typ" name="strom_typ" disabled>
-                                <option value="D1" {{if or (not .Wertermittlung) (eq (stromTypCode (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom")) "D1")}}selected{{end}}>D1 Elektroanschluss inkl. Zuleitung + Zähler/Sicherung (max 1.900 €, 3%/Jahr, min 10%)</option>
-                                <option value="D2" {{if and .Wertermittlung (eq (stromTypCode (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom")) "D2")}}selected{{end}}>D2 Nur Zuleitung zur Laube + Sicherungskasten (max 400 €, 3%/Jahr, min 10%)</option>
-                                <option value="D3" {{if and .Wertermittlung (eq (stromTypCode (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom")) "D3")}}selected{{end}}>D3 Digitaler geeichter Stromzähler (max 120 €, 13%/Jahr)</option>
-                                <option value="D4" {{if and .Wertermittlung (eq (stromTypCode (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom")) "D4")}}selected{{end}}>D4 Analoger geeichter Stromzähler (max 120 €, 6%/Jahr)</option>
-                            </select>
-                            <div class="form-check mt-2">
-                                <input type="checkbox" class="form-check-input" id="strom_beleg_vorhanden" name="strom_beleg_vorhanden" value="true" {{if and .Wertermittlung (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom").BelegVorhanden}}checked{{end}} disabled>
-                                <label class="form-check-label" for="strom_beleg_vorhanden">Bewertung mit Beleg (Rechnung/Quittung)</label>
+                            <div id="strom_details" style="display:none">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="strom_variante" id="strom_ohne_beleg" value="ohne_beleg"
+                                        {{if or (not .Wertermittlung) (eq (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom").Bewertungsgrund "") (eq (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom").Bewertungsgrund "ohne_beleg")}}checked{{end}}>
+                                    <label class="form-check-label" for="strom_ohne_beleg">
+                                        Ohne Beleg – Pauschal (1.900 € / 2, gekoppelt an Laube-Abschreibung)
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="strom_variante" id="strom_mit_beleg" value="mit_beleg"
+                                        {{if and .Wertermittlung (eq (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom").Bewertungsgrund "belegbasiert")}}checked{{end}}>
+                                    <label class="form-check-label" for="strom_mit_beleg">
+                                        Mit Rechnung/Quittung
+                                    </label>
+                                </div>
+                                <div id="strom_beleg_felder" class="ms-4 mt-1" style="display:none">
+                                    <input type="number" class="form-control mb-1" id="strom_rechnung_betrag" name="strom_rechnung_betrag"
+                                           placeholder="Rechnungsbetrag (€)" step="0.01" min="0" max="1900"
+                                           value="{{if and .Wertermittlung (eq (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom").Bewertungsgrund "belegbasiert")}}{{printf "%.2f" (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom").Herstellungswert}}{{end}}">
+                                    <input type="number" class="form-control" id="strom_rechnung_jahr" name="strom_rechnung_jahr"
+                                           placeholder="Jahr der Rechnung" min="1960" max="2100"
+                                           value="{{if and .Wertermittlung (eq (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom").Bewertungsgrund "belegbasiert")}}{{(baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom").Baujahr}}{{end}}">
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="strom_variante" id="strom_manuell" value="manuell_80"
+                                        {{if and .Wertermittlung (eq (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom").Bewertungsgrund "manuell_80")}}checked{{end}}>
+                                    <label class="form-check-label" for="strom_manuell">
+                                        Manuell 80 € (Festwert)
+                                    </label>
+                                </div>
                             </div>
-                            <input type="number" class="form-control mt-2" id="strom_herstellungswert" name="strom_herstellungswert"
-                                   placeholder="Herstellungswert laut Beleg" step="0.01" min="0" value="{{if .Wertermittlung}}{{printf "%.2f" (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom").Herstellungswert}}{{end}}" disabled>
-                            <input type="number" class="form-control mt-2" id="strom_baujahr" name="strom_baujahr" 
-                                   placeholder="Baujahr" min="1960" max="2100" value="{{if .Wertermittlung}}{{(baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom").Baujahr}}{{end}}" disabled>
-                            <div class="form-text">Vorangegangene Wertermittlung ist bindend (D: 3%/Jahr, min 15%). D1/D2 mit 3%/Jahr (min 10%). D3: 13%/Jahr, D4: 6%/Jahr.</div>
                         </div>
                         
                         <div class="col-md-6">
@@ -236,8 +246,6 @@
                                 <input type="number" class="form-control" value="37.50" readonly>
                                 <span class="input-group-text">€</span>
                             </div>
-                            <input type="number" class="form-control mt-2" id="wasser_baujahr" name="wasser_baujahr" 
-                                   placeholder="Baujahr" min="1960" max="2025" disabled>
                         </div>
                     </div>
                 </div>
@@ -525,9 +533,6 @@ let obstPreisTabelle = {};
 let zieranpflanzungsPreise = {};
 let gemusePreise = {};
 let aktuellerBauindex = 42.9;
-const stromVorbewertungBindend = {{if and .Wertermittlung (eq (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom").Bewertungsgrund "vorbewertung_bindend")}}true{{else}}false{{end}};
-const stromBindendHerstellungswert = {{if .Wertermittlung}}{{printf "%.2f" (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom").Herstellungswert}}{{else}}0{{end}};
-const stromBindendBaujahr = {{if .Wertermittlung}}{{(baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom").Baujahr}}{{else}}0{{end}};
 
 // BEIM LADEN der Seite: Preise von API laden
 document.addEventListener('DOMContentLoaded', function() {
@@ -548,6 +553,35 @@ document.addEventListener('DOMContentLoaded', function() {
             updateLaubeBerechnung();
         }
     }
+
+    // Strom-Details ein-/ausblenden
+    const stromVorhandenCb = document.getElementById('strom_vorhanden');
+    if (stromVorhandenCb) {
+        document.getElementById('strom_details').style.display = stromVorhandenCb.checked ? 'block' : 'none';
+        stromVorhandenCb.addEventListener('change', function() {
+            document.getElementById('strom_details').style.display = this.checked ? 'block' : 'none';
+            berechneVorschau();
+        });
+    }
+
+    // Beleg-Felder ein-/ausblenden
+    function updateStromBelegFelder() {
+        const mitBeleg = document.getElementById('strom_mit_beleg');
+        const belegFelder = document.getElementById('strom_beleg_felder');
+        if (mitBeleg && belegFelder) {
+            belegFelder.style.display = mitBeleg.checked ? 'block' : 'none';
+        }
+    }
+    updateStromBelegFelder();
+    document.querySelectorAll('input[name="strom_variante"]').forEach(function(radio) {
+        radio.addEventListener('change', function() {
+            updateStromBelegFelder();
+            berechneVorschau();
+        });
+    });
+    document.querySelectorAll('#strom_rechnung_betrag, #strom_rechnung_jahr').forEach(function(el) {
+        el.addEventListener('input', berechneVorschau);
+    });
     
     berechneObstGesamtwert();
 });
@@ -858,7 +892,7 @@ document.getElementById('laube_vorhanden').addEventListener('change', function()
     }
 });
 
-['strom_vorhanden', 'wasser_vorhanden', 'pforte_vorhanden'].forEach(id => {
+['wasser_vorhanden', 'pforte_vorhanden'].forEach(id => {
     document.getElementById(id).addEventListener('change', function() {
         const relatedInputs = id.replace('_vorhanden', '');
         document.querySelectorAll(`[id^="${relatedInputs}_"]:not([id="${id}"])`).forEach(input => {
@@ -867,7 +901,7 @@ document.getElementById('laube_vorhanden').addEventListener('change', function()
     });
 });
 
-['strom_vorhanden', 'wasser_vorhanden', 'pforte_vorhanden'].forEach(id => {
+['wasser_vorhanden', 'pforte_vorhanden'].forEach(id => {
     const checkbox = document.getElementById(id);
     if (checkbox) {
         checkbox.dispatchEvent(new Event('change'));
@@ -981,71 +1015,40 @@ function berechneVorschau() {
 
     // Strom
     if (document.getElementById('strom_vorhanden').checked) {
-        const stromQuelle = document.getElementById('strom_quelle').value;
-        const stromTypCode = document.getElementById('strom_typ').value;
-        const stromBelegVorhanden = document.getElementById('strom_beleg_vorhanden').checked;
-        const stromHerstellungswertBeleg = parseFloat(document.getElementById('strom_herstellungswert').value) || 0;
+        const stromVariante = document.querySelector('input[name="strom_variante"]:checked');
+        const variante = stromVariante ? stromVariante.value : 'ohne_beleg';
         const laubeErstellungsjahr = parseInt(document.getElementById('laube_erstellungsjahr').value) || 0;
-        let stromBaujahr = parseInt(document.getElementById('strom_baujahr').value) || 0;
-        const stromConfig = {
-            D1: {max: 1900, abschreibung: 3.0, minRest: 10.0},
-            D2: {max: 400, abschreibung: 3.0, minRest: 10.0},
-            D3: {max: 120, abschreibung: 13.0, minRest: 0},
-            D4: {max: 120, abschreibung: 6.0, minRest: 0}
-        }[stromTypCode] || {max: 1900, abschreibung: 3.0, minRest: 10.0};
-        let stromHerstellungswert = stromConfig.max;
+        const laubeMaterial = document.getElementById('laube_material') ? document.getElementById('laube_material').value : 'holz';
+        const laubeAbschreibung = (laubeMaterial === 'stein') ? 2.0 : 3.0;
         let stromWert = 0;
 
-        if (stromQuelle === 'nachbar' || stromQuelle === 'fhh_nachverdichtung') {
-            details.push('Strom: nicht anrechenbar');
-        } else if (stromQuelle === 'fhh_bis_parzellengrenze' && stromTypCode !== 'D2') {
-            details.push('Strom: nur D2 ist bei FHH-bis-Parzellengrenze anrechenbar');
-        } else if (stromVorbewertungBindend && stromBindendHerstellungswert > 0 && stromBindendBaujahr > 0) {
-            stromHerstellungswert = stromBindendHerstellungswert;
-            stromBaujahr = stromBindendBaujahr;
-            const alter = new Date().getFullYear() - stromBaujahr;
-            let abschreibung = (alter * 3.0) / 100;
-            if (abschreibung > 1.0) {
-                abschreibung = 1.0;
+        function berechneRestwert(herstellungswert, baujahr, abschreibungProzent, minRestwertProzent) {
+            if (herstellungswert <= 0) return 0;
+            const aktuellesJahr = new Date().getFullYear();
+            const alter = baujahr > 0 ? aktuellesJahr - baujahr : 0;
+            let abschreibung = (alter * abschreibungProzent) / 100;
+            if (abschreibung > 1.0) abschreibung = 1.0;
+            if (abschreibung < 0) abschreibung = 0;
+            let restwert = herstellungswert * (1 - abschreibung);
+            if (minRestwertProzent > 0) {
+                const minimum = herstellungswert * minRestwertProzent / 100;
+                if (restwert < minimum) restwert = minimum;
             }
-            if (abschreibung < 0) {
-                abschreibung = 0;
-            }
-            stromWert = stromHerstellungswert * (1 - abschreibung);
-            const minimum = stromHerstellungswert * 0.15;
-            if (stromWert < minimum) {
-                stromWert = minimum;
-            }
-        } else {
-            if (stromBelegVorhanden) {
-                if (stromHerstellungswertBeleg > 0) {
-                    stromHerstellungswert = Math.min(stromConfig.max, stromHerstellungswertBeleg);
-                }
-                if (stromBaujahr <= 0) {
-                    stromBaujahr = new Date().getFullYear();
-                }
-            } else {
-                stromHerstellungswert = stromConfig.max * 0.5;
-                if (stromBaujahr <= 0) {
-                    stromBaujahr = laubeErstellungsjahr > 0 ? laubeErstellungsjahr : new Date().getFullYear();
-                }
-            }
+            return restwert;
+        }
 
-            const alter = new Date().getFullYear() - stromBaujahr;
-            let abschreibung = (alter * stromConfig.abschreibung) / 100;
-            if (abschreibung > 1.0) {
-                abschreibung = 1.0;
-            }
-            if (abschreibung < 0) {
-                abschreibung = 0;
-            }
-            stromWert = stromHerstellungswert * (1 - abschreibung);
-            if (stromConfig.minRest > 0) {
-                const minimum = stromHerstellungswert * stromConfig.minRest / 100;
-                if (stromWert < minimum) {
-                    stromWert = minimum;
-                }
-            }
+        if (variante === 'manuell_80') {
+            stromWert = 80.0;
+        } else if (variante === 'mit_beleg') {
+            const belegWert = parseFloat(document.getElementById('strom_rechnung_betrag').value) || 0;
+            const rechnungsJahr = parseInt(document.getElementById('strom_rechnung_jahr').value) || new Date().getFullYear();
+            const hw = Math.min(belegWert, 1900);
+            stromWert = berechneRestwert(hw, rechnungsJahr, 3.0, 10.0);
+        } else {
+            // ohne_beleg
+            const hw = 950.0;
+            const baujahr = laubeErstellungsjahr > 0 ? laubeErstellungsjahr : new Date().getFullYear();
+            stromWert = berechneRestwert(hw, baujahr, laubeAbschreibung, 10.0);
         }
 
         if (stromWert > 0) {

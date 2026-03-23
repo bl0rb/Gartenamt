@@ -18,6 +18,10 @@ import (
 	"github.com/gorilla/mux"
 )
 
+const lghOrgName = "Landesbund der Gartenfreunde in Hamburg e.V."
+const stromManuellFestwert = 80.0
+const stromMaxBetrag = 1900.0
+
 func WertermittlungHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	parzelleID, err := strconv.Atoi(vars["parzelle_id"])
@@ -53,10 +57,8 @@ func handleWertermittlungPostMitService(w http.ResponseWriter, r *http.Request, 
 		ParzelleID: parzelleID,
 		Datum:      time.Now(),
 	}
-	var bestehendeWertermittlung *models.Wertermittlung
 	if existing, err := models.GetWertermittlungByParzelleID(parzelleID); err == nil && existing != nil {
 		wertermittlung.ID = existing.ID
-		bestehendeWertermittlung = existing
 	}
 
 	var laubeWert float64 = 0
@@ -158,65 +160,53 @@ func handleWertermittlungPostMitService(w http.ResponseWriter, r *http.Request, 
 	var stromWert float64 = 0
 	var wasserWert float64 = 0
 	stromBaujahr := 0
-	stromTypCode := strings.TrimSpace(r.FormValue("strom_typ"))
-	stromConfig := getStromTypConfig(stromTypCode)
-	stromAbschreibungProzent := stromConfig.AbschreibungProzent
-	stromHerstellungswert := stromConfig.MaxWert
-	stromQuelle := strings.TrimSpace(r.FormValue("strom_quelle"))
-	if stromQuelle == "" {
-		stromQuelle = "eigen_netz"
-	}
-	stromBelegVorhanden := r.FormValue("strom_beleg_vorhanden") == "true"
+	stromHerstellungswert := 0.0
+	stromAbschreibungProzent := 3.0
+	stromBelegVorhanden := false
 	stromBewertungsgrund := ""
 
-	if baujahr := strings.TrimSpace(r.FormValue("strom_baujahr")); baujahr != "" {
-		if jahr, err := strconv.Atoi(baujahr); err == nil {
-			stromBaujahr = jahr
-		}
-	}
-
 	if r.FormValue("strom_vorhanden") == "true" {
-		if stromQuelle == "nachbar" || stromQuelle == "fhh_nachverdichtung" {
-			stromWert = 0
-			stromBewertungsgrund = "nicht_anrechenbar"
-		} else if stromQuelle == "fhh_bis_parzellengrenze" && stromTypCode != "D2" {
-			stromWert = 0
-			stromBewertungsgrund = "nur_d2_anrechenbar"
-		} else {
-			vorherigerStrom := getBaulichkeitDetail(bestehendeWertermittlung, "strom")
-			if vorherigerStrom.Aktiv && vorherigerStrom.Herstellungswert > 0 && vorherigerStrom.Baujahr > 0 {
-				stromHerstellungswert = vorherigerStrom.Herstellungswert
-				stromBaujahr = vorherigerStrom.Baujahr
-				stromBelegVorhanden = vorherigerStrom.BelegVorhanden
-				if strings.TrimSpace(vorherigerStrom.Quelle) != "" {
-					stromQuelle = vorherigerStrom.Quelle
-				}
-				stromWert = berechneStromRestwert(stromHerstellungswert, stromBaujahr, 3.0, 15.0)
-				stromAbschreibungProzent = 3.0
-				stromBewertungsgrund = "vorbewertung_bindend"
-			} else {
-				if stromBelegVorhanden {
-					belegWert := parseFloatSafe(r.FormValue("strom_herstellungswert"))
-					if belegWert > 0 {
-						stromHerstellungswert = minPositive(belegWert, stromConfig.MaxWert)
-					}
-					if stromBaujahr == 0 {
-						stromBaujahr = time.Now().Year()
-					}
-					stromWert = berechneStromRestwert(stromHerstellungswert, stromBaujahr, stromConfig.AbschreibungProzent, stromConfig.MinRestwertProzent)
-					stromBewertungsgrund = "belegbasiert"
-				} else {
-					stromHerstellungswert = stromConfig.MaxWert * 0.5
-					if stromBaujahr == 0 {
-						stromBaujahr = wertermittlung.Details.Laube.Erstellungsjahr
-					}
-					if stromBaujahr == 0 {
-						stromBaujahr = time.Now().Year()
-					}
-					stromWert = berechneStromRestwert(stromHerstellungswert, stromBaujahr, stromConfig.AbschreibungProzent, stromConfig.MinRestwertProzent)
-					stromBewertungsgrund = "ohne_beleg_halber_maxwert"
+		stromVariante := strings.TrimSpace(r.FormValue("strom_variante"))
+		if stromVariante == "" {
+			stromVariante = "ohne_beleg"
+		}
+		switch stromVariante {
+		case "manuell_80":
+			stromWert = stromManuellFestwert
+			stromHerstellungswert = stromManuellFestwert
+			stromBewertungsgrund = "manuell_80"
+		case "mit_beleg":
+			belegWert := parseFloatSafe(r.FormValue("strom_rechnung_betrag"))
+			if rechnungsJahr := strings.TrimSpace(r.FormValue("strom_rechnung_jahr")); rechnungsJahr != "" {
+				if jahr, err := strconv.Atoi(rechnungsJahr); err == nil {
+					stromBaujahr = jahr
 				}
 			}
+			if stromBaujahr == 0 {
+				stromBaujahr = time.Now().Year()
+			}
+			stromHerstellungswert = belegWert
+			if stromHerstellungswert > stromMaxBetrag {
+				stromHerstellungswert = stromMaxBetrag
+			}
+			stromAbschreibungProzent = 3.0
+			stromBelegVorhanden = true
+			stromWert = berechneStromRestwert(stromHerstellungswert, stromBaujahr, 3.0, 10.0)
+			stromBewertungsgrund = "belegbasiert"
+		default: // ohne_beleg
+			stromHerstellungswert = stromMaxBetrag / 2 // 950.0
+			laubeJahr := wertermittlung.Details.Laube.Erstellungsjahr
+			if laubeJahr == 0 {
+				laubeJahr = time.Now().Year()
+			}
+			stromBaujahr = laubeJahr
+			laubeAbschreibung := wertermittlung.Details.Laube.AbschreibungProzent
+			if laubeAbschreibung <= 0 {
+				laubeAbschreibung = 3.0
+			}
+			stromAbschreibungProzent = laubeAbschreibung
+			stromWert = berechneStromRestwert(stromHerstellungswert, stromBaujahr, laubeAbschreibung, 10.0)
+			stromBewertungsgrund = "ohne_beleg"
 		}
 	}
 
@@ -228,7 +218,7 @@ func handleWertermittlungPostMitService(w http.ResponseWriter, r *http.Request, 
 	wertermittlung.Details.Baulichkeiten = []models.BaulichkeitDetail{
 		{Typ: "wege", Flaeche: wegeFlaecheValue, Qualitaet: wegeQualitaetValue, Aktiv: wegeFlaecheValue > 0, Restwert: wegeWert},
 		{Typ: "pforte", Herstellungswert: parseFloatSafe(r.FormValue("pforte_wert")), Aktiv: r.FormValue("pforte_vorhanden") == "true", Restwert: pforteWert},
-		{Typ: "strom", Herstellungswert: stromHerstellungswert, Baujahr: stromBaujahr, Aktiv: r.FormValue("strom_vorhanden") == "true" && stromWert > 0, BelegVorhanden: stromBelegVorhanden, Quelle: stromQuelle, Bewertungsgrund: stromBewertungsgrund, AbschreibungProzent: stromAbschreibungProzent, Restwert: stromWert},
+		{Typ: "strom", Herstellungswert: stromHerstellungswert, Baujahr: stromBaujahr, Aktiv: r.FormValue("strom_vorhanden") == "true", BelegVorhanden: stromBelegVorhanden, Bewertungsgrund: stromBewertungsgrund, AbschreibungProzent: stromAbschreibungProzent, Restwert: stromWert},
 		{Typ: "wasser", Herstellungswert: 37.50, Aktiv: r.FormValue("wasser_vorhanden") == "true", Restwert: wasserWert},
 	}
 
@@ -378,9 +368,6 @@ func handleWertermittlungGet(w http.ResponseWriter, r *http.Request, parzelle *m
 			}
 			return 0
 		},
-		"stromTypCode": func(detail models.BaulichkeitDetail) string {
-			return inferStromTypCode(detail)
-		},
 	}
 
 	// Template laden und ausführen
@@ -406,53 +393,6 @@ func handleWertermittlungGet(w http.ResponseWriter, r *http.Request, parzelle *m
 	}
 }
 
-func getBaulichkeitDetail(wertermittlung *models.Wertermittlung, typ string) models.BaulichkeitDetail {
-	if wertermittlung == nil {
-		return models.BaulichkeitDetail{Typ: typ}
-	}
-	for _, item := range wertermittlung.Details.Baulichkeiten {
-		if item.Typ == typ {
-			return item
-		}
-	}
-	return models.BaulichkeitDetail{Typ: typ}
-}
-
-type stromTypConfig struct {
-	Code                string
-	MaxWert             float64
-	AbschreibungProzent float64
-	MinRestwertProzent  float64
-}
-
-func getStromTypConfig(code string) stromTypConfig {
-	switch strings.ToUpper(strings.TrimSpace(code)) {
-	case "D1":
-		return stromTypConfig{Code: "D1", MaxWert: 1900, AbschreibungProzent: 3.0, MinRestwertProzent: 10.0}
-	case "D2":
-		return stromTypConfig{Code: "D2", MaxWert: 400, AbschreibungProzent: 3.0, MinRestwertProzent: 10.0}
-	case "D3":
-		return stromTypConfig{Code: "D3", MaxWert: 120, AbschreibungProzent: 13.0, MinRestwertProzent: 0}
-	case "D4":
-		return stromTypConfig{Code: "D4", MaxWert: 120, AbschreibungProzent: 6.0, MinRestwertProzent: 0}
-	default:
-		return stromTypConfig{Code: "D1", MaxWert: 1900, AbschreibungProzent: 3.0, MinRestwertProzent: 10.0}
-	}
-}
-
-func inferStromTypCode(detail models.BaulichkeitDetail) string {
-	if detail.AbschreibungProzent == 13.0 {
-		return "D3"
-	}
-	if detail.AbschreibungProzent == 6.0 {
-		return "D4"
-	}
-	if detail.Herstellungswert > 0 && detail.Herstellungswert <= 400 {
-		return "D2"
-	}
-	return "D1"
-}
-
 func berechneStromRestwert(herstellungswert float64, baujahr int, abschreibungProzent float64, minRestwertProzent float64) float64 {
 	if herstellungswert <= 0 {
 		return 0
@@ -476,19 +416,6 @@ func berechneStromRestwert(herstellungswert float64, baujahr int, abschreibungPr
 		}
 	}
 	return restwert
-}
-
-func minPositive(a, b float64) float64 {
-	if a <= 0 {
-		return b
-	}
-	if b <= 0 {
-		return a
-	}
-	if a < b {
-		return a
-	}
-	return b
 }
 
 // Hilfsfunktion
@@ -531,109 +458,250 @@ func generateWertermittlungPDF(w http.ResponseWriter, id int) {
 
 	pdf := gofpdf.New("P", "mm", "A4", "")
 	tr := pdf.UnicodeTranslatorFromDescriptor("")
+
+	// Footer-Funktion registrieren
+	pdf.SetFooterFunc(func() {
+		pdf.SetY(-15)
+		pdf.SetFont("Arial", "I", 8)
+		pdf.SetTextColor(120, 120, 120)
+		pdf.CellFormat(0, 5, tr(fmt.Sprintf("%s   |   Seite %d", lghOrgName, pdf.PageNo())), "", 0, "C", false, 0, "")
+	})
+
 	pdf.AddPage()
 
 	pageW := 190.0
+	leftX := 10.0
 
-	// Header band
+	// ── Header-Balken ──────────────────────────────────────────────
 	pdf.SetFillColor(35, 84, 133)
-	pdf.Rect(10, 10, pageW, 16, "F")
+	pdf.Rect(leftX, 10, pageW, 18, "F")
 	pdf.SetTextColor(255, 255, 255)
 	pdf.SetFont("Arial", "B", 16)
-	pdf.SetXY(12, 14)
-	pdf.Cell(140, 8, tr("Wertermittlungsprotokoll"))
+	pdf.SetXY(leftX+2, 13)
+	pdf.Cell(130, 9, tr("Wertermittlungsprotokoll"))
 	pdf.SetFont("Arial", "", 10)
-	pdf.SetXY(155, 15)
-	pdf.Cell(43, 6, tr(wertermittlung.Datum.Format("02.01.2006")))
+	pdf.SetXY(leftX+130, 14)
+	pdf.Cell(58, 7, tr(wertermittlung.Datum.Format("02.01.2006")))
 
-	pdf.SetTextColor(35, 35, 35)
-	pdf.SetXY(10, 30)
-	pdf.SetFont("Arial", "B", 11)
-	pdf.Cell(30, 6, tr("Parzelle:"))
-	pdf.SetFont("Arial", "", 11)
-	pdf.Cell(70, 6, tr(parzelle.Nummer))
-	pdf.SetFont("Arial", "B", 11)
-	pdf.Cell(25, 6, tr("Pächter:"))
-	pdf.SetFont("Arial", "", 11)
-	pdf.Cell(65, 6, tr(parzelle.PaechterName))
+	// Unterzeile
+	pdf.SetXY(leftX+2, 22)
+	pdf.SetFont("Arial", "", 8)
+	pdf.Cell(pageW-4, 5, tr(lghOrgName))
 
-	// Main values table
-	pdf.SetXY(10, 42)
-	pdf.SetFont("Arial", "B", 12)
-	pdf.Cell(190, 8, tr("Wertübersicht"))
-	pdf.Ln(9)
-
-	pdf.SetFillColor(236, 243, 250)
+	// ── Stammdaten-Block (grau hinterlegt, 2-spaltig) ──────────────
+	pdf.SetFillColor(240, 244, 248)
 	pdf.SetDrawColor(180, 195, 210)
-	pdf.SetFont("Arial", "B", 10)
-	pdf.CellFormat(115, 8, tr("Kategorie"), "1", 0, "", true, 0, "")
-	pdf.CellFormat(75, 8, tr("Wert"), "1", 1, "R", true, 0, "")
+	pdf.Rect(leftX, 32, pageW, 20, "FD")
+	pdf.SetTextColor(35, 35, 35)
 
-	pdf.SetFont("Arial", "", 10)
-	addWertZeile(pdf, tr("Laube"), wertermittlung.LaubeWert)
-	addWertZeile(pdf, tr("Baulichkeiten"), wertermittlung.BaulichkeitenWert)
-	addWertZeile(pdf, tr("Obstgehölze"), wertermittlung.ObstWert)
-	addWertZeile(pdf, tr("Gemüse/Kräuter"), wertermittlung.GemuseWert)
-	addWertZeile(pdf, tr("Ziergehölze"), wertermittlung.ZierWert)
+	// Linke Spalte
+	pdf.SetFont("Arial", "B", 9)
+	pdf.SetXY(leftX+3, 35)
+	pdf.Cell(22, 5, tr("Parzelle:"))
+	pdf.SetFont("Arial", "", 9)
+	pdf.Cell(65, 5, tr(parzelle.Nummer))
 
+	pdf.SetFont("Arial", "B", 9)
+	pdf.SetXY(leftX+3, 41)
+	pdf.Cell(22, 5, tr("Pächter:"))
+	pdf.SetFont("Arial", "", 9)
+	pdf.Cell(65, 5, tr(parzelle.PaechterName))
+
+	// Rechte Spalte
+	pdf.SetFont("Arial", "B", 9)
+	pdf.SetXY(leftX+97, 35)
+	pdf.Cell(22, 5, tr("Verein:"))
+	pdf.SetFont("Arial", "", 9)
+	pdf.Cell(70, 5, tr(parzelle.Verein))
+
+	pdf.SetFont("Arial", "B", 9)
+	pdf.SetXY(leftX+97, 41)
+	pdf.Cell(22, 5, tr("Datum:"))
+	pdf.SetFont("Arial", "", 9)
+	pdf.Cell(70, 5, tr(wertermittlung.Datum.Format("02.01.2006")))
+
+	// ── Abschnittsüberschrift ──────────────────────────────────────
+	pdf.SetXY(leftX, 56)
 	pdf.SetFont("Arial", "B", 11)
-	pdf.SetFillColor(220, 232, 244)
-	pdf.CellFormat(115, 9, tr("Gesamtwert"), "1", 0, "", true, 0, "")
-	pdf.CellFormat(75, 9, tr(fmt.Sprintf("%.2f €", wertermittlung.GesamtWert)), "1", 1, "R", true, 0, "")
+	pdf.SetTextColor(35, 84, 133)
+	pdf.Cell(pageW, 6, tr("Wertübersicht"))
+	// Blaue Linie unter der Überschrift
+	pdf.SetDrawColor(35, 84, 133)
+	pdf.Line(leftX, 63, leftX+pageW, 63)
+	pdf.SetDrawColor(180, 195, 210)
 
-	if len(wertermittlung.Details.Baulichkeiten) > 0 {
-		pdf.Ln(4)
+	// ── Tabellenkopf ──────────────────────────────────────────────
+	pdf.SetXY(leftX, 65)
+	pdf.SetFillColor(35, 84, 133)
+	pdf.SetTextColor(255, 255, 255)
+	pdf.SetFont("Arial", "B", 10)
+	pdf.CellFormat(130, 8, tr("  Kategorie"), "1", 0, "L", true, 0, "")
+	pdf.CellFormat(60, 8, tr("Wert (€)"), "1", 1, "R", true, 0, "")
+
+	// ── Tabellenzeilen (abwechselnd weiß/hellblau) ─────────────────
+	pdf.SetTextColor(35, 35, 35)
+	pdf.SetFont("Arial", "", 10)
+	kategorien := []struct {
+		Name string
+		Wert float64
+	}{
+		{tr("Laube"), wertermittlung.LaubeWert},
+		{tr("Baulichkeiten"), wertermittlung.BaulichkeitenWert},
+		{tr("Obstgehölze"), wertermittlung.ObstWert},
+		{tr("Gemüse/Kräuter"), wertermittlung.GemuseWert},
+		{tr("Ziergehölze"), wertermittlung.ZierWert},
+	}
+	for i, kat := range kategorien {
+		if i%2 == 0 {
+			pdf.SetFillColor(255, 255, 255)
+		} else {
+			pdf.SetFillColor(235, 244, 253)
+		}
+		pdf.CellFormat(130, 7, tr("  ")+kat.Name, "1", 0, "L", true, 0, "")
+		pdf.CellFormat(60, 7, tr(fmt.Sprintf("%.2f €", kat.Wert)), "1", 1, "R", true, 0, "")
+	}
+
+	// Gesamtwert-Zeile
+	pdf.SetFillColor(35, 84, 133)
+	pdf.SetTextColor(255, 255, 255)
+	pdf.SetFont("Arial", "B", 11)
+	pdf.SetDrawColor(35, 84, 133)
+	pdf.CellFormat(130, 9, tr("  Gesamtwert"), "1", 0, "L", true, 0, "")
+	pdf.CellFormat(60, 9, tr(fmt.Sprintf("%.2f €", wertermittlung.GesamtWert)), "1", 1, "R", true, 0, "")
+	pdf.SetDrawColor(180, 195, 210)
+	pdf.SetTextColor(35, 35, 35)
+
+	// ── Baulichkeiten-Details ──────────────────────────────────────
+	hasBaulichkeiten := false
+	for _, b := range wertermittlung.Details.Baulichkeiten {
+		if b.Restwert > 0 {
+			hasBaulichkeiten = true
+			break
+		}
+	}
+	if hasBaulichkeiten {
+		pdf.Ln(5)
 		pdf.SetFont("Arial", "B", 11)
-		pdf.Cell(190, 7, tr("Baulichkeiten (Details)"))
-		pdf.Ln(8)
+		pdf.SetTextColor(35, 84, 133)
+		pdf.Cell(pageW, 6, tr("Baulichkeiten (Details)"))
+		pdf.SetDrawColor(35, 84, 133)
+		y := pdf.GetY() + 7
+		pdf.Line(leftX, y, leftX+pageW, y)
+		pdf.SetDrawColor(180, 195, 210)
+		pdf.Ln(9)
+
+		pdf.SetFillColor(35, 84, 133)
+		pdf.SetTextColor(255, 255, 255)
+		pdf.SetFont("Arial", "B", 10)
+		pdf.CellFormat(130, 7, tr("  Position"), "1", 0, "L", true, 0, "")
+		pdf.CellFormat(60, 7, tr("Wert (€)"), "1", 1, "R", true, 0, "")
+		pdf.SetTextColor(35, 35, 35)
 		pdf.SetFont("Arial", "", 10)
+
+		rowIdx := 0
+		baulichkeitLabels := map[string]string{
+			"wege":   "Wege/Terrassen",
+			"pforte": "Pforte",
+			"strom":  "Elektroanschluss",
+			"wasser": "Wasserversorgung",
+		}
 		for _, b := range wertermittlung.Details.Baulichkeiten {
 			if b.Restwert <= 0 {
 				continue
 			}
-			label := strings.Title(b.Typ)
-			pdf.CellFormat(115, 7, tr(label), "1", 0, "", false, 0, "")
-			pdf.CellFormat(75, 7, tr(fmt.Sprintf("%.2f €", b.Restwert)), "1", 1, "R", false, 0, "")
+			label := baulichkeitLabels[b.Typ]
+			if label == "" {
+				label = strings.Title(b.Typ)
+			}
+			if rowIdx%2 == 0 {
+				pdf.SetFillColor(255, 255, 255)
+			} else {
+				pdf.SetFillColor(235, 244, 253)
+			}
+			pdf.CellFormat(130, 7, tr("  ")+tr(label), "1", 0, "L", true, 0, "")
+			pdf.CellFormat(60, 7, tr(fmt.Sprintf("%.2f €", b.Restwert)), "1", 1, "R", true, 0, "")
+			rowIdx++
 		}
 	}
 
+	// ── Laube-Begründung ──────────────────────────────────────────
 	if len(wertermittlung.Details.Laube.Begruendung) > 0 {
-		pdf.Ln(6)
+		pdf.Ln(5)
 		pdf.SetFont("Arial", "B", 11)
-		pdf.Cell(190, 10, tr("Begründung für manuelle Laube-Bewertung:"))
-		pdf.Ln(8)
+		pdf.SetTextColor(35, 84, 133)
+		pdf.Cell(pageW, 6, tr("Begründung (manuelle Laube-Bewertung)"))
+		y := pdf.GetY() + 7
+		pdf.SetDrawColor(35, 84, 133)
+		pdf.Line(leftX, y, leftX+pageW, y)
+		pdf.SetDrawColor(180, 195, 210)
+		pdf.Ln(9)
 		pdf.SetFont("Arial", "", 10)
-		pdf.MultiCell(190, 6, tr(wertermittlung.Details.Laube.Begruendung), "1", "", false)
+		pdf.SetTextColor(35, 35, 35)
+		pdf.SetFillColor(248, 248, 248)
+		pdf.MultiCell(pageW, 6, tr(wertermittlung.Details.Laube.Begruendung), "1", "", true)
 	}
 
+	// ── Obstgehölze-Tabelle ────────────────────────────────────────
 	if len(wertermittlung.Details.Obst) > 0 {
-		pdf.Ln(6)
+		pdf.Ln(5)
 		pdf.SetFont("Arial", "B", 11)
-		pdf.Cell(190, 10, tr("Obstgehölze:"))
-		pdf.Ln(8)
+		pdf.SetTextColor(35, 84, 133)
+		pdf.Cell(pageW, 6, tr("Obstgehölze"))
+		y := pdf.GetY() + 7
+		pdf.SetDrawColor(35, 84, 133)
+		pdf.Line(leftX, y, leftX+pageW, y)
+		pdf.SetDrawColor(180, 195, 210)
+		pdf.Ln(9)
+
+		pdf.SetFillColor(35, 84, 133)
+		pdf.SetTextColor(255, 255, 255)
 		pdf.SetFont("Arial", "B", 10)
-		pdf.SetFillColor(245, 245, 245)
-		pdf.CellFormat(90, 7, tr("Art"), "1", 0, "", true, 0, "")
-		pdf.CellFormat(35, 7, tr("Menge"), "1", 0, "", true, 0, "")
-		pdf.CellFormat(30, 7, tr("Einzelpreis"), "1", 0, "R", true, 0, "")
+		pdf.CellFormat(85, 7, tr("  Art"), "1", 0, "L", true, 0, "")
+		pdf.CellFormat(35, 7, tr("Menge"), "1", 0, "C", true, 0, "")
+		pdf.CellFormat(35, 7, tr("Einzelpreis"), "1", 0, "R", true, 0, "")
 		pdf.CellFormat(35, 7, tr("Gesamt"), "1", 1, "R", true, 0, "")
+		pdf.SetTextColor(35, 35, 35)
 		pdf.SetFont("Arial", "", 10)
 
-		for _, obst := range wertermittlung.Details.Obst {
-			pdf.CellFormat(90, 7, tr(obst.Art), "1", 0, "", false, 0, "")
-			pdf.CellFormat(35, 7, tr(fmt.Sprintf("%d %s", obst.Anzahl, obst.Einheit)), "1", 0, "", false, 0, "")
-			pdf.CellFormat(30, 7, tr(fmt.Sprintf("%.2f €", obst.EinzelPreis)), "1", 0, "R", false, 0, "")
-			pdf.CellFormat(35, 7, tr(fmt.Sprintf("%.2f €", obst.GesamtWert)), "1", 1, "R", false, 0, "")
+		for i, obst := range wertermittlung.Details.Obst {
+			if i%2 == 0 {
+				pdf.SetFillColor(255, 255, 255)
+			} else {
+				pdf.SetFillColor(235, 244, 253)
+			}
+			pdf.CellFormat(85, 7, tr("  ")+tr(obst.Art), "1", 0, "L", true, 0, "")
+			pdf.CellFormat(35, 7, tr(fmt.Sprintf("%d %s", obst.Anzahl, obst.Einheit)), "1", 0, "C", true, 0, "")
+			pdf.CellFormat(35, 7, tr(fmt.Sprintf("%.2f €", obst.EinzelPreis)), "1", 0, "R", true, 0, "")
+			pdf.CellFormat(35, 7, tr(fmt.Sprintf("%.2f €", obst.GesamtWert)), "1", 1, "R", true, 0, "")
 		}
 	}
 
+	// ── Unterschriften-Block ───────────────────────────────────────
+	// Sicherstellen, dass Unterschriften auf der Seite Platz haben
+	if pdf.GetY() > 230 {
+		pdf.AddPage()
+	}
+	pdf.Ln(12)
+	signY := pdf.GetY()
+	pdf.SetDrawColor(80, 80, 80)
+	// Linie links
+	pdf.Line(leftX+5, signY, leftX+80, signY)
+	// Linie rechts
+	pdf.Line(leftX+105, signY, leftX+180, signY)
+	pdf.SetFont("Arial", "", 9)
+	pdf.SetTextColor(80, 80, 80)
+	pdf.SetXY(leftX+5, signY+2)
+	pdf.Cell(75, 5, tr("Unterschrift Vereinsvertreter"))
+	pdf.SetXY(leftX+105, signY+2)
+	pdf.Cell(75, 5, tr("Unterschrift Pächter"))
+
+	// ── Ausgabe ────────────────────────────────────────────────────
 	w.Header().Set("Content-Type", "application/pdf")
 	w.Header().Set("Content-Disposition",
 		fmt.Sprintf("attachment; filename=wertermittlung_%d_%s.pdf",
 			id, time.Now().Format("2006-01-02")))
 
-	err = pdf.Output(w)
-	if err != nil {
+	if err = pdf.Output(w); err != nil {
 		http.Error(w, "Fehler beim Generieren des PDFs", http.StatusInternalServerError)
 		return
 	}

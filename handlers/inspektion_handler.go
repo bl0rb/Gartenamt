@@ -82,57 +82,109 @@ func generateInspektionPDF(w http.ResponseWriter, id int) {
 
 	pdf := gofpdf.New("P", "mm", "A4", "")
 	tr := pdf.UnicodeTranslatorFromDescriptor("")
+
+	// Footer
+	pdf.SetFooterFunc(func() {
+		pdf.SetY(-15)
+		pdf.SetFont("Arial", "I", 8)
+		pdf.SetTextColor(120, 120, 120)
+		pdf.CellFormat(0, 5, tr(fmt.Sprintf("%s   |   Seite %d", lghOrgName, pdf.PageNo())), "", 0, "C", false, 0, "")
+	})
+
 	pdf.AddPage()
 
-	// Header
+	pageW := 190.0
+	leftX := 10.0
+
+	// ── Header-Balken ──────────────────────────────────────────────
+	pdf.SetFillColor(35, 84, 133)
+	pdf.Rect(leftX, 10, pageW, 18, "F")
+	pdf.SetTextColor(255, 255, 255)
 	pdf.SetFont("Arial", "B", 16)
-	pdf.Cell(190, 10, tr("Inspektionsprotokoll"))
-	pdf.Ln(10)
+	pdf.SetXY(leftX+2, 13)
+	pdf.Cell(130, 9, tr("Inspektionsprotokoll"))
+	pdf.SetFont("Arial", "", 10)
+	pdf.SetXY(leftX+130, 14)
+	pdf.Cell(58, 7, tr(inspektion.Datum.Format("02.01.2006")))
+	pdf.SetXY(leftX+2, 22)
+	pdf.SetFont("Arial", "", 8)
+	pdf.Cell(pageW-4, 5, tr(lghOrgName))
 
-	pdf.SetFont("Arial", "", 12)
-	pdf.Cell(190, 6, tr("Landesbund der Gartenfreunde in Hamburg e.V."))
-	pdf.Ln(10)
-
-	pdf.Line(10, pdf.GetY(), 200, pdf.GetY())
-	pdf.Ln(5)
-
-	// Basis-Informationen
-	pdf.SetFont("Arial", "", 11)
-	y := pdf.GetY()
+	// ── Stammdaten-Block ────────────────────────────────────────────
+	pdf.SetFillColor(240, 244, 248)
+	pdf.SetDrawColor(180, 195, 210)
+	blockH := 20.0
+	if inspektion.Frist != nil {
+		blockH = 26.0
+	}
+	pdf.Rect(leftX, 32, pageW, blockH, "FD")
+	pdf.SetTextColor(35, 35, 35)
 
 	// Linke Spalte
-	pdf.CellFormat(30, 6, tr("Verein:"), "", 0, "", false, 0, "")
-	pdf.CellFormat(60, 6, tr(parzelle.Verein), "", 1, "", false, 0, "")
-	pdf.CellFormat(30, 6, tr("Parzelle:"), "", 0, "", false, 0, "")
-	pdf.CellFormat(60, 6, tr(parzelle.Nummer), "", 1, "", false, 0, "")
-	pdf.CellFormat(30, 6, tr("Pächter:"), "", 0, "", false, 0, "")
-	pdf.CellFormat(60, 6, tr(parzelle.PaechterName), "", 1, "", false, 0, "")
+	pdf.SetFont("Arial", "B", 9)
+	pdf.SetXY(leftX+3, 35)
+	pdf.Cell(22, 5, tr("Verein:"))
+	pdf.SetFont("Arial", "", 9)
+	pdf.Cell(65, 5, tr(parzelle.Verein))
+
+	pdf.SetFont("Arial", "B", 9)
+	pdf.SetXY(leftX+3, 41)
+	pdf.Cell(22, 5, tr("Parzelle:"))
+	pdf.SetFont("Arial", "", 9)
+	pdf.Cell(65, 5, tr(parzelle.Nummer))
+
+	if inspektion.Frist != nil {
+		pdf.SetFont("Arial", "B", 9)
+		pdf.SetXY(leftX+3, 47)
+		pdf.Cell(22, 5, tr("Pächter:"))
+		pdf.SetFont("Arial", "", 9)
+		pdf.Cell(65, 5, tr(parzelle.PaechterName))
+	}
 
 	// Rechte Spalte
-	pdf.SetXY(110, y)
-	pdf.CellFormat(30, 6, tr("Datum:"), "", 0, "", false, 0, "")
-	pdf.CellFormat(60, 6, tr(inspektion.Datum.Format("02.01.2006")), "", 1, "", false, 0, "")
-	if inspektion.Frist != nil {
-		pdf.SetX(110)
-		pdf.CellFormat(30, 6, tr("Frist bis:"), "", 0, "", false, 0, "")
-		pdf.CellFormat(60, 6, tr(inspektion.Frist.Format("02.01.2006")), "", 1, "", false, 0, "")
-	}
-	pdf.Ln(15)
+	pdf.SetFont("Arial", "B", 9)
+	pdf.SetXY(leftX+97, 35)
+	pdf.Cell(22, 5, tr("Datum:"))
+	pdf.SetFont("Arial", "", 9)
+	pdf.Cell(70, 5, tr(inspektion.Datum.Format("02.01.2006")))
 
-	// Mängelliste Header
-	pdf.SetFont("Arial", "B", 12)
-	pdf.Cell(190, 8, tr("Festgestellte Mängel:"))
-	pdf.Ln(10)
+	if inspektion.Frist != nil {
+		pdf.SetFont("Arial", "B", 9)
+		pdf.SetXY(leftX+97, 41)
+		pdf.Cell(22, 5, tr("Frist bis:"))
+		pdf.SetFont("Arial", "", 9)
+		pdf.Cell(70, 5, tr(inspektion.Frist.Format("02.01.2006")))
+	}
+
+	if inspektion.Frist == nil {
+		pdf.SetFont("Arial", "B", 9)
+		pdf.SetXY(leftX+3, 47)
+		pdf.Cell(22, 5, tr("Pächter:"))
+		pdf.SetFont("Arial", "", 9)
+		pdf.Cell(65, 5, tr(parzelle.PaechterName))
+	}
+
+	// ── Mängelliste ─────────────────────────────────────────────────
+	startY := 32 + blockH + 6
+	pdf.SetXY(leftX, startY)
+	pdf.SetFont("Arial", "B", 11)
+	pdf.SetTextColor(35, 84, 133)
+	pdf.Cell(pageW, 6, tr("Festgestellte Mängel"))
+	pdf.SetDrawColor(35, 84, 133)
+	lineY := startY + 7
+	pdf.Line(leftX, lineY, leftX+pageW, lineY)
+	pdf.SetDrawColor(180, 195, 210)
+	pdf.SetXY(leftX, lineY+2)
 
 	// Tabellenkopf
-	pdf.SetFont("Arial", "", 11)
-	pdf.SetFillColor(240, 240, 240)
-	pdf.CellFormat(10, 8, tr("Nr."), "1", 0, "", true, 0, "")
-	pdf.CellFormat(8, 8, "", "1", 0, "", true, 0, "") // Checkbox column
-	pdf.CellFormat(112, 8, tr("Mangel"), "1", 0, "", true, 0, "")
-	pdf.CellFormat(60, 8, tr("Rechtsgrundlage"), "1", 1, "", true, 0, "")
+	pdf.SetFillColor(35, 84, 133)
+	pdf.SetTextColor(255, 255, 255)
+	pdf.SetFont("Arial", "B", 9)
+	pdf.CellFormat(10, 7, tr("Nr."), "1", 0, "C", true, 0, "")
+	pdf.CellFormat(8, 7, "", "1", 0, "C", true, 0, "")
+	pdf.CellFormat(112, 7, tr("Beschreibung"), "1", 0, "L", true, 0, "")
+	pdf.CellFormat(60, 7, tr("Rechtsgrundlage"), "1", 1, "L", true, 0, "")
 
-	// Helper function to check if a Mangel is selected
 	isMaengelSelected := func(nr int) bool {
 		for _, m := range inspektion.Maengel {
 			if m.Nr == nr {
@@ -142,91 +194,124 @@ func generateInspektionPDF(w http.ResponseWriter, id int) {
 		return false
 	}
 
-	// Alle vordefinierten Mängel auflisten
-	for _, mangel := range models.VordefinierteManagel {
-		//startY := pdf.GetY()
+	pdf.SetTextColor(35, 35, 35)
+	pdf.SetFont("Arial", "", 9)
 
-		// Nummer
-		pdf.CellFormat(10, 6, fmt.Sprintf("%d", mangel.Nr), "1", 0, "", false, 0, "")
+	for i, mangel := range models.VordefinierteManagel {
+		rowY := pdf.GetY()
 
-		// Checkbox
-		checkboxX := pdf.GetX()
-		//checkboxY := pdf.GetY()
-		pdf.CellFormat(8, 6, "", "1", 0, "", false, 0, "")
-
-		// Draw checkbox mark if selected
-		if isMaengelSelected(mangel.Nr) {
-			pdf.SetX(checkboxX)
-			pdf.CellFormat(8, 6, "X", "", 0, "C", false, 0, "")
+		// Seitenumbruch-Prüfung
+		if rowY > 260 {
+			pdf.AddPage()
+			rowY = pdf.GetY()
 		}
 
-		// Beschreibung (mehrzeilig)
-		x := pdf.GetX()
-		y := pdf.GetY()
-		pdf.MultiCell(112, 6, tr(mangel.Beschreibung), "1", "", false)
+		// Zeilenfarbe abwechselnd
+		if i%2 == 0 {
+			pdf.SetFillColor(255, 255, 255)
+		} else {
+			pdf.SetFillColor(235, 244, 253)
+		}
 
-		// Höhe der Beschreibungszelle ermitteln
+		// Höhe der Beschreibungszelle berechnen (MultiCell)
+		lineCount := pdf.SplitLines([]byte(tr(mangel.Beschreibung)), 112)
+		cellH := float64(len(lineCount)) * 5.5
+		if cellH < 6 {
+			cellH = 6
+		}
+
+		// Nummer
+		pdf.CellFormat(10, cellH, fmt.Sprintf("%d", mangel.Nr), "1", 0, "C", true, 0, "")
+
+		// Checkbox
+		chkX := pdf.GetX()
+		pdf.CellFormat(8, cellH, "", "1", 0, "C", true, 0, "")
+		if isMaengelSelected(mangel.Nr) {
+			pdf.SetXY(chkX, rowY+(cellH-5)/2)
+			pdf.SetFont("Arial", "B", 10)
+			pdf.Cell(8, 5, "X")
+			pdf.SetFont("Arial", "", 9)
+			pdf.SetXY(chkX+8, rowY)
+		}
+
+		// Beschreibung
+		descX := pdf.GetX()
+		pdf.MultiCell(112, 5.5, tr(mangel.Beschreibung), "1", "L", true)
 		newY := pdf.GetY()
-		height := newY - y
 
 		// Rechtsgrundlage
-		pdf.SetXY(x+112, y)
-		pdf.CellFormat(60, height, tr(mangel.Rechtsgrundlage), "1", 1, "", false, 0, "")
+		pdf.SetXY(descX+112, rowY)
+		pdf.CellFormat(60, newY-rowY, tr(mangel.Rechtsgrundlage), "1", 0, "L", true, 0, "")
+		pdf.SetXY(leftX, newY)
 	}
 
-	pdf.Ln(10)
-
-	// Status der Auflagen
+	// ── Auflagen-Status ────────────────────────────────────────────
+	pdf.Ln(5)
+	if pdf.GetY() > 245 {
+		pdf.AddPage()
+	}
 	pdf.SetFont("Arial", "B", 11)
-	pdf.Cell(190, 8, tr("Status der Auflagen:"))
+	pdf.SetTextColor(35, 84, 133)
+	pdf.Cell(pageW, 6, tr("Status der Auflagen"))
+	auflagenLineY := pdf.GetY() + 7
+	pdf.SetDrawColor(35, 84, 133)
+	pdf.Line(leftX, auflagenLineY, leftX+pageW, auflagenLineY)
+	pdf.SetDrawColor(180, 195, 210)
+	pdf.Ln(9)
+
+	pdf.SetFont("Arial", "", 10)
+	pdf.SetTextColor(35, 35, 35)
+
+	// Checkbox Auflagen erfüllt
+	chkX := pdf.GetX()
+	pdf.SetFillColor(255, 255, 255)
+	pdf.CellFormat(7, 7, "", "1", 0, "C", true, 0, "")
+	if inspektion.AuflagenErfuellt {
+		pdf.SetXY(chkX, pdf.GetY())
+		pdf.SetFont("Arial", "B", 10)
+		pdf.Cell(7, 7, "X")
+		pdf.SetFont("Arial", "", 10)
+	}
+	pdf.SetXY(chkX+8, pdf.GetY())
+	pdf.Cell(pageW-8, 7, tr(" Alle Auflagen erfüllt"))
 	pdf.Ln(8)
 
-	pdf.SetFont("Arial", "", 11)
-
-	// Checkbox für "Auflagen erfüllt"
-	checkboxX := pdf.GetX()
-	pdf.CellFormat(8, 6, "", "1", 0, "", false, 0, "")
-	if inspektion.AuflagenErfuellt {
-		pdf.SetX(checkboxX)
-		pdf.CellFormat(8, 6, "X", "", 0, "C", false, 0, "")
-	}
-	pdf.CellFormat(182, 6, tr(" Auflagen erfüllt"), "", 1, "", false, 0, "")
-
-	// Checkbox für "Auflagen nicht erfüllt"
-	checkboxX = pdf.GetX()
-	pdf.CellFormat(8, 6, "", "1", 0, "", false, 0, "")
+	// Checkbox Auflagen nicht erfüllt
+	chkX = pdf.GetX()
+	pdf.CellFormat(7, 7, "", "1", 0, "C", true, 0, "")
 	if !inspektion.AuflagenErfuellt {
-		pdf.SetX(checkboxX)
-		pdf.CellFormat(8, 6, "X", "", 0, "C", false, 0, "")
+		pdf.SetXY(chkX, pdf.GetY())
+		pdf.SetFont("Arial", "B", 10)
+		pdf.Cell(7, 7, "X")
+		pdf.SetFont("Arial", "", 10)
 	}
-	pdf.CellFormat(182, 6, tr(" Auflagen nicht erfüllt"), "", 1, "", false, 0, "")
+	pdf.SetXY(chkX+8, pdf.GetY())
+	pdf.Cell(pageW-8, 7, tr(" Auflagen nicht erfüllt"))
+	pdf.Ln(8)
 
-	pdf.Ln(15)
+	// ── Unterschriften-Block ───────────────────────────────────────
+	if pdf.GetY() > 240 {
+		pdf.AddPage()
+	}
+	pdf.Ln(10)
+	signY := pdf.GetY()
+	pdf.SetDrawColor(80, 80, 80)
+	pdf.Line(leftX+5, signY, leftX+80, signY)
+	pdf.Line(leftX+105, signY, leftX+180, signY)
+	pdf.SetFont("Arial", "", 9)
+	pdf.SetTextColor(80, 80, 80)
+	pdf.SetXY(leftX+5, signY+2)
+	pdf.Cell(75, 5, tr("Unterschrift Vereinsvertreter"))
+	pdf.SetXY(leftX+105, signY+2)
+	pdf.Cell(75, 5, tr("Unterschrift Pächter"))
 
-	// Unterschriften
-	pdf.SetY(pdf.GetY() + 10)
-	pdf.Line(20, pdf.GetY(), 90, pdf.GetY())
-	pdf.Line(110, pdf.GetY(), 180, pdf.GetY())
-
-	pdf.SetY(pdf.GetY() + 5)
-	pdf.SetFont("Arial", "", 10)
-	pdf.SetX(20)
-	pdf.Cell(70, 5, tr("Unterschrift Vereinsvertreter"))
-	pdf.SetX(110)
-	pdf.Cell(70, 5, tr("Unterschrift Pächter"))
-
-	// Fußzeile
-	pdf.SetY(275)
-	pdf.SetFont("Arial", "I", 8)
-	pdf.Cell(190, 5, tr("Landesbund der Gartenfreunde in Hamburg e.V. - "+time.Now().Format("02.01.2006")))
-
+	// ── Ausgabe ────────────────────────────────────────────────────
 	w.Header().Set("Content-Type", "application/pdf")
 	w.Header().Set("Content-Disposition",
 		fmt.Sprintf("attachment; filename=inspektion_%s_%s.pdf",
 			parzelle.Nummer, inspektion.Datum.Format("2006-01-02")))
 
-	err = pdf.Output(w)
-	if err != nil {
+	if err = pdf.Output(w); err != nil {
 		http.Error(w, "Fehler beim Generieren des PDFs", http.StatusInternalServerError)
 		return
 	}
