@@ -476,6 +476,9 @@ func generateWertermittlungPDF(w http.ResponseWriter, id int) {
 
 	pageW := 190.0
 	leftX := 10.0
+	// Seitenumbruch-Grenzwert und Zeilenhöhe für alle Tabellen
+	const pageBreakY = 265.0
+	const tableRowH = 7.0
 
 	// ── Header-Balken ──────────────────────────────────────────────
 	pdf.SetFillColor(35, 84, 133)
@@ -610,9 +613,38 @@ func generateWertermittlungPDF(w http.ResponseWriter, id int) {
 			"strom":  "Elektroanschluss",
 			"wasser": "Wasserversorgung",
 		}
+		var bauUebertrag float64 = 0
 		for _, b := range wertermittlung.Details.Baulichkeiten {
 			if b.Restwert <= 0 {
 				continue
+			}
+			// Seitenumbruch-Prüfung mit Übertrag
+			if pdf.GetY()+tableRowH > pageBreakY {
+				pdf.SetFillColor(220, 235, 252)
+				pdf.SetTextColor(35, 35, 35)
+				pdf.SetFont("Arial", "B", 10)
+				pdf.CellFormat(130, 7, tr("  Übertrag"), "1", 0, "L", true, 0, "")
+				pdf.CellFormat(60, 7, tr(fmt.Sprintf("%.2f €", bauUebertrag)), "1", 1, "R", true, 0, "")
+				pdf.AddPage()
+				pdf.SetFont("Arial", "B", 11)
+				pdf.SetTextColor(35, 84, 133)
+				pdf.Cell(pageW, 6, tr("Baulichkeiten (Details, Fortsetzung)"))
+				bFortY := pdf.GetY() + 7
+				pdf.SetDrawColor(35, 84, 133)
+				pdf.Line(leftX, bFortY, leftX+pageW, bFortY)
+				pdf.SetDrawColor(180, 195, 210)
+				pdf.Ln(9)
+				pdf.SetFillColor(35, 84, 133)
+				pdf.SetTextColor(255, 255, 255)
+				pdf.SetFont("Arial", "B", 10)
+				pdf.CellFormat(130, 7, tr("  Position"), "1", 0, "L", true, 0, "")
+				pdf.CellFormat(60, 7, tr("Wert ( \u20ac )"), "1", 1, "R", true, 0, "")
+				pdf.SetFillColor(220, 235, 252)
+				pdf.SetTextColor(35, 35, 35)
+				pdf.SetFont("Arial", "B", 10)
+				pdf.CellFormat(130, 7, tr("  Übertrag von voriger Seite"), "1", 0, "L", true, 0, "")
+				pdf.CellFormat(60, 7, tr(fmt.Sprintf("%.2f €", bauUebertrag)), "1", 1, "R", true, 0, "")
+				rowIdx = 0
 			}
 			label := baulichkeitLabels[b.Typ]
 			if label == "" {
@@ -623,8 +655,11 @@ func generateWertermittlungPDF(w http.ResponseWriter, id int) {
 			} else {
 				pdf.SetFillColor(235, 244, 253)
 			}
+			pdf.SetFont("Arial", "", 10)
+			pdf.SetTextColor(35, 35, 35)
 			pdf.CellFormat(130, 7, tr("  ")+tr(label), "1", 0, "L", true, 0, "")
 			pdf.CellFormat(60, 7, tr(fmt.Sprintf("%.2f €", b.Restwert)), "1", 1, "R", true, 0, "")
+			bauUebertrag += b.Restwert
 			rowIdx++
 		}
 	}
@@ -725,14 +760,41 @@ func generateWertermittlungPDF(w http.ResponseWriter, id int) {
 			}
 		}
 
-		for i, row := range laubeRows {
-			if i%2 == 0 {
+		laubeRowIdx := 0
+		for _, row := range laubeRows {
+			// Seitenumbruch-Prüfung (Laube zeigt Parameter, keinen summierten Übertragswert)
+			if pdf.GetY()+tableRowH > pageBreakY {
+				pdf.SetFillColor(220, 235, 252)
+				pdf.SetTextColor(35, 35, 35)
+				pdf.SetFont("Arial", "B", 10)
+				pdf.CellFormat(130, 7, tr("  Fortsetzung auf nächster Seite"), "1", 0, "L", true, 0, "")
+				pdf.CellFormat(60, 7, tr(""), "1", 1, "R", true, 0, "")
+				pdf.AddPage()
+				pdf.SetFont("Arial", "B", 11)
+				pdf.SetTextColor(35, 84, 133)
+				pdf.Cell(pageW, 6, tr("Laube (Berechnungsdetails, Fortsetzung)"))
+				lFortY := pdf.GetY() + 7
+				pdf.SetDrawColor(35, 84, 133)
+				pdf.Line(leftX, lFortY, leftX+pageW, lFortY)
+				pdf.SetDrawColor(180, 195, 210)
+				pdf.Ln(9)
+				pdf.SetFillColor(35, 84, 133)
+				pdf.SetTextColor(255, 255, 255)
+				pdf.SetFont("Arial", "B", 10)
+				pdf.CellFormat(130, 7, tr("  Parameter"), "1", 0, "L", true, 0, "")
+				pdf.CellFormat(60, 7, tr("Wert"), "1", 1, "R", true, 0, "")
+				laubeRowIdx = 0
+			}
+			if laubeRowIdx%2 == 0 {
 				pdf.SetFillColor(255, 255, 255)
 			} else {
 				pdf.SetFillColor(235, 244, 253)
 			}
+			pdf.SetFont("Arial", "", 10)
+			pdf.SetTextColor(35, 35, 35)
 			pdf.CellFormat(130, 7, tr("  ")+row.Label, "1", 0, "L", true, 0, "")
 			pdf.CellFormat(60, 7, tr(row.Value), "1", 1, "R", true, 0, "")
+			laubeRowIdx++
 		}
 
 		// Begründung anzeigen (für manuelle Eingabe)
@@ -771,110 +833,200 @@ func generateWertermittlungPDF(w http.ResponseWriter, id int) {
 		pdf.SetTextColor(35, 35, 35)
 		pdf.SetFont("Arial", "", 10)
 
-		for i, obst := range wertermittlung.Details.Obst {
-			if i%2 == 0 {
+		var obstUebertrag float64 = 0
+		obstRowIdx := 0
+		for _, obst := range wertermittlung.Details.Obst {
+			// Seitenumbruch-Prüfung mit Übertrag
+			if pdf.GetY()+tableRowH > pageBreakY {
+				pdf.SetFillColor(220, 235, 252)
+				pdf.SetTextColor(35, 35, 35)
+				pdf.SetFont("Arial", "B", 10)
+				pdf.CellFormat(155, 7, tr("  Übertrag"), "1", 0, "L", true, 0, "")
+				pdf.CellFormat(35, 7, tr(fmt.Sprintf("%.2f €", obstUebertrag)), "1", 1, "R", true, 0, "")
+				pdf.AddPage()
+				pdf.SetFont("Arial", "B", 11)
+				pdf.SetTextColor(35, 84, 133)
+				pdf.Cell(pageW, 6, tr("Obstgehölze (Fortsetzung)"))
+				oFortY := pdf.GetY() + 7
+				pdf.SetDrawColor(35, 84, 133)
+				pdf.Line(leftX, oFortY, leftX+pageW, oFortY)
+				pdf.SetDrawColor(180, 195, 210)
+				pdf.Ln(9)
+				pdf.SetFillColor(35, 84, 133)
+				pdf.SetTextColor(255, 255, 255)
+				pdf.SetFont("Arial", "B", 10)
+				pdf.CellFormat(85, 7, tr("  Art"), "1", 0, "L", true, 0, "")
+				pdf.CellFormat(35, 7, tr("Menge"), "1", 0, "C", true, 0, "")
+				pdf.CellFormat(35, 7, tr("Einzelpreis"), "1", 0, "R", true, 0, "")
+				pdf.CellFormat(35, 7, tr("Gesamt"), "1", 1, "R", true, 0, "")
+				pdf.SetFillColor(220, 235, 252)
+				pdf.SetTextColor(35, 35, 35)
+				pdf.SetFont("Arial", "B", 10)
+				pdf.CellFormat(155, 7, tr("  Übertrag von voriger Seite"), "1", 0, "L", true, 0, "")
+				pdf.CellFormat(35, 7, tr(fmt.Sprintf("%.2f €", obstUebertrag)), "1", 1, "R", true, 0, "")
+				obstRowIdx = 0
+			}
+			if obstRowIdx%2 == 0 {
 				pdf.SetFillColor(255, 255, 255)
 			} else {
 				pdf.SetFillColor(235, 244, 253)
 			}
+			pdf.SetFont("Arial", "", 10)
+			pdf.SetTextColor(35, 35, 35)
 			pdf.CellFormat(85, 7, tr("  ")+tr(obst.Art), "1", 0, "L", true, 0, "")
 			pdf.CellFormat(35, 7, tr(fmt.Sprintf("%d %s", obst.Anzahl, obst.Einheit)), "1", 0, "C", true, 0, "")
 			pdf.CellFormat(35, 7, tr(fmt.Sprintf("%.2f €", obst.EinzelPreis)), "1", 0, "R", true, 0, "")
 			pdf.CellFormat(35, 7, tr(fmt.Sprintf("%.2f €", obst.GesamtWert)), "1", 1, "R", true, 0, "")
+			obstUebertrag += obst.GesamtWert
+			obstRowIdx++
 		}
 	}
 
 	// ── Unterschriften-Block ───────────────────────────────────────
-	// Sicherstellen, dass Unterschriften auf der neuen Seite Platz haben
-	pdf.AddPage()
-	pdf.Ln(5)
+	// Kompakter 5-Linien-Platzhalter auf aktueller Seite, wenn genug Platz vorhanden,
+	// sonst vollständiger Block auf neuer Seite.
+	const kompaktSignaturHoehe = 90.0
+	if pdf.GetY()+kompaktSignaturHoehe <= pageBreakY {
+		// ── Kompakter Unterschriften-Block (5 Linien) ──────────────
+		pdf.Ln(5)
+		pdf.SetFont("Arial", "B", 11)
+		pdf.SetTextColor(35, 84, 133)
+		pdf.Cell(pageW, 6, tr("Wertermittlungskommission"))
+		pdf.SetDrawColor(35, 84, 133)
+		yLine := pdf.GetY() + 7
+		pdf.Line(leftX, yLine, leftX+pageW, yLine)
+		pdf.SetDrawColor(180, 195, 210)
+		pdf.Ln(12)
 
-	// Abschnitt: Wertermittlungskommission + drei Unterschriften
-	pdf.SetFont("Arial", "B", 11)
-	pdf.SetTextColor(35, 84, 133)
-	pdf.Cell(pageW, 6, tr("Wertermittlungskommission"))
-	pdf.SetDrawColor(35, 84, 133)
-	yLine := pdf.GetY() + 7
-	pdf.Line(leftX, yLine, leftX+pageW, yLine)
-	pdf.SetDrawColor(180, 195, 210)
-	pdf.Ln(12)
+		// "Hamburg, den ___" Zeile
+		pdf.SetFont("Arial", "", 10)
+		pdf.SetTextColor(35, 35, 35)
+		pdf.SetXY(leftX, pdf.GetY())
+		pdf.Cell(60, 6, tr("Hamburg, den"))
+		pdf.SetDrawColor(80, 80, 80)
+		pdf.Line(leftX+35, pdf.GetY()+5, leftX+120, pdf.GetY()+5)
+		pdf.Ln(15)
 
-	// "Hamburg, den ___" Zeile
-	pdf.SetFont("Arial", "", 10)
-	pdf.SetTextColor(35, 35, 35)
-	pdf.SetXY(leftX, pdf.GetY())
-	pdf.Cell(60, 6, tr("Hamburg, den"))
-	pdf.SetDrawColor(80, 80, 80)
-	pdf.Line(leftX+35, pdf.GetY()+5, leftX+120, pdf.GetY()+5)
-	pdf.Ln(12)
+		// Drei Unterschrift-Zeilen für Wertermittler
+		wertermittlerY := pdf.GetY()
+		colW := 55.0
+		gap := 10.0
+		for i := 0; i < 3; i++ {
+			x := leftX + float64(i)*(colW+gap)
+			pdf.Line(x, wertermittlerY, x+colW, wertermittlerY)
+			pdf.SetXY(x, wertermittlerY+5)
+			pdf.SetFont("Arial", "", 8)
+			pdf.SetTextColor(80, 80, 80)
+			pdf.Cell(colW, 4, tr(fmt.Sprintf("Wertermittler/in %d", i+1)))
+		}
+		pdf.SetY(wertermittlerY + 22)
 
-	// Drei Unterschrift-Zeilen für Wertermittler
-	wertermittlerY := pdf.GetY()
-	lineSpacing := 20.0
-	colW := 55.0
-	gap := 10.0
-
-	for i := 0; i < 3; i++ {
-		x := leftX + float64(i)*(colW+gap)
-		pdf.Line(x, wertermittlerY, x+colW, wertermittlerY)
-		pdf.SetXY(x, wertermittlerY+2)
+		// Stempel-Feld links, Unterschrift Vorsitzende/r rechts
+		stempelY := pdf.GetY()
+		pdf.SetDrawColor(150, 150, 150)
+		pdf.Rect(leftX, stempelY, 60, 25, "D")
+		pdf.SetFont("Arial", "I", 8)
+		pdf.SetTextColor(150, 150, 150)
+		pdf.SetXY(leftX+2, stempelY+9)
+		pdf.Cell(56, 5, tr("Vereins-Stempel"))
+		pdf.SetDrawColor(80, 80, 80)
+		pdf.Line(leftX+75, stempelY+20, leftX+180, stempelY+20)
 		pdf.SetFont("Arial", "", 8)
 		pdf.SetTextColor(80, 80, 80)
-		pdf.Cell(colW, 4, tr(fmt.Sprintf("Wertermittler/in %d", i+1)))
+		pdf.SetXY(leftX+75, stempelY+25)
+		pdf.Cell(105, 4, tr("Datum, Unterschrift Vorsitzende/r"))
+	} else {
+		// ── Vollständiger Unterschriften-Block auf neuer Seite ─────
+		pdf.AddPage()
+		pdf.Ln(5)
+
+		// Abschnitt: Wertermittlungskommission + drei Unterschriften
+		pdf.SetFont("Arial", "B", 11)
+		pdf.SetTextColor(35, 84, 133)
+		pdf.Cell(pageW, 6, tr("Wertermittlungskommission"))
+		pdf.SetDrawColor(35, 84, 133)
+		yLine := pdf.GetY() + 7
+		pdf.Line(leftX, yLine, leftX+pageW, yLine)
+		pdf.SetDrawColor(180, 195, 210)
+		pdf.Ln(12)
+
+		// "Hamburg, den ___" Zeile
+		pdf.SetFont("Arial", "", 10)
+		pdf.SetTextColor(35, 35, 35)
+		pdf.SetXY(leftX, pdf.GetY())
+		pdf.Cell(60, 6, tr("Hamburg, den"))
+		pdf.SetDrawColor(80, 80, 80)
+		pdf.Line(leftX+35, pdf.GetY()+5, leftX+120, pdf.GetY()+5)
+		pdf.Ln(15)
+
+		// Drei Unterschrift-Zeilen für Wertermittler
+		wertermittlerY := pdf.GetY()
+		lineSpacing := 20.0
+		colW := 55.0
+		gap := 10.0
+
+		for i := 0; i < 3; i++ {
+			x := leftX + float64(i)*(colW+gap)
+			pdf.Line(x, wertermittlerY, x+colW, wertermittlerY)
+			pdf.SetXY(x, wertermittlerY+5)
+			pdf.SetFont("Arial", "", 8)
+			pdf.SetTextColor(80, 80, 80)
+			pdf.Cell(colW, 4, tr(fmt.Sprintf("Wertermittler/in %d", i+1)))
+		}
+		pdf.Ln(lineSpacing)
+
+		// Rechtlicher Hinweis-Block
+		pdf.Ln(5)
+		pdf.SetFont("Arial", "I", 9)
+		pdf.SetTextColor(60, 60, 60)
+		hinweisText := wertermittlungHinweisText
+		pdf.MultiCell(pageW, 5, tr(hinweisText), "1", "", false)
+		pdf.Ln(8)
+
+		// "Ich erkläre mich einverstanden" + Vereinsstempel + Vorsitzende/r
+		pdf.SetFont("Arial", "", 10)
+		pdf.SetTextColor(35, 35, 35)
+		pdf.MultiCell(pageW, 5, tr("Ich erkläre mich der vorstehenden Wertermittlung einverstanden."), "", "", false)
+		pdf.Ln(6)
+
+		// Stempel-Feld links, Unterschrift Vorsitzende/r rechts
+		stempelY := pdf.GetY()
+		pdf.SetDrawColor(150, 150, 150)
+		pdf.Rect(leftX, stempelY, 60, 25, "D")
+		pdf.SetFont("Arial", "I", 8)
+		pdf.SetTextColor(150, 150, 150)
+		pdf.SetXY(leftX+2, stempelY+9)
+		pdf.Cell(56, 5, tr("Vereins-Stempel"))
+		pdf.SetDrawColor(80, 80, 80)
+		pdf.Line(leftX+75, stempelY+24, leftX+180, stempelY+24)
+		pdf.SetFont("Arial", "", 8)
+		pdf.SetTextColor(80, 80, 80)
+		pdf.SetXY(leftX+75, stempelY+29)
+		pdf.Cell(105, 4, tr("Datum, Unterschrift Vorsitzende/r"))
+		pdf.SetY(stempelY + 35)
+
+		// "Ich habe die Wertermittlung ..." Text
+		pdf.Ln(5)
+		pdf.SetFont("Arial", "", 10)
+		pdf.SetTextColor(35, 35, 35)
+		empfangText := wertermittlungEmpfangText
+		pdf.MultiCell(pageW, 5, tr(empfangText), "", "", false)
+		pdf.Ln(10)
+
+		// Unterschriftszeilen: scheidende/r Pächter/in + Nachfolgepächter/in
+		paechterSignY := pdf.GetY()
+		paechterColW := 85.0
+		paechterGap := 20.0
+		pdf.SetDrawColor(80, 80, 80)
+		pdf.Line(leftX, paechterSignY, leftX+paechterColW, paechterSignY)
+		pdf.Line(leftX+paechterColW+paechterGap, paechterSignY, leftX+paechterColW+paechterGap+paechterColW, paechterSignY)
+		pdf.SetFont("Arial", "", 8)
+		pdf.SetTextColor(80, 80, 80)
+		pdf.SetXY(leftX, paechterSignY+5)
+		pdf.Cell(paechterColW, 4, tr("Datum, Unterschrift, scheidende/r Pächter/in"))
+		pdf.SetXY(leftX+paechterColW+paechterGap, paechterSignY+5)
+		pdf.Cell(paechterColW, 4, tr("Datum, Unterschrift, Nachfolgepächter/in"))
 	}
-	pdf.Ln(lineSpacing)
-
-	// Rechtlicher Hinweis-Block
-	pdf.Ln(5)
-	pdf.SetFont("Arial", "I", 9)
-	pdf.SetTextColor(60, 60, 60)
-	hinweisText := wertermittlungHinweisText
-	pdf.MultiCell(pageW, 5, tr(hinweisText), "1", "", false)
-	pdf.Ln(8)
-
-	// "Ich erkläre mich einverstanden" + Vereinsstempel + Vorsitzende/r
-	pdf.SetFont("Arial", "", 10)
-	pdf.SetTextColor(35, 35, 35)
-	pdf.MultiCell(pageW, 5, tr("Ich erkläre mich der vorstehenden Wertermittlung einverstanden."), "", "", false)
-	pdf.Ln(6)
-
-	// Stempel-Feld links, Unterschrift Vorsitzende/r rechts
-	stempelY := pdf.GetY()
-	pdf.SetDrawColor(150, 150, 150)
-	pdf.Rect(leftX, stempelY, 60, 25, "D")
-	pdf.SetFont("Arial", "I", 8)
-	pdf.SetTextColor(150, 150, 150)
-	pdf.SetXY(leftX+2, stempelY+9)
-	pdf.Cell(56, 5, tr("Vereins-Stempel"))
-	pdf.SetDrawColor(80, 80, 80)
-	pdf.Line(leftX+75, stempelY+24, leftX+180, stempelY+24)
-	pdf.SetFont("Arial", "", 8)
-	pdf.SetTextColor(80, 80, 80)
-	pdf.SetXY(leftX+75, stempelY+26)
-	pdf.Cell(105, 4, tr("Datum, Unterschrift Vorsitzende/r"))
-	pdf.SetY(stempelY + 35)
-
-	// "Ich habe die Wertermittlung ..." Text
-	pdf.Ln(5)
-	pdf.SetFont("Arial", "", 10)
-	pdf.SetTextColor(35, 35, 35)
-	empfangText := wertermittlungEmpfangText
-	pdf.MultiCell(pageW, 5, tr(empfangText), "", "", false)
-	pdf.Ln(10)
-
-	// Unterschriftszeilen: scheidende/r Pächter/in + Nachfolgepächter/in
-	paechterSignY := pdf.GetY()
-	paechterColW := 85.0
-	paechterGap := 20.0
-	pdf.SetDrawColor(80, 80, 80)
-	pdf.Line(leftX, paechterSignY, leftX+paechterColW, paechterSignY)
-	pdf.Line(leftX+paechterColW+paechterGap, paechterSignY, leftX+paechterColW+paechterGap+paechterColW, paechterSignY)
-	pdf.SetFont("Arial", "", 8)
-	pdf.SetTextColor(80, 80, 80)
-	pdf.SetXY(leftX, paechterSignY+2)
-	pdf.Cell(paechterColW, 4, tr("Datum, Unterschrift, scheidende/r Pächter/in"))
-	pdf.SetXY(leftX+paechterColW+paechterGap, paechterSignY+2)
-	pdf.Cell(paechterColW, 4, tr("Datum, Unterschrift, Nachfolgepächter/in"))
 
 	// ── Ausgabe ────────────────────────────────────────────────────
 	w.Header().Set("Content-Type", "application/pdf")
