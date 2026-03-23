@@ -22,6 +22,11 @@ const lghOrgName = "Landesbund der Gartenfreunde in Hamburg e.V."
 const stromManuellFestwert = 80.0
 const stromMaxBetrag = 1900.0
 
+const wertermittlungHinweisText = "Gutachterliche Wertermittlung erstattet unabhängig davon, ob ein Rechtsanspruch auf Entschädigung besteht.\n" +
+	"Der scheidende Pächter hat das Recht, binnen 2 Wochen nach Erhalt gegen die Wertermittlung des Vereins Einspruch beim Vereinsvorstand einzulegen und eine erneute Wertermittlung durch die Bezirks-Wertermittler zu verlangen (Satzung)."
+
+const wertermittlungEmpfangText = "Ich habe die Wertermittlung vor dem Kauf zur Einsicht erhalten. Mir ist bekannt, dass ich das Inventar nicht mit zu übernehmen brauche und die Laube auch leergeräumt zum ermittelten Wert übernehmen kann."
+
 func WertermittlungHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	parzelleID, err := strconv.Atoi(vars["parzelle_id"])
@@ -536,7 +541,7 @@ func generateWertermittlungPDF(w http.ResponseWriter, id int) {
 	pdf.SetTextColor(255, 255, 255)
 	pdf.SetFont("Arial", "B", 10)
 	pdf.CellFormat(130, 8, tr("  Kategorie"), "1", 0, "L", true, 0, "")
-	pdf.CellFormat(60, 8, tr("Wert (€)"), "1", 1, "R", true, 0, "")
+	pdf.CellFormat(60, 8, tr("Wert ( \u20ac )"), "1", 1, "R", true, 0, "")
 
 	// ── Tabellenzeilen (abwechselnd weiß/hellblau) ─────────────────
 	pdf.SetTextColor(35, 35, 35)
@@ -594,7 +599,7 @@ func generateWertermittlungPDF(w http.ResponseWriter, id int) {
 		pdf.SetTextColor(255, 255, 255)
 		pdf.SetFont("Arial", "B", 10)
 		pdf.CellFormat(130, 7, tr("  Position"), "1", 0, "L", true, 0, "")
-		pdf.CellFormat(60, 7, tr("Wert (€)"), "1", 1, "R", true, 0, "")
+		pdf.CellFormat(60, 7, tr("Wert ( \u20ac )"), "1", 1, "R", true, 0, "")
 		pdf.SetTextColor(35, 35, 35)
 		pdf.SetFont("Arial", "", 10)
 
@@ -624,21 +629,124 @@ func generateWertermittlungPDF(w http.ResponseWriter, id int) {
 		}
 	}
 
-	// ── Laube-Begründung ──────────────────────────────────────────
-	if len(wertermittlung.Details.Laube.Begruendung) > 0 {
+	// ── Laube-Berechnungsdetails ──────────────────────────────────
+	laube := wertermittlung.Details.Laube
+	if laube.Grundflaeche > 0 || laube.ManuellEingegeben {
 		pdf.Ln(5)
 		pdf.SetFont("Arial", "B", 11)
 		pdf.SetTextColor(35, 84, 133)
-		pdf.Cell(pageW, 6, tr("Begründung (manuelle Laube-Bewertung)"))
+		pdf.Cell(pageW, 6, tr("Laube (Berechnungsdetails)"))
 		y := pdf.GetY() + 7
 		pdf.SetDrawColor(35, 84, 133)
 		pdf.Line(leftX, y, leftX+pageW, y)
 		pdf.SetDrawColor(180, 195, 210)
 		pdf.Ln(9)
-		pdf.SetFont("Arial", "", 10)
+
+		pdf.SetFillColor(35, 84, 133)
+		pdf.SetTextColor(255, 255, 255)
+		pdf.SetFont("Arial", "B", 10)
+		pdf.CellFormat(130, 7, tr("  Parameter"), "1", 0, "L", true, 0, "")
+		pdf.CellFormat(60, 7, tr("Wert"), "1", 1, "R", true, 0, "")
 		pdf.SetTextColor(35, 35, 35)
-		pdf.SetFillColor(248, 248, 248)
-		pdf.MultiCell(pageW, 6, tr(wertermittlung.Details.Laube.Begruendung), "1", "", true)
+		pdf.SetFont("Arial", "", 10)
+
+		laubeRows := []struct {
+			Label string
+			Value string
+		}{}
+
+		if laube.ManuellEingegeben {
+			laubeRows = append(laubeRows,
+				struct{ Label, Value string }{tr("Bewertungsmethode"), tr("Manuelle Eingabe")},
+			)
+			if laube.Grundflaeche > 0 {
+				laubeRows = append(laubeRows,
+					struct{ Label, Value string }{tr("Grundfläche"), fmt.Sprintf("%.1f m²", laube.Grundflaeche)},
+				)
+			}
+			if laube.HerstellungswertProQM > 0 {
+				laubeRows = append(laubeRows,
+					struct{ Label, Value string }{tr("Herstellungswert/m²"), fmt.Sprintf("%.2f \u20ac", laube.HerstellungswertProQM)},
+				)
+			}
+			if laube.Bauindex > 0 {
+				laubeRows = append(laubeRows,
+					struct{ Label, Value string }{tr("Bauindex"), fmt.Sprintf("%.1f", laube.Bauindex)},
+				)
+			}
+			if laube.ManuellZeitwert > 0 {
+				laubeRows = append(laubeRows,
+					struct{ Label, Value string }{tr("Manueller Zeitwert"), fmt.Sprintf("%.2f \u20ac", laube.ManuellZeitwert)},
+				)
+			} else if laube.RestwertProzent > 0 {
+				laubeRows = append(laubeRows,
+					struct{ Label, Value string }{tr("Restwert-Prozentsatz"), fmt.Sprintf("%.1f %%", laube.RestwertProzent)},
+				)
+			}
+		} else {
+			laubeRows = append(laubeRows,
+				struct{ Label, Value string }{tr("Bewertungsmethode"), tr("Automatische Berechnung (Richtlinie)")},
+			)
+			if laube.Grundflaeche > 0 {
+				laubeRows = append(laubeRows,
+					struct{ Label, Value string }{tr("Grundfläche"), fmt.Sprintf("%.1f m²", laube.Grundflaeche)},
+				)
+			}
+			if laube.HerstellungswertProQM > 0 {
+				laubeRows = append(laubeRows,
+					struct{ Label, Value string }{tr("Herstellungswert/m²"), fmt.Sprintf("%.2f \u20ac", laube.HerstellungswertProQM)},
+				)
+			}
+			if laube.Bauindex > 0 {
+				laubeRows = append(laubeRows,
+					struct{ Label, Value string }{tr("Bauindex"), fmt.Sprintf("%.1f", laube.Bauindex)},
+				)
+			}
+			if laube.Erstellungsjahr > 0 {
+				laubeRows = append(laubeRows,
+					struct{ Label, Value string }{tr("Erstellungsjahr"), fmt.Sprintf("%d", laube.Erstellungsjahr)},
+				)
+			}
+			if laube.AbschreibungProzent > 0 {
+				laubeRows = append(laubeRows,
+					struct{ Label, Value string }{tr("Abschreibung p. a."), fmt.Sprintf("%.1f %%", laube.AbschreibungProzent)},
+				)
+			}
+			if laube.AbschreibungJahre > 0 {
+				laubeRows = append(laubeRows,
+					struct{ Label, Value string }{tr("Abschreibungsjahre"), fmt.Sprintf("%d Jahre", laube.AbschreibungJahre)},
+				)
+			}
+			if laube.Grundflaeche > 0 && laube.HerstellungswertProQM > 0 && laube.Bauindex > 0 {
+				grundwert := laube.HerstellungswertProQM * laube.Grundflaeche * laube.Bauindex
+				laubeRows = append(laubeRows,
+					struct{ Label, Value string }{tr("Grundwert (Herstellungswert × Fläche × Bauindex)"), fmt.Sprintf("%.2f \u20ac", grundwert)},
+				)
+			}
+		}
+
+		for i, row := range laubeRows {
+			if i%2 == 0 {
+				pdf.SetFillColor(255, 255, 255)
+			} else {
+				pdf.SetFillColor(235, 244, 253)
+			}
+			pdf.CellFormat(130, 7, tr("  ")+row.Label, "1", 0, "L", true, 0, "")
+			pdf.CellFormat(60, 7, tr(row.Value), "1", 1, "R", true, 0, "")
+		}
+
+		// Begründung anzeigen (für manuelle Eingabe)
+		if len(laube.Begruendung) > 0 {
+			pdf.Ln(3)
+			pdf.SetFont("Arial", "B", 10)
+			pdf.SetTextColor(35, 84, 133)
+			pdf.Cell(pageW, 6, tr("Begründung:"))
+			pdf.Ln(6)
+			pdf.SetFont("Arial", "", 10)
+			pdf.SetTextColor(35, 35, 35)
+			pdf.SetFillColor(248, 248, 248)
+			pdf.MultiCell(pageW, 6, tr(laube.Begruendung), "1", "", true)
+		}
 	}
 
 	// ── Obstgehölze-Tabelle ────────────────────────────────────────
@@ -677,23 +785,96 @@ func generateWertermittlungPDF(w http.ResponseWriter, id int) {
 	}
 
 	// ── Unterschriften-Block ───────────────────────────────────────
-	// Sicherstellen, dass Unterschriften auf der Seite Platz haben
-	if pdf.GetY() > 230 {
-		pdf.AddPage()
-	}
+	// Sicherstellen, dass Unterschriften auf der neuen Seite Platz haben
+	pdf.AddPage()
+	pdf.Ln(5)
+
+	// Abschnitt: Wertermittlungskommission + drei Unterschriften
+	pdf.SetFont("Arial", "B", 11)
+	pdf.SetTextColor(35, 84, 133)
+	pdf.Cell(pageW, 6, tr("Wertermittlungskommission"))
+	pdf.SetDrawColor(35, 84, 133)
+	yLine := pdf.GetY() + 7
+	pdf.Line(leftX, yLine, leftX+pageW, yLine)
+	pdf.SetDrawColor(180, 195, 210)
 	pdf.Ln(12)
-	signY := pdf.GetY()
+
+	// "Hamburg, den ___" Zeile
+	pdf.SetFont("Arial", "", 10)
+	pdf.SetTextColor(35, 35, 35)
+	pdf.SetXY(leftX, pdf.GetY())
+	pdf.Cell(60, 6, tr("Hamburg, den"))
 	pdf.SetDrawColor(80, 80, 80)
-	// Linie links
-	pdf.Line(leftX+5, signY, leftX+80, signY)
-	// Linie rechts
-	pdf.Line(leftX+105, signY, leftX+180, signY)
-	pdf.SetFont("Arial", "", 9)
+	pdf.Line(leftX+35, pdf.GetY()+5, leftX+120, pdf.GetY()+5)
+	pdf.Ln(12)
+
+	// Drei Unterschrift-Zeilen für Wertermittler
+	wertermittlerY := pdf.GetY()
+	lineSpacing := 20.0
+	colW := 55.0
+	gap := 10.0
+
+	for i := 0; i < 3; i++ {
+		x := leftX + float64(i)*(colW+gap)
+		pdf.Line(x, wertermittlerY, x+colW, wertermittlerY)
+		pdf.SetXY(x, wertermittlerY+2)
+		pdf.SetFont("Arial", "", 8)
+		pdf.SetTextColor(80, 80, 80)
+		pdf.Cell(colW, 4, tr(fmt.Sprintf("Wertermittler/in %d", i+1)))
+	}
+	pdf.Ln(lineSpacing)
+
+	// Rechtlicher Hinweis-Block
+	pdf.Ln(5)
+	pdf.SetFont("Arial", "I", 9)
+	pdf.SetTextColor(60, 60, 60)
+	hinweisText := wertermittlungHinweisText
+	pdf.MultiCell(pageW, 5, tr(hinweisText), "1", "", false)
+	pdf.Ln(8)
+
+	// "Ich erkläre mich einverstanden" + Vereinsstempel + Vorsitzende/r
+	pdf.SetFont("Arial", "", 10)
+	pdf.SetTextColor(35, 35, 35)
+	pdf.MultiCell(pageW, 5, tr("Ich erkläre mich der vorstehenden Wertermittlung einverstanden."), "", "", false)
+	pdf.Ln(6)
+
+	// Stempel-Feld links, Unterschrift Vorsitzende/r rechts
+	stempelY := pdf.GetY()
+	pdf.SetDrawColor(150, 150, 150)
+	pdf.Rect(leftX, stempelY, 60, 25, "D")
+	pdf.SetFont("Arial", "I", 8)
+	pdf.SetTextColor(150, 150, 150)
+	pdf.SetXY(leftX+2, stempelY+9)
+	pdf.Cell(56, 5, tr("Vereins-Stempel"))
+	pdf.SetDrawColor(80, 80, 80)
+	pdf.Line(leftX+75, stempelY+24, leftX+180, stempelY+24)
+	pdf.SetFont("Arial", "", 8)
 	pdf.SetTextColor(80, 80, 80)
-	pdf.SetXY(leftX+5, signY+2)
-	pdf.Cell(75, 5, tr("Unterschrift Vereinsvertreter"))
-	pdf.SetXY(leftX+105, signY+2)
-	pdf.Cell(75, 5, tr("Unterschrift Pächter"))
+	pdf.SetXY(leftX+75, stempelY+26)
+	pdf.Cell(105, 4, tr("Datum, Unterschrift Vorsitzende/r"))
+	pdf.SetY(stempelY + 35)
+
+	// "Ich habe die Wertermittlung ..." Text
+	pdf.Ln(5)
+	pdf.SetFont("Arial", "", 10)
+	pdf.SetTextColor(35, 35, 35)
+	empfangText := wertermittlungEmpfangText
+	pdf.MultiCell(pageW, 5, tr(empfangText), "", "", false)
+	pdf.Ln(10)
+
+	// Unterschriftszeilen: scheidende/r Pächter/in + Nachfolgepächter/in
+	paechterSignY := pdf.GetY()
+	paechterColW := 85.0
+	paechterGap := 20.0
+	pdf.SetDrawColor(80, 80, 80)
+	pdf.Line(leftX, paechterSignY, leftX+paechterColW, paechterSignY)
+	pdf.Line(leftX+paechterColW+paechterGap, paechterSignY, leftX+paechterColW+paechterGap+paechterColW, paechterSignY)
+	pdf.SetFont("Arial", "", 8)
+	pdf.SetTextColor(80, 80, 80)
+	pdf.SetXY(leftX, paechterSignY+2)
+	pdf.Cell(paechterColW, 4, tr("Datum, Unterschrift, scheidende/r Pächter/in"))
+	pdf.SetXY(leftX+paechterColW+paechterGap, paechterSignY+2)
+	pdf.Cell(paechterColW, 4, tr("Datum, Unterschrift, Nachfolgepächter/in"))
 
 	// ── Ausgabe ────────────────────────────────────────────────────
 	w.Header().Set("Content-Type", "application/pdf")
