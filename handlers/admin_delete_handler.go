@@ -7,6 +7,7 @@ import (
 	"kleingarten-verwaltung/models"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"runtime"
 	"runtime/debug"
@@ -330,7 +331,7 @@ func AdminSystemInfoHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if _, err := models.ActivateLicenseKey(licenseKey); err != nil {
-				http.Redirect(w, r, "/admin/system-info?license_error=invalid_key", http.StatusSeeOther)
+				http.Redirect(w, r, "/admin/system-info?license_error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
 				return
 			}
 

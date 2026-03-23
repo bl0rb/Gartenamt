@@ -25,7 +25,7 @@
                 {{end}}
                 {{if .LicenseError}}
                 <div class="alert alert-danger" role="alert">
-                    Lizenzaktion fehlgeschlagen ({{.LicenseError}}).
+                    Lizenzaktion fehlgeschlagen: {{.LicenseError}}.
                 </div>
                 {{end}}
 
@@ -35,7 +35,7 @@
                             <input type="hidden" name="action" value="activate_license">
                             <label for="licenseKey" class="form-label fw-semibold">Lizenzschluessel</label>
                             <textarea id="licenseKey" name="license_key" class="form-control" rows="3" placeholder="KGV1.payload.signature" required></textarea>
-                            <div class="form-text">Die Lizenz wird signaturbasiert geprueft und nur als Hash gespeichert.</div>
+                            <div class="form-text">Die Lizenz wird signaturbasiert geprueft und nur als Hash gespeichert. Falls `LICENSE_PUBLIC_KEY` leer ist, kann die App den Public Key optional ueber `LICENSE_SERVER_URL` vom License Server laden.</div>
                             <button type="submit" class="btn btn-primary mt-3">
                                 <i class="fas fa-check-circle me-1"></i>Lizenz aktivieren
                             </button>

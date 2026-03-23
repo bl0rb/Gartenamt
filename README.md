@@ -18,7 +18,7 @@ Kleingarten-Verwaltung is a modular system with three deployable parts:
 1. Copy environment template:
 
 ```bash
-cp .env.modular.example .env
+cp .env.modular.xample .env
 ```
 
 2. Fill required values in `.env`:
@@ -26,6 +26,10 @@ cp .env.modular.example .env
 - `LICENSE_PRIVATE_KEY_BASE64` (required for issue/revoke in license server)
 - `LICENSE_SERVER_ADMIN_TOKEN`
 - `LICENSE_SERVER_CLIENT_TOKEN`
+
+Fuer die Verwaltung App gilt: Entweder `LICENSE_PUBLIC_KEY` passend zum License Server setzen oder `LICENSE_SERVER_URL` konfigurieren, damit der Public Key automatisch von `http://.../v1/keys/public` geladen werden kann.
+
+Beim lokalen Start mit `go run .` werden `.env`, `.env.local`, `.env.modular` und als Fallback auch `.env.modular.xample` automatisch geladen.
 
 3. Start all services:
 
@@ -45,6 +49,30 @@ docker compose -f docker-compose.modular.yml up --build
 - Verwaltung App uses premium feature gating and can call License Server.
 - Public Webpage only links to the app login and does not include admin logic.
 
+## Entwicklung (lokaler Start ohne Docker)
+
+### License Server
+
+```bash
+cd modules/license-server
+go mod tidy
+go run .
+```
+
+Der Server erzeugt die Schluessel beim ersten Start selbst und legt auch automatisch einen persistenten Admin-Token an.
+
+Der Server läuft dann auf `http://localhost:8090`.
+Die UI befuellt das Feld `Admin Token` automatisch mit dem aktiven Wert.
+
+### Verwaltung App
+
+```bash
+# Im Wurzelverzeichnis des Repos
+go run .
+```
+
+Wenn `LICENSE_PUBLIC_KEY` leer ist, kann die App den Public Key optional ueber `LICENSE_SERVER_URL` vom License Server abrufen.
+
 ## Build (Root App)
 
 ```bash
@@ -62,7 +90,7 @@ Create these files:
 2. Create your environment file.
 
 ```bash
-cp .env.modular.example .env
+cp .env.modular.xample .env
 ```
 
 3. Set required secrets in `.env`.

@@ -19,6 +19,7 @@ import (
 	"kleingarten-verwaltung/services"
 
 	"github.com/gorilla/mux"
+	"github.com/joho/godotenv"
 )
 
 //go:embed templates static
@@ -46,7 +47,42 @@ func openSystemBrowser(url string) {
 	}
 }
 
+func loadEnvFiles() {
+	candidates := []string{
+		".env",
+		".env.local",
+		".env.modular",
+		".env.modular.local",
+	}
+
+	var existing []string
+	for _, candidate := range candidates {
+		if _, err := os.Stat(candidate); err == nil {
+			existing = append(existing, candidate)
+		}
+	}
+
+	if len(existing) == 0 {
+		if _, err := os.Stat(".env.modular.xample"); err == nil {
+			existing = append(existing, ".env.modular.xample")
+		}
+	}
+
+	if len(existing) == 0 {
+		return
+	}
+
+	if err := godotenv.Load(existing...); err != nil {
+		log.Printf("⚠️  Konnte Env-Dateien nicht laden: %v", err)
+		return
+	}
+
+	log.Printf("📄 Env-Dateien geladen: %s", strings.Join(existing, ", "))
+}
+
 func main() {
+	loadEnvFiles()
+
 	// 1. Initialize embedded filesystem
 	handlers.SetEmbeddedFS(embeddedFS)
 

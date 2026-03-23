@@ -51,7 +51,14 @@ type LaubeDetails struct {
 type BaulichkeitDetail struct {
 	Typ                 string  `json:"typ"`
 	Anzahl              int     `json:"anzahl"`
+	Flaeche             float64 `json:"flaeche"`
+	Qualitaet           float64 `json:"qualitaet"`
+	Baujahr             int     `json:"baujahr"`
+	Aktiv               bool    `json:"aktiv"`
 	Herstellungswert    float64 `json:"herstellungswert"`
+	BelegVorhanden      bool    `json:"beleg_vorhanden"`
+	Quelle              string  `json:"quelle"`
+	Bewertungsgrund     string  `json:"bewertungsgrund"`
 	AbschreibungProzent float64 `json:"abschreibung_prozent"`
 	Restwert            float64 `json:"restwert"`
 }
@@ -75,15 +82,22 @@ type GemuseDetail struct {
 }
 
 type ZierDetail struct {
-	Flaeche    float64 `json:"flaeche"`
-	Kategorie  string  `json:"kategorie"`
-	EuroProQM  float64 `json:"euro_pro_qm"`
-	Gesamtwert float64 `json:"gesamtwert"`
+	Flaeche      float64 `json:"flaeche"`
+	Kategorie    string  `json:"kategorie"`
+	EuroProQM    float64 `json:"euro_pro_qm"`
+	Gesamtwert   float64 `json:"gesamtwert"`
+	F1           float64 `json:"f1"`
+	F2           float64 `json:"f2"`
+	F3           float64 `json:"f3"`
+	F4           float64 `json:"f4"`
+	F8           float64 `json:"f8"`
+	TeichFlaeche float64 `json:"teich_flaeche"`
+	TeichTyp     string  `json:"teich_typ"`
 }
 
-// KORRIGIERTE Bauindex-Tabelle mit aktuellen Daten bis 2025
+// KORRIGIERTE Bauindex-Tabelle mit aktuellen Daten bis 2026
 var BauindexTabelle = map[int]float64{
-	2025: 42.9, 2024: 41.8, 2023: 38.4, 2022: 32.6, 2021: 30.7, 2020: 29.8, 2019: 28.0, 2018: 27.3, 2017: 26.6, 2016: 26.0,
+	2026: 44.3, 2025: 42.9, 2024: 41.8, 2023: 38.4, 2022: 32.6, 2021: 30.7, 2020: 29.8, 2019: 28.0, 2018: 27.3, 2017: 26.6, 2016: 26.0,
 	2015: 25.6, 2014: 25.2, 2013: 24.7, 2012: 24.1, 2011: 23.4, 2010: 23.2, 2009: 23.3, 2008: 22.5, 2007: 20.9, 2006: 20.6,
 	2005: 20.4, 2004: 20.1, 2003: 20.2, 2002: 20.2, 2001: 20.2, 2000: 20.1, 1999: 20.3, 1998: 20.3, 1997: 20.5, 1996: 23.3,
 	1995: 22.3, 1994: 22.8, 1993: 21.7, 1992: 20.7, 1991: 19.5, 1990: 18.2, 1989: 17.8, 1988: 17.6, 1987: 17.5, 1986: 17.3,

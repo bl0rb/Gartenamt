@@ -26,3 +26,4 @@ kleingarten-verwaltung-linux-amd64
 *.swp
 *.swo
 *.env
+.app_secret

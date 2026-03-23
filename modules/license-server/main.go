@@ -48,6 +48,9 @@ type uiData struct {
 	PublicFingerprint string
 	GeneratedAtBoot   bool
 	IssueEnabled      bool
+	AdminTokenSet     bool
+	AdminTokenValue   string
+	AdminTokenAuto    bool
 	Error             string
 	Success           string
 	IssuedLicense     string
@@ -64,13 +67,14 @@ type server struct {
 	publicKeyBase64     string
 	publicFingerprint   string
 	generatedAtBoot     bool
+	generatedAdminToken bool
 	adminToken          string
 	clientToken         string
 	allowIssueAndRevoke bool
 }
 
 func main() {
-	dbPath := envOrDefault("LICENSE_DB_PATH", "/data/licenses.db")
+	dbPath := envOrDefault("LICENSE_DB_PATH", "./licenses.db")
 	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		log.Fatal(err)
@@ -85,6 +89,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	adminToken, generatedAdminToken, err := bootstrapAdminToken(db)
+	if err != nil {
+		log.Fatal(err)
+	}
 	publicFingerprint := fingerprintFromPublicKey(publicKey)
 
 	srv := &server{
@@ -94,7 +102,8 @@ func main() {
 		publicKeyBase64:     publicKeyBase64,
 		publicFingerprint:   publicFingerprint,
 		generatedAtBoot:     generatedAtBoot,
-		adminToken:          os.Getenv("LICENSE_SERVER_ADMIN_TOKEN"),
+		generatedAdminToken: generatedAdminToken,
+		adminToken:          adminToken,
 		clientToken:         os.Getenv("LICENSE_SERVER_CLIENT_TOKEN"),
 		allowIssueAndRevoke: len(privateKey) == ed25519.PrivateKeySize,
 	}
@@ -103,6 +112,9 @@ func main() {
 		log.Printf("generated initial keypair, public fingerprint: %s", publicFingerprint)
 	} else {
 		log.Printf("loaded keypair, public fingerprint: %s", publicFingerprint)
+	}
+	if generatedAdminToken {
+		log.Printf("generated persistent admin token for UI/API license issuing")
 	}
 
 	mux := http.NewServeMux()
@@ -138,6 +150,12 @@ func initDB(db *sql.DB) error {
 		id INTEGER PRIMARY KEY CHECK (id = 1),
 		public_key_base64 TEXT NOT NULL,
 		private_key_base64 TEXT NOT NULL,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE TABLE IF NOT EXISTS server_config (
+		key TEXT PRIMARY KEY,
+		value TEXT NOT NULL,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);`
@@ -213,6 +231,9 @@ func (s *server) webIndex(w http.ResponseWriter, r *http.Request) {
 		PublicFingerprint: s.publicFingerprint,
 		GeneratedAtBoot:   s.generatedAtBoot,
 		IssueEnabled:      s.allowIssueAndRevoke,
+		AdminTokenSet:     strings.TrimSpace(s.adminToken) != "",
+		AdminTokenValue:   s.adminToken,
+		AdminTokenAuto:    s.generatedAdminToken,
 		Features:          "wertermittlung,inspektion,mailing,invoice_print",
 		Plan:              "premium",
 	}
@@ -232,6 +253,9 @@ func (s *server) webIssue(w http.ResponseWriter, r *http.Request) {
 		PublicFingerprint: s.publicFingerprint,
 		GeneratedAtBoot:   s.generatedAtBoot,
 		IssueEnabled:      s.allowIssueAndRevoke,
+		AdminTokenSet:     strings.TrimSpace(s.adminToken) != "",
+		AdminTokenValue:   s.adminToken,
+		AdminTokenAuto:    s.generatedAdminToken,
 		Plan:              strings.TrimSpace(r.FormValue("plan")),
 		IssuedTo:          strings.TrimSpace(r.FormValue("issued_to")),
 		ExpiresAt:         strings.TrimSpace(r.FormValue("expires_at")),
@@ -245,8 +269,13 @@ func (s *server) webIssue(w http.ResponseWriter, r *http.Request) {
 	}
 
 	adminTokenInput := strings.TrimSpace(r.FormValue("admin_token"))
-	if strings.TrimSpace(s.adminToken) == "" || adminTokenInput != s.adminToken {
-		data.Error = "Ungueltiger Admin-Token"
+	if strings.TrimSpace(s.adminToken) == "" {
+		data.Error = "Kein Admin-Token verfuegbar."
+		renderUI(w, data)
+		return
+	}
+	if adminTokenInput != s.adminToken {
+		data.Error = "Ungueltiger Admin-Token. Verwende den in dieser Seite hinterlegten Wert."
 		renderUI(w, data)
 		return
 	}
@@ -524,6 +553,47 @@ func bootstrapKeyMaterial(db *sql.DB) (ed25519.PublicKey, ed25519.PrivateKey, st
 	return pub, priv, pubB64, true, nil
 }
 
+func bootstrapAdminToken(db *sql.DB) (string, bool, error) {
+	envToken := strings.TrimSpace(os.Getenv("LICENSE_SERVER_ADMIN_TOKEN"))
+	if envToken != "" {
+		_, err := db.Exec(`
+			INSERT INTO server_config (key, value, updated_at)
+			VALUES ('admin_token', ?, CURRENT_TIMESTAMP)
+			ON CONFLICT(key) DO UPDATE SET
+				value = excluded.value,
+				updated_at = CURRENT_TIMESTAMP
+		`, envToken)
+		if err != nil {
+			return "", false, err
+		}
+		return envToken, false, nil
+	}
+
+	var storedToken string
+	err := db.QueryRow("SELECT value FROM server_config WHERE key = 'admin_token'").Scan(&storedToken)
+	if err == nil {
+		return strings.TrimSpace(storedToken), false, nil
+	}
+	if err != sql.ErrNoRows {
+		return "", false, err
+	}
+
+	randomBytes := make([]byte, 18)
+	if _, err := rand.Read(randomBytes); err != nil {
+		return "", false, err
+	}
+	generatedToken := base64.RawURLEncoding.EncodeToString(randomBytes)
+	_, err = db.Exec(
+		"INSERT INTO server_config (key, value) VALUES ('admin_token', ?)",
+		generatedToken,
+	)
+	if err != nil {
+		return "", false, err
+	}
+
+	return generatedToken, true, nil
+}
+
 func decodeKeyPair(publicKeyB64, privateKeyB64 string) (ed25519.PublicKey, ed25519.PrivateKey, error) {
 	pubDecoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(publicKeyB64))
 	if err != nil {
@@ -610,6 +680,9 @@ func renderUI(w http.ResponseWriter, data uiData) {
 			<p><strong>Public Key Fingerprint:</strong> {{.PublicFingerprint}}</p>
 			<p><strong>Beim Start erzeugt:</strong> {{if .GeneratedAtBoot}}ja{{else}}nein{{end}}</p>
 			<p><strong>Issue aktiv:</strong> {{if .IssueEnabled}}ja{{else}}nein{{end}}</p>
+			<p><strong>Admin-Token:</strong> {{if .AdminTokenAuto}}automatisch erzeugt und gespeichert{{else}}konfiguriert{{end}}</p>
+			<label>Admin Token</label>
+			<input value="{{.AdminTokenValue}}" readonly>
 			<label>Public Key (base64)</label>
 			<textarea rows="3" readonly>{{.PublicKeyBase64}}</textarea>
 		</div>
@@ -618,9 +691,10 @@ func renderUI(w http.ResponseWriter, data uiData) {
 			<h2>Neue Lizenz erzeugen</h2>
 			{{if .Success}}<p class="ok">{{.Success}}</p>{{end}}
 			{{if .Error}}<p class="err">{{.Error}}</p>{{end}}
+			<p class="muted">Das Formular ist bereits mit dem aktiven Admin-Token vorbelegt.</p>
 			<form method="POST" action="/ui/issue">
 				<label>Admin Token</label>
-				<input type="password" name="admin_token" required>
+				<input type="password" name="admin_token" value="{{.AdminTokenValue}}" required>
 
 				<label>Plan</label>
 				<input name="plan" value="{{.Plan}}" required>

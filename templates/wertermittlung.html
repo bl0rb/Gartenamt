@@ -48,7 +48,7 @@
                             <div class="col-md-4">
                                 <label for="laube_erstellungsjahr" class="form-label">Erstellungsjahr</label>
                                 <input type="number" class="form-control" id="laube_erstellungsjahr" name="laube_erstellungsjahr" 
-                                    min="1960" max="2025" value="{{if .Wertermittlung}}{{.Wertermittlung.Details.Laube.Erstellungsjahr}}{{end}}">
+                                    min="1960" max="2100" value="{{if .Wertermittlung}}{{.Wertermittlung.Details.Laube.Erstellungsjahr}}{{end}}">
                             </div>
                             <div class="col-md-4">
                                 <label for="laube_grundflaeche" class="form-label">Grundfläche (m²)</label>
@@ -73,8 +73,8 @@
                                 </select>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">Bauindex 2025</label>
-                                <div class="form-control-plaintext fw-bold text-success">42,9</div>
+                                <label class="form-label">Aktueller Bauindex</label>
+                                <div class="form-control-plaintext fw-bold text-success">{{if and .Wertermittlung (gt .Wertermittlung.Details.Laube.Bauindex 0.0)}}{{printf "%.1f" .Wertermittlung.Details.Laube.Bauindex}}{{else}}-{{end}}</div>
                             </div>
                         </div>
 
@@ -163,13 +163,13 @@
                             <label for="wege_flaeche" class="form-label">Feste Wegebeläge (max. 40 m²)</label>
                             <div class="input-group">
                                 <input type="number" class="form-control" id="wege_flaeche" name="wege_flaeche" 
-                                       step="0.1" max="40" placeholder="Fläche in m²">
+                                       step="0.1" max="40" placeholder="Fläche in m²" value="{{if .Wertermittlung}}{{printf "%.1f" (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "wege").Flaeche}}{{end}}">
                                 <span class="input-group-text">m²</span>
                             </div>
                             <select class="form-select mt-1" id="wege_qualitaet" name="wege_qualitaet">
-                                <option value="5">Einfache Ausführung (5,00 €/m²)</option>
-                                <option value="7.5">Mittlere Qualität (7,50 €/m²)</option>
-                                <option value="10">Aufwändige Gestaltung (10,00 €/m²)</option>
+                                <option value="5" {{if and .Wertermittlung (eq (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "wege").Qualitaet 5.0)}}selected{{end}}>Einfache Ausführung (5,00 €/m²)</option>
+                                <option value="7.5" {{if and .Wertermittlung (eq (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "wege").Qualitaet 7.5)}}selected{{end}}>Mittlere Qualität (7,50 €/m²)</option>
+                                <option value="10" {{if and .Wertermittlung (eq (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "wege").Qualitaet 10.0)}}selected{{end}}>Aufwändige Gestaltung (10,00 €/m²)</option>
                             </select>
                         </div>
                         
@@ -177,13 +177,13 @@
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Parzellenpforte</label>
                             <div class="form-check">
-                                <input type="checkbox" class="form-check-input" id="pforte_vorhanden" name="pforte_vorhanden" value="true">
+                                <input type="checkbox" class="form-check-input" id="pforte_vorhanden" name="pforte_vorhanden" value="true" {{if and .Wertermittlung (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "pforte").Aktiv}}checked{{end}}>
                                 <label class="form-check-label" for="pforte_vorhanden">Pforte vorhanden</label>
                             </div>
                             <select class="form-select mt-2" id="pforte_wert" name="pforte_wert" disabled>
-                                <option value="50">Einfache Holzpforte (50 €)</option>
-                                <option value="75">Solide Ausführung (75 €)</option>
-                                <option value="100">Hochwertige Metallpforte (100 €)</option>
+                                <option value="50" {{if and .Wertermittlung (eq (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "pforte").Herstellungswert 50.0)}}selected{{end}}>Einfache Holzpforte (50 €)</option>
+                                <option value="75" {{if and .Wertermittlung (eq (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "pforte").Herstellungswert 75.0)}}selected{{end}}>Solide Ausführung (75 €)</option>
+                                <option value="100" {{if and .Wertermittlung (eq (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "pforte").Herstellungswert 100.0)}}selected{{end}}>Hochwertige Metallpforte (100 €)</option>
                             </select>
                         </div>
                     </div>
@@ -199,20 +199,36 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-check mb-2">
-                                <input type="checkbox" class="form-check-input" id="strom_vorhanden" name="strom_vorhanden" value="true">
+                                <input type="checkbox" class="form-check-input" id="strom_vorhanden" name="strom_vorhanden" value="true" {{if and .Wertermittlung (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom").Aktiv}}checked{{end}}>
                                 <label class="form-check-label fw-bold" for="strom_vorhanden">Elektroanschluss vorhanden</label>
                             </div>
-                            <select class="form-select" id="strom_typ" name="strom_typ" disabled>
-                                <option value="1900">Kompletanschluss inkl. Zähler (bis 1.900 €)</option>
-                                <option value="400">Zuleitung zur Laube (bis 400 €)</option>
+                            <label for="strom_quelle" class="form-label">Herkunft/Anrechenbarkeit</label>
+                            <select class="form-select mb-2" id="strom_quelle" name="strom_quelle" disabled>
+                                <option value="eigen_netz" {{if or (not .Wertermittlung) (eq (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom").Quelle "eigen_netz") (eq (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom").Quelle "")}}selected{{end}}>Eigene Kosten (Stromnetz / Gemeinschaftsanlage)</option>
+                                <option value="fhh_bis_parzellengrenze" {{if and .Wertermittlung (eq (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom").Quelle "fhh_bis_parzellengrenze")}}selected{{end}}>FHH bis Parzellengrenze gestellt (nur D2 anrechenbar)</option>
+                                <option value="nachbar" {{if and .Wertermittlung (eq (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom").Quelle "nachbar")}}selected{{end}}>Von Nachbarparzelle gespeist (nicht anrechenbar)</option>
+                                <option value="fhh_nachverdichtung" {{if and .Wertermittlung (eq (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom").Quelle "fhh_nachverdichtung")}}selected{{end}}>FHH-Sanierung/Nachverdichtung (nicht anrechenbar)</option>
                             </select>
+                            <select class="form-select" id="strom_typ" name="strom_typ" disabled>
+                                <option value="D1" {{if or (not .Wertermittlung) (eq (stromTypCode (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom")) "D1")}}selected{{end}}>D1 Elektroanschluss inkl. Zuleitung + Zähler/Sicherung (max 1.900 €, 3%/Jahr, min 10%)</option>
+                                <option value="D2" {{if and .Wertermittlung (eq (stromTypCode (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom")) "D2")}}selected{{end}}>D2 Nur Zuleitung zur Laube + Sicherungskasten (max 400 €, 3%/Jahr, min 10%)</option>
+                                <option value="D3" {{if and .Wertermittlung (eq (stromTypCode (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom")) "D3")}}selected{{end}}>D3 Digitaler geeichter Stromzähler (max 120 €, 13%/Jahr)</option>
+                                <option value="D4" {{if and .Wertermittlung (eq (stromTypCode (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom")) "D4")}}selected{{end}}>D4 Analoger geeichter Stromzähler (max 120 €, 6%/Jahr)</option>
+                            </select>
+                            <div class="form-check mt-2">
+                                <input type="checkbox" class="form-check-input" id="strom_beleg_vorhanden" name="strom_beleg_vorhanden" value="true" {{if and .Wertermittlung (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom").BelegVorhanden}}checked{{end}} disabled>
+                                <label class="form-check-label" for="strom_beleg_vorhanden">Bewertung mit Beleg (Rechnung/Quittung)</label>
+                            </div>
+                            <input type="number" class="form-control mt-2" id="strom_herstellungswert" name="strom_herstellungswert"
+                                   placeholder="Herstellungswert laut Beleg" step="0.01" min="0" value="{{if .Wertermittlung}}{{printf "%.2f" (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom").Herstellungswert}}{{end}}" disabled>
                             <input type="number" class="form-control mt-2" id="strom_baujahr" name="strom_baujahr" 
-                                   placeholder="Baujahr" min="1960" max="2025" disabled>
+                                   placeholder="Baujahr" min="1960" max="2100" value="{{if .Wertermittlung}}{{(baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom").Baujahr}}{{end}}" disabled>
+                            <div class="form-text">Vorangegangene Wertermittlung ist bindend (D: 3%/Jahr, min 15%). D1/D2 mit 3%/Jahr (min 10%). D3: 13%/Jahr, D4: 6%/Jahr.</div>
                         </div>
                         
                         <div class="col-md-6">
                             <div class="form-check mb-2">
-                                <input type="checkbox" class="form-check-input" id="wasser_vorhanden" name="wasser_vorhanden" value="true">
+                                <input type="checkbox" class="form-check-input" id="wasser_vorhanden" name="wasser_vorhanden" value="true" {{if and .Wertermittlung (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "wasser").Aktiv}}checked{{end}}>
                                 <label class="form-check-label fw-bold" for="wasser_vorhanden">Wasserzähler vorhanden</label>
                             </div>
                             <div class="input-group">
@@ -330,14 +346,14 @@
                         <div class="col-md-6">
                             <label for="gemuese_einzelpflanzen" class="form-label">G1 - Gemüse Einzelpflanzen</label>
                             <input type="number" class="form-control mb-2" id="gemuese_einzelpflanzen_anzahl" name="gemuese_einzelpflanzen_anzahl" 
-                                   placeholder="Anzahl Pflanzen" min="0">
+                                placeholder="Anzahl Pflanzen" min="0" value="{{if .Wertermittlung}}{{printf "%.0f" (gemueseMenge .Wertermittlung.Details.Gemuese "G1")}}{{end}}">
                             <div class="form-text">Tomaten, Gurken, Kürbis, Paprika, Kohlarten etc. (0,75 €/Stück)</div>
                         </div>
                         
                         <div class="col-md-6">
                             <label for="gemuese_reihen" class="form-label">G2 - Gemüse Reihenpflanzungen</label>
                             <input type="number" class="form-control mb-2" id="gemuese_reihen_meter" name="gemuese_reihen_meter" 
-                                   placeholder="Laufende Meter" step="0.1" min="0">
+                                placeholder="Laufende Meter" step="0.1" min="0" value="{{if .Wertermittlung}}{{printf "%.1f" (gemueseMenge .Wertermittlung.Details.Gemuese "G2")}}{{end}}">
                             <div class="form-text">Erbsen, Bohnen, Zwiebeln, Kartoffeln, Spinat etc. (1,00 €/lfm)</div>
                         </div>
                     </div>
@@ -346,7 +362,7 @@
                         <div class="col-md-6">
                             <label for="kraeuter_flaeche" class="form-label">E9 - Ausdauernde Kräuter (m²)</label>
                             <input type="number" class="form-control" id="kraeuter_flaeche" name="kraeuter_flaeche" 
-                                   placeholder="Fläche in m²" step="0.1" min="0">
+                                placeholder="Fläche in m²" step="0.1" min="0" value="{{if .Wertermittlung}}{{printf "%.1f" (gemueseMenge .Wertermittlung.Details.Gemuese "E9")}}{{end}}">
                             <div class="form-text">Thymian, Salbei, Schnittlauch, Petersilie etc. (5,00 €/m²)</div>
                         </div>
                     </div>
@@ -368,13 +384,13 @@
                         <div class="col-md-6">
                             <label for="zier_f1" class="form-label">F1 - Ziersträucher einzeln (4,00 €/m²)</label>
                             <input type="number" class="form-control" id="zier_f1" name="zier_f1" 
-                                   placeholder="Fläche in m²" step="0.1" min="0">
+                                placeholder="Fläche in m²" step="0.1" min="0" value="{{if .Wertermittlung}}{{printf "%.1f" .Wertermittlung.Details.Zier.F1}}{{end}}">
                         </div>
                         
                         <div class="col-md-6">
                             <label for="zier_f2" class="form-label">F2 - Gehölze + Stauden (5,00 €/m²)</label>
                             <input type="number" class="form-control" id="zier_f2" name="zier_f2" 
-                                   placeholder="Fläche in m²" step="0.1" min="0">
+                                placeholder="Fläche in m²" step="0.1" min="0" value="{{if .Wertermittlung}}{{printf "%.1f" .Wertermittlung.Details.Zier.F2}}{{end}}">
                         </div>
                     </div>
                     
@@ -382,13 +398,13 @@
                         <div class="col-md-6">
                             <label for="zier_f3" class="form-label">F3 - Gemischte Bepflanzung (6,00 €/m²)</label>
                             <input type="number" class="form-control" id="zier_f3" name="zier_f3" 
-                                   placeholder="Fläche in m²" step="0.1" min="0">
+                                placeholder="Fläche in m²" step="0.1" min="0" value="{{if .Wertermittlung}}{{printf "%.1f" .Wertermittlung.Details.Zier.F3}}{{end}}">
                         </div>
                         
                         <div class="col-md-6">
                             <label for="zier_f4" class="form-label">F4 - Ökologisch wertvoll (12,00 €/m²)</label>
                             <input type="number" class="form-control" id="zier_f4" name="zier_f4" 
-                                   placeholder="Fläche in m²" step="0.1" min="0">
+                                placeholder="Fläche in m²" step="0.1" min="0" value="{{if .Wertermittlung}}{{printf "%.1f" .Wertermittlung.Details.Zier.F4}}{{end}}">
                         </div>
                     </div>
                     
@@ -396,17 +412,17 @@
                         <div class="col-md-6">
                             <label for="rasen" class="form-label">F8 - Rasenflächen (0,50 €/m²)</label>
                             <input type="number" class="form-control" id="rasen" name="rasen" 
-                                   placeholder="Fläche in m²" step="0.1" min="0">
+                                placeholder="Fläche in m²" step="0.1" min="0" value="{{if .Wertermittlung}}{{printf "%.1f" .Wertermittlung.Details.Zier.F8}}{{end}}">
                         </div>
                         
                         <div class="col-md-6">
                             <label for="teich" class="form-label">Gartenteich (max. 15 m²)</label>
                             <input type="number" class="form-control mb-2" id="teich_flaeche" name="teich_flaeche" 
-                                   placeholder="Fläche in m²" step="0.1" min="0" max="15">
+                                   placeholder="Fläche in m²" step="0.1" min="0" max="15" value="{{if .Wertermittlung}}{{printf "%.1f" .Wertermittlung.Details.Zier.TeichFlaeche}}{{end}}">
                             <select class="form-select" id="teich_typ" name="teich_typ">
-                                <option value="5">F5 - Zier-/Fischteich (5,00 €/m²)</option>
-                                <option value="7">F6 - Naturnaher Teich (7,00 €/m²)</option>
-                                <option value="15">F7 - Naturteich m. Uferzone (15,00 €/m²)</option>
+                                <option value="5" {{if and .Wertermittlung (eq .Wertermittlung.Details.Zier.TeichTyp "5")}}selected{{end}}>F5 - Zier-/Fischteich (5,00 €/m²)</option>
+                                <option value="7" {{if and .Wertermittlung (eq .Wertermittlung.Details.Zier.TeichTyp "7")}}selected{{end}}>F6 - Naturnaher Teich (7,00 €/m²)</option>
+                                <option value="15" {{if and .Wertermittlung (eq .Wertermittlung.Details.Zier.TeichTyp "15")}}selected{{end}}>F7 - Naturteich m. Uferzone (15,00 €/m²)</option>
                             </select>
                         </div>
                     </div>
@@ -446,6 +462,19 @@
                     <div class="col-md-2">
                         <h6>Baulichkeiten</h6>
                         <span class="badge bg-info fs-5 px-3 py-2">{{printf "%.2f" .Wertermittlung.BaulichkeitenWert}} €</span>
+                        {{if .Wertermittlung.Details.Baulichkeiten}}
+                        <div class="small text-muted mt-2 text-start">
+                            {{range .Wertermittlung.Details.Baulichkeiten}}
+                                {{if gt .Restwert 0.0}}
+                                    {{if eq .Typ "wege"}}Wege: {{printf "%.2f" .Restwert}} €{{end}}
+                                    {{if eq .Typ "pforte"}}Pforte: {{printf "%.2f" .Restwert}} €{{end}}
+                                    {{if eq .Typ "strom"}}Strom: {{printf "%.2f" .Restwert}} €{{end}}
+                                    {{if eq .Typ "wasser"}}Wasser: {{printf "%.2f" .Restwert}} €{{end}}
+                                    <br>
+                                {{end}}
+                            {{end}}
+                        </div>
+                        {{end}}
                     </div>
                     <div class="col-md-2">
                         <h6>Obst</h6>
@@ -496,6 +525,9 @@ let obstPreisTabelle = {};
 let zieranpflanzungsPreise = {};
 let gemusePreise = {};
 let aktuellerBauindex = 42.9;
+const stromVorbewertungBindend = {{if and .Wertermittlung (eq (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom").Bewertungsgrund "vorbewertung_bindend")}}true{{else}}false{{end}};
+const stromBindendHerstellungswert = {{if .Wertermittlung}}{{printf "%.2f" (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom").Herstellungswert}}{{else}}0{{end}};
+const stromBindendBaujahr = {{if .Wertermittlung}}{{(baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "strom").Baujahr}}{{else}}0{{end}};
 
 // BEIM LADEN der Seite: Preise von API laden
 document.addEventListener('DOMContentLoaded', function() {
@@ -835,6 +867,13 @@ document.getElementById('laube_vorhanden').addEventListener('change', function()
     });
 });
 
+['strom_vorhanden', 'wasser_vorhanden', 'pforte_vorhanden'].forEach(id => {
+    const checkbox = document.getElementById(id);
+    if (checkbox) {
+        checkbox.dispatchEvent(new Event('change'));
+    }
+});
+
 ['laube_herstellungswert', 'laube_erstellungsjahr', 'laube_material'].forEach(id => {
     document.getElementById(id).addEventListener('input', updateLaubeBerechnung);
     document.getElementById(id).addEventListener('change', updateLaubeBerechnung);
@@ -938,6 +977,88 @@ function berechneVorschau() {
         const pforteWert = parseFloat(document.getElementById('pforte_wert').value) || 0;
         gesamtwert += pforteWert;
         details.push(`Pforte: ${pforteWert.toFixed(2)} €`);
+    }
+
+    // Strom
+    if (document.getElementById('strom_vorhanden').checked) {
+        const stromQuelle = document.getElementById('strom_quelle').value;
+        const stromTypCode = document.getElementById('strom_typ').value;
+        const stromBelegVorhanden = document.getElementById('strom_beleg_vorhanden').checked;
+        const stromHerstellungswertBeleg = parseFloat(document.getElementById('strom_herstellungswert').value) || 0;
+        const laubeErstellungsjahr = parseInt(document.getElementById('laube_erstellungsjahr').value) || 0;
+        let stromBaujahr = parseInt(document.getElementById('strom_baujahr').value) || 0;
+        const stromConfig = {
+            D1: {max: 1900, abschreibung: 3.0, minRest: 10.0},
+            D2: {max: 400, abschreibung: 3.0, minRest: 10.0},
+            D3: {max: 120, abschreibung: 13.0, minRest: 0},
+            D4: {max: 120, abschreibung: 6.0, minRest: 0}
+        }[stromTypCode] || {max: 1900, abschreibung: 3.0, minRest: 10.0};
+        let stromHerstellungswert = stromConfig.max;
+        let stromWert = 0;
+
+        if (stromQuelle === 'nachbar' || stromQuelle === 'fhh_nachverdichtung') {
+            details.push('Strom: nicht anrechenbar');
+        } else if (stromQuelle === 'fhh_bis_parzellengrenze' && stromTypCode !== 'D2') {
+            details.push('Strom: nur D2 ist bei FHH-bis-Parzellengrenze anrechenbar');
+        } else if (stromVorbewertungBindend && stromBindendHerstellungswert > 0 && stromBindendBaujahr > 0) {
+            stromHerstellungswert = stromBindendHerstellungswert;
+            stromBaujahr = stromBindendBaujahr;
+            const alter = new Date().getFullYear() - stromBaujahr;
+            let abschreibung = (alter * 3.0) / 100;
+            if (abschreibung > 1.0) {
+                abschreibung = 1.0;
+            }
+            if (abschreibung < 0) {
+                abschreibung = 0;
+            }
+            stromWert = stromHerstellungswert * (1 - abschreibung);
+            const minimum = stromHerstellungswert * 0.15;
+            if (stromWert < minimum) {
+                stromWert = minimum;
+            }
+        } else {
+            if (stromBelegVorhanden) {
+                if (stromHerstellungswertBeleg > 0) {
+                    stromHerstellungswert = Math.min(stromConfig.max, stromHerstellungswertBeleg);
+                }
+                if (stromBaujahr <= 0) {
+                    stromBaujahr = new Date().getFullYear();
+                }
+            } else {
+                stromHerstellungswert = stromConfig.max * 0.5;
+                if (stromBaujahr <= 0) {
+                    stromBaujahr = laubeErstellungsjahr > 0 ? laubeErstellungsjahr : new Date().getFullYear();
+                }
+            }
+
+            const alter = new Date().getFullYear() - stromBaujahr;
+            let abschreibung = (alter * stromConfig.abschreibung) / 100;
+            if (abschreibung > 1.0) {
+                abschreibung = 1.0;
+            }
+            if (abschreibung < 0) {
+                abschreibung = 0;
+            }
+            stromWert = stromHerstellungswert * (1 - abschreibung);
+            if (stromConfig.minRest > 0) {
+                const minimum = stromHerstellungswert * stromConfig.minRest / 100;
+                if (stromWert < minimum) {
+                    stromWert = minimum;
+                }
+            }
+        }
+
+        if (stromWert > 0) {
+            gesamtwert += stromWert;
+            details.push(`Strom: ${stromWert.toFixed(2)} €`);
+        }
+    }
+
+    // Wasser
+    if (document.getElementById('wasser_vorhanden').checked) {
+        const wasserWert = 37.5;
+        gesamtwert += wasserWert;
+        details.push(`Wasser: ${wasserWert.toFixed(2)} €`);
     }
     
     // Obstgehölze

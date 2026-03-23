@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -222,7 +223,10 @@ func hashLicenseKey(licenseKey string) string {
 func loadLicensePublicKey() (ed25519.PublicKey, error) {
 	keyB64 := strings.TrimSpace(os.Getenv("LICENSE_PUBLIC_KEY"))
 	if keyB64 == "" {
-		return nil, errors.New("LICENSE_PUBLIC_KEY nicht gesetzt")
+		keyB64 = strings.TrimSpace(fetchLicensePublicKeyFromServer())
+	}
+	if keyB64 == "" {
+		return nil, errors.New("LICENSE_PUBLIC_KEY nicht gesetzt und kein Public Key vom License Server abrufbar")
 	}
 
 	keyBytes, err := base64.StdEncoding.DecodeString(keyB64)
@@ -241,6 +245,34 @@ func loadLicensePublicKey() (ed25519.PublicKey, error) {
 	}
 
 	return pk, nil
+}
+
+func fetchLicensePublicKeyFromServer() string {
+	serverURL := strings.TrimSpace(os.Getenv("LICENSE_SERVER_URL"))
+	if serverURL == "" {
+		return ""
+	}
+
+	endpoint := strings.TrimRight(serverURL, "/") + "/v1/keys/public"
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get(endpoint)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return ""
+	}
+
+	var response struct {
+		PublicKey string `json:"public_key"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return ""
+	}
+
+	return strings.TrimSpace(response.PublicKey)
 }
 
 func uniqueFeatures(features []string) map[string]bool {

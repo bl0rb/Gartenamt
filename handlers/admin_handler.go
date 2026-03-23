@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"errors"
 	"html/template"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"kleingarten-verwaltung/models"
 
@@ -267,13 +269,22 @@ func AdminBauindexLoeschenHandler(w http.ResponseWriter, r *http.Request) {
 
 func handleBauindexPost(r *http.Request) error {
 	// Formulardaten verarbeiten
-	jahr, _ := strconv.Atoi(r.FormValue("jahr"))
-	bauindex, _ := strconv.ParseFloat(r.FormValue("bauindex"), 64)
+	jahr, err := strconv.Atoi(strings.TrimSpace(r.FormValue("jahr")))
+	if err != nil || jahr <= 0 {
+		return errors.New("ungueltiges Jahr")
+	}
 
-	if jahr <= 0 || bauindex <= 0 {
-		return nil // Ungültige Eingaben ignorieren
+	bauindex, err := parseLocalizedFloat(r.FormValue("bauindex"))
+	if err != nil || bauindex <= 0 {
+		return errors.New("ungueltiger Bauindex")
 	}
 
 	// Bauindex erstellen oder aktualisieren
 	return models.CreateBauindex(jahr, bauindex)
+}
+
+func parseLocalizedFloat(raw string) (float64, error) {
+	normalized := strings.TrimSpace(raw)
+	normalized = strings.ReplaceAll(normalized, ",", ".")
+	return strconv.ParseFloat(normalized, 64)
 }
