@@ -124,11 +124,20 @@ func main() {
 	// 1. Initialize embedded filesystem
 	handlers.SetEmbeddedFS(embeddedFS)
 
-	// 1a. Certificate Manager initialisieren
-	log.Println("🔒 Initialisiere HTTPS-Zertifikate...")
-	certManager := services.NewCertManager()
-	if err := certManager.EnsureCertificate(); err != nil {
-		log.Fatal("Fehler beim Verwalten von Zertifikaten:", err)
+	// Desktop-Modus (Doppelklick, Standard): HTTP nur auf localhost mit
+	// Menüleisten-/Tray-Symbol. Server-Modus (--no-browser, z.B. Docker/NAS):
+	// HTTPS auf allen Interfaces.
+	desktopMode := len(os.Args) == 1 || os.Args[1] != "--no-browser"
+	middleware.SetSecureCookies(!desktopMode)
+
+	// 1a. Certificate Manager initialisieren (nur im HTTPS-Server-Modus)
+	var certManager *services.CertManager
+	if !desktopMode {
+		log.Println("🔒 Initialisiere HTTPS-Zertifikate...")
+		certManager = services.NewCertManager()
+		if err := certManager.EnsureCertificate(); err != nil {
+			log.Fatal("Fehler beim Verwalten von Zertifikaten:", err)
+		}
 	}
 
 	// 2. Auth-Service initialisieren (ZUERST!)
@@ -260,52 +269,56 @@ func main() {
 	r.HandleFunc("/api/parzellen", middleware.RequirePermission("parzellen.manage", handlers.APIParzellenHandler)).Methods("GET")
 
 	// Server starten
+	baseURL := "https://localhost:8080"
+	if desktopMode {
+		baseURL = desktopURL
+	}
 	log.Println("\n" + strings.Repeat("=", 80))
-	log.Println("🚀 GARTENAMT SERVER GESTARTET (HTTPS)")
+	if desktopMode {
+		log.Println("🚀 GARTENAMT GESTARTET (Desktop-Modus, HTTP nur auf localhost)")
+	} else {
+		log.Println("🚀 GARTENAMT SERVER GESTARTET (HTTPS)")
+	}
 	log.Println(strings.Repeat("=", 80))
-	log.Println("📍 URL: https://localhost:8080")
-	log.Println("🔐 Login: https://localhost:8080/login")
+	log.Println("📍 URL: " + baseURL)
+	log.Println("🔐 Login: " + baseURL + "/login")
 	log.Println("👤 Standard-Admin: siehe Konsole oben")
-	log.Println("📋 Admin-Interface: https://localhost:8080/admin")
-	log.Println("👥 Benutzerverwaltung: https://localhost:8080/admin/users")
-	log.Println("🔧 API-Endpoints: https://localhost:8080/api/")
-	log.Println("🔒 Zertifikat: " + certManager.CertFile)
+	log.Println("📋 Admin-Interface: " + baseURL + "/admin")
+	log.Println("👥 Benutzerverwaltung: " + baseURL + "/admin/users")
+	log.Println("🔧 API-Endpoints: " + baseURL + "/api/")
+	if !desktopMode {
+		log.Println("🔒 Zertifikat: " + certManager.CertFile)
+	}
 	log.Println(strings.Repeat("=", 80))
 	log.Println("✅ System bereit für Anmeldungen")
 	log.Println("🔐 Vollständige Benutzerauthentifizierung aktiviert")
-	log.Println("🛡️  HTTPS mit selbstsigniertem Zertifikat")
+	if !desktopMode {
+		log.Println("🛡️  HTTPS mit selbstsigniertem Zertifikat")
+	}
 	log.Println()
 
-	// Get TLS configuration
-	tlsConfig, err := certManager.GetTLSConfig()
-	if err != nil {
-		log.Fatal("Fehler beim Laden der TLS-Konfiguration:", err)
-	}
-
-	// Create HTTPS server
 	server := &http.Server{
-		Addr:      ":8080",
-		Handler:   r,
-		TLSConfig: tlsConfig,
+		Addr:    ":8080",
+		Handler: r,
 	}
 
 	// Signal handling for graceful shutdown
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	// Start server in goroutine if using browser
-	if len(os.Args) == 1 || (len(os.Args) > 1 && os.Args[1] != "--no-browser") {
-		// Läuft bereits eine Instanz (Port belegt), nur den Browser öffnen und
-		// beenden - sonst bliebe bei jedem Doppelklick ein Prozess ohne Server zurück
-		listener, err := net.Listen("tcp", server.Addr)
+	if desktopMode {
+		// HTTP nur auf dem Loopback-Interface: keine Zertifikatswarnung im
+		// Browser, von außen ist der Server nicht erreichbar. Läuft bereits
+		// eine Instanz (Port belegt), nur den Browser öffnen und beenden.
+		listener, err := net.Listen("tcp", "127.0.0.1:8080")
 		if err != nil {
 			log.Println("⚠️  Port 8080 ist bereits belegt - vermutlich läuft Gartenamt schon. Öffne Browser...")
-			openBrowserApp("https://localhost:8080")
+			openBrowserApp(desktopURL)
 			return
 		}
 
 		go func() {
-			if err := server.ServeTLS(listener, "", ""); err != nil && err != http.ErrServerClosed {
+			if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
 				log.Printf("Server error: %v", err)
 			}
 		}()
@@ -314,35 +327,40 @@ func main() {
 		go func() {
 			time.Sleep(500 * time.Millisecond)
 			log.Println("🌐 Öffne Browser...")
-			openBrowserApp("https://localhost:8080")
+			openBrowserApp(desktopURL)
 		}()
 
-		// Wait for signal to shutdown
-		sig := <-sigChan
-		log.Printf("\n📛 Signal empfangen (%v), fahre herunter...", sig)
-
-		// Graceful shutdown with timeout
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		if err := server.Shutdown(ctx); err != nil {
-			log.Printf("⚠️  Fehler beim Herunterfahren: %v", err)
-		}
-		log.Println("✅ Server heruntergefahren")
+		// Blockiert bis "Beenden" im Menüleisten-/Tray-Menü oder Signal,
+		// fährt dann den Server sauber herunter
+		runDesktop(server, sigChan)
 	} else {
-		// Terminal-only mode: run server in main thread
+		// Server-Modus: HTTPS in der Hauptgoroutine
+		tlsConfig, err := certManager.GetTLSConfig()
+		if err != nil {
+			log.Fatal("Fehler beim Laden der TLS-Konfiguration:", err)
+		}
+		server.TLSConfig = tlsConfig
+
 		go func() {
 			sig := <-sigChan
 			log.Printf("\n📛 Signal empfangen (%v), fahre herunter...", sig)
-
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-
-			if err := server.Shutdown(ctx); err != nil {
-				log.Printf("⚠️  Fehler beim Herunterfahren: %v", err)
-			}
+			shutdownServer(server)
 		}()
 
 		log.Fatal(server.ListenAndServeTLS("", ""))
 	}
+}
+
+// desktopURL ist die Adresse im Desktop-Modus (HTTP nur auf localhost).
+const desktopURL = "http://localhost:8080"
+
+// shutdownServer fährt den Server mit Timeout sauber herunter.
+func shutdownServer(server *http.Server) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		log.Printf("⚠️  Fehler beim Herunterfahren: %v", err)
+	}
+	log.Println("✅ Server heruntergefahren")
 }
