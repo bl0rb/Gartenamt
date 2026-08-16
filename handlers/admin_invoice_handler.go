@@ -5,7 +5,7 @@ import (
 	"log"
 	"net/http"
 
-	"kleingarten-verwaltung/middleware"
+	"github.com/bl0rb/gartenamt/middleware"
 )
 
 // AdminInvoiceManagementHandler displays the invoice management dashboard

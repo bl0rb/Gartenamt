@@ -12,8 +12,8 @@ RUN go mod download
 
 ARG TARGETARCH=amd64
 COPY . .
-RUN CGO_ENABLED=1 go build -a -o kleingarten-verwaltung .
-RUN ls -lh /build/kleingarten-verwaltung && echo "✅ Binary ready"
+RUN CGO_ENABLED=1 go build -a -o gartenamt .
+RUN ls -lh /build/gartenamt && echo "✅ Binary ready"
 
 # Runtime stage
 FROM ubuntu:22.04
@@ -22,9 +22,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libsqlite3-0 ca-certificates curl && \
     rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /build/kleingarten-verwaltung /usr/bin/kleingarten-verwaltung
-RUN chmod +x /usr/bin/kleingarten-verwaltung && \
-    ls -lh /usr/bin/kleingarten-verwaltung && \
+COPY --from=builder /build/gartenamt /usr/bin/gartenamt
+RUN chmod +x /usr/bin/gartenamt && \
+    ls -lh /usr/bin/gartenamt && \
     echo "✅ Binary installed"
 
 RUN mkdir -p /data && chmod 777 /data
@@ -33,4 +33,4 @@ WORKDIR /data
 EXPOSE 8080
 VOLUME ["/data"]
 
-CMD ["/usr/bin/kleingarten-verwaltung", "--no-browser"]
+CMD ["/usr/bin/gartenamt", "--no-browser"]

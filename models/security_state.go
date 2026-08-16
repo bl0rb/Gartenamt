@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	"kleingarten-verwaltung/securestore"
+	"github.com/bl0rb/gartenamt/securestore"
 )
 
 const maxKeyReveals = 3

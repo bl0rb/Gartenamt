@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"kleingarten-verwaltung/middleware"
-	"kleingarten-verwaltung/models"
+	"github.com/bl0rb/gartenamt/middleware"
+	"github.com/bl0rb/gartenamt/models"
 
 	"github.com/gorilla/mux"
 )

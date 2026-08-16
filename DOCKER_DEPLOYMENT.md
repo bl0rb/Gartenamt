@@ -6,13 +6,13 @@ Das NAS baut nichts selbst — es zieht das fertige Image aus der GitHub Contain
 
 ```bash
 # 1. docker-compose.nas.yml in einen Ordner auf dem NAS kopieren,
-#    z.B. /volume1/docker/kleingarten
+#    z.B. /volume1/docker/gartenamt
 
 # 2. Starten
 docker compose -f docker-compose.nas.yml up -d
 
 # 3. Logs ansehen (hier steht beim ersten Start das Admin-Passwort!)
-docker logs -f kleingarten-verwaltung
+docker logs -f gartenamt
 ```
 
 Danach ist die App unter `https://<nas-ip>:8080` erreichbar (Zertifikatswarnung beim ersten Aufruf ist normal; `TLS_EXTRA_HOSTS` in einer `.env` neben der Compose-Datei vermeidet den Hostname-Mismatch).
@@ -34,11 +34,11 @@ Auf einem Rechner mit Docker das Image bauen und als Archiv transferieren:
 # Build mit Version aus der VERSION-Datei (oder ./build-release.sh 0.2.0)
 ./build-release.sh
 
-# Das erzeugte binary/kleingarten-verwaltung-docker-<version>.tar.gz aufs NAS
+# Das erzeugte binary/gartenamt-docker-<version>.tar.gz aufs NAS
 # übertragen und dort importieren:
-docker load -i kleingarten-verwaltung-docker-<version>.tar.gz
-docker run -d --name kleingarten -p 8080:8080 -v kleingarten-data:/data \
-  -e DB_PATH=/data/kleingarten.db kleingarten-verwaltung:<version>
+docker load -i gartenamt-docker-<version>.tar.gz
+docker run -d --name gartenamt -p 8080:8080 -v gartenamt-data:/data \
+  -e DB_PATH=/data/kleingarten.db gartenamt:<version>
 ```
 
 Hinweis: Beim erneuten Import desselben Versions-Tags zeigen NAS-Tools ggf. einen Konflikt — vor jedem Release die VERSION erhöhen.
@@ -49,9 +49,9 @@ Hinweis: Beim erneuten Import desselben Versions-Tags zeigen NAS-Tools ggf. eine
 
 **Check logs first:**
 ```bash
-docker logs kleingarten-verwaltung
+docker logs gartenamt
 ## or with more detail:
-docker logs --follow --timestamps kleingarten-verwaltung
+docker logs --follow --timestamps gartenamt
 ```
 
 **Common issues:**
@@ -76,52 +76,51 @@ docker ps
 docker ps -a
 
 # Inspect the container
-docker inspect kleingarten-verwaltung
+docker inspect gartenamt
 
 # View resource usage
-docker stats kleingarten-verwaltung
+docker stats gartenamt
 ```
 
 ### Rebuild locally on NAS
 
 ```bash
 # Clone or pull latest
-git clone <repo>
-cd kleingarten-verwaltung
-git checkout feature/docker-nas
+git clone https://github.com/bl0rb/Gartenamt.git
+cd Gartenamt
 
 # Build for your NAS architecture
-docker build -t kleingarten-verwaltung:0.1.1 -t kleingarten-verwaltung:latest .
+docker build -t gartenamt:latest .
 
 # Run with debug logging
 docker run -it \
   -p 8080:8080 \
-  -v /mnt/data/kleingarten:/data \
+  -v /mnt/data/gartenamt:/data \
   -e DEBUG=1 \
-  kleingarten-verwaltung
+  gartenamt
 ```
 
 ### Manual test without compose
 
 ```bash
 # Build
-docker build -t kleingarten-verwaltung:test .
+docker build -t gartenamt:test .
 
 # Run with interactive logging
 docker run -it \
   --rm \
   -p 8080:8080 \
   -v kleingarten-test:/data \
-  kleingarten-verwaltung
+  gartenamt
 
 # View database
-docker exec kleingarten-verwaltung ls -la /data/
+docker exec gartenamt ls -la /data/
 ```
 
 ## Data Persistence
 
 - Database is stored in `/data/kleingarten.db`
-- Mounted as a Docker volume: `kleingarten-data:/data`
+- Mounted as a Docker volume: `gartenamt-data:/data`
 - Persists even if container is stopped/removed
 
 ## Environment Variables

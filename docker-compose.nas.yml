@@ -1,4 +1,4 @@
-name: kleingarten
+name: gartenamt
 
 # NAS-Deployment: zieht das fertige Image von GHCR - auf dem NAS wird nichts
 # gebaut. Alle Daten liegen in ./nas-data/ neben dieser Datei und lassen sich
@@ -18,9 +18,9 @@ name: kleingarten
 
 services:
   verwaltung:
-    image: ghcr.io/bl0rb/kleingarten-verwaltung:${KLEINGARTEN_TAG:-latest}
+    image: ghcr.io/bl0rb/gartenamt:${KLEINGARTEN_TAG:-latest}
     restart: always
-    container_name: kleingarten-verwaltung
+    container_name: gartenamt
     ports:
       - "8080:8080"
     environment:
@@ -32,10 +32,10 @@ services:
       TZ: ${TZ:-Europe/Berlin}
     volumes:
       # Datenbank, Backups, Exporte, App-Secret
-      - ./nas-data/kleingarten:/data:rw
+      - ./nas-data/gartenamt:/data:rw
       # TLS-Zertifikat persistieren (sonst bei jedem Neuerstellen des
       # Containers eine neue Browser-Warnung)
-      - ./nas-data/certs:/root/.kleingarten-verwaltung:rw
+      - ./nas-data/certs:/root/.gartenamt:rw
     healthcheck:
       test: ["CMD", "curl", "-fsk", "https://localhost:8080/login"]
       interval: 30s

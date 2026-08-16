@@ -1,17 +1,16 @@
-version: '3.8'
 
 services:
   kleingarten:
-    image: kleingarten-verwaltung:${IMAGE_TAG:-0.1.1}
+    image: gartenamt:${IMAGE_TAG:-0.1.1}
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: kleingarten-verwaltung
+    container_name: gartenamt
     ports:
       - "8080:8080"
     volumes:
       # Mount data directory for persistent database storage
-      - kleingarten-data:/data
+      - gartenamt-data:/data
     environment:
       - DB_PATH=/data/kleingarten.db
     restart: unless-stopped
@@ -23,5 +22,5 @@ services:
     #       memory: 512M
 
 volumes:
-  kleingarten-data:
+  gartenamt-data:
     driver: local

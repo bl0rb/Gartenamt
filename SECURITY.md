@@ -4,7 +4,7 @@
 
 Bitte melde Sicherheitslücken **nicht** über öffentliche GitHub-Issues.
 
-Nutze stattdessen [GitHub Security Advisories](https://github.com/bl0rb/kleingarten-verwaltung/security/advisories/new) („Report a vulnerability"), damit die Lücke vertraulich gemeldet und behoben werden kann, bevor sie öffentlich wird.
+Nutze stattdessen [GitHub Security Advisories](https://github.com/bl0rb/Gartenamt/security/advisories/new) („Report a vulnerability"), damit die Lücke vertraulich gemeldet und behoben werden kann, bevor sie öffentlich wird.
 
 Bitte gib an:
 

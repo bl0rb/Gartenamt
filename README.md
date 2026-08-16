@@ -1,4 +1,4 @@
-# Kleingarten-Verwaltung
+# Gartenamt
 
 Verwaltungssoftware für Kleingartenvereine: Parzellen, Pächter, Inspektionen, Wertermittlungen, Wasser-/Stromabrechnung und Rechnungsversand — als einzelne Go-Anwendung mit SQLite, ohne externe Dienste selbst zu hosten.
 
@@ -22,8 +22,8 @@ Die Weboberfläche läuft komplett lokal (HTTPS mit selbstsigniertem Zertifikat)
 Voraussetzung: Go 1.21+ und ein C-Compiler (für SQLite/cgo).
 
 ```bash
-git clone https://github.com/bl0rb/kleingarten-verwaltung.git
-cd kleingarten-verwaltung
+git clone https://github.com/bl0rb/Gartenamt.git
+cd Gartenamt
 go run .
 ```
 
@@ -37,9 +37,9 @@ Die App startet unter `https://localhost:8080` und öffnet den Browser automatis
 docker compose up -d
 ```
 
-Die Datenbank liegt im Volume `kleingarten-data` (`/data/kleingarten.db`).
+Die Datenbank liegt im Volume `gartenamt-data` (`/data/kleingarten.db`).
 
-**NAS (Synology & Co.):** [docker-compose.nas.yml](docker-compose.nas.yml) zieht das fertige Image von GHCR (`ghcr.io/bl0rb/kleingarten-verwaltung`) — nichts bauen, Daten liegen in `./nas-data/` neben der Compose-Datei, Update per `docker compose pull`. Details: [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md).
+**NAS (Synology & Co.):** [docker-compose.nas.yml](docker-compose.nas.yml) zieht das fertige Image von GHCR (`ghcr.io/bl0rb/gartenamt`) — nichts bauen, Daten liegen in `./nas-data/` neben der Compose-Datei, Update per `docker compose pull`. Details: [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md).
 
 Optional gibt es ein modulares Setup mit zusätzlicher öffentlicher Vereins-Webseite (Nginx):
 
@@ -85,17 +85,17 @@ go vet ./...          # statische Prüfung
 
 Ein Git-Tag der Form `vX.Y.Z` löst den Release-Workflow aus, der fertige Binaries als GitHub-Release-Assets baut (inkl. SHA256-Prüfsummen):
 
-- `kleingarten-verwaltung-X.Y.Z-windows-amd64.exe`
-- `kleingarten-verwaltung-X.Y.Z-linux-amd64`
-- `kleingarten-verwaltung-X.Y.Z-macos-universal.dmg` (Apple Silicon + Intel)
+- `gartenamt-X.Y.Z-windows-amd64.exe`
+- `gartenamt-X.Y.Z-linux-amd64`
+- `gartenamt-X.Y.Z-macos-universal.dmg` (Apple Silicon + Intel)
 
 **Hinweis für macOS:** Das DMG ist nicht mit einem Apple-Developer-Zertifikat signiert, daher blockiert macOS die heruntergeladene App beim ersten Start. Je nach macOS-Version erscheint entweder „Entwickler kann nicht verifiziert werden" — dann über *Systemeinstellungen → Datenschutz & Sicherheit → „Dennoch öffnen"* freigeben — oder die Meldung „ist beschädigt und kann nicht geöffnet werden". Letztere behebt ein Terminal-Befehl, der das Quarantäne-Attribut des Downloads entfernt:
 
 ```bash
-xattr -cr "/Applications/Kleingarten Verwaltung.app"
+xattr -cr "/Applications/Gartenamt.app"
 ```
 
-Beim Start aus dem Finder legt die App ihre Daten (Datenbank, Backups, Exporte) unter `~/Library/Application Support/Kleingarten-Verwaltung/` ab.
+Beim Start aus dem Finder legt die App ihre Daten (Datenbank, Backups, Exporte) unter `~/Library/Application Support/Gartenamt/` ab.
 
 **Datenbank-Updates sind automatisch und sicher:** Die App verwaltet ihr SQLite-Schema über versionierte Migrationen (Tabelle `schema_migrations`). Beim ersten Start einer neuen Version werden ausstehende Migrationen einzeln in Transaktionen angewendet — schlägt eine fehl, wird sie zurückgerollt und die App startet nicht mit halbem Schema. Ein Downgrade auf eine ältere Programmversion mit neuerer Datenbank wird erkannt und mit klarer Fehlermeldung abgelehnt. Vor größeren Updates empfiehlt sich trotzdem ein Backup (*Admin → Backup*).
 

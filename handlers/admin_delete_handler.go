@@ -3,8 +3,8 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/bl0rb/gartenamt/models"
 	"html/template"
-	"kleingarten-verwaltung/models"
 	"log"
 	"net/http"
 	"os"
@@ -373,7 +373,7 @@ func getApplicationMetadata() map[string]string {
 
 // AppVersion kann beim Release-Build per ldflags gesetzt werden:
 //
-//	go build -ldflags "-X kleingarten-verwaltung/handlers.AppVersion=1.2.3"
+//	go build -ldflags "-X github.com/bl0rb/gartenamt/handlers.AppVersion=1.2.3"
 //
 // Ohne Einbettung wird als Fallback die VERSION-Datei gelesen (Entwicklung).
 var AppVersion = ""

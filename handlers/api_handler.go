@@ -2,8 +2,8 @@ package handlers
 
 import (
 	"encoding/json"
-	"kleingarten-verwaltung/models"
-	"kleingarten-verwaltung/services"
+	"github.com/bl0rb/gartenamt/models"
+	"github.com/bl0rb/gartenamt/services"
 	"net/http"
 )
 

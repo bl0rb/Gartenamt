@@ -1,10 +1,10 @@
 package handlers
 
 import (
+	"github.com/bl0rb/gartenamt/middleware"
+	"github.com/bl0rb/gartenamt/models"
 	"html/template"
 	"io/fs"
-	"kleingarten-verwaltung/middleware"
-	"kleingarten-verwaltung/models"
 	"net/http"
 	"path/filepath"
 	"strings"

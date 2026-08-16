@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"kleingarten-verwaltung/models"
+	"github.com/bl0rb/gartenamt/models"
 )
 
 // Schwellwerte für die Login-Drosselung

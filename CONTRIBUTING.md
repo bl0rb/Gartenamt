@@ -1,4 +1,4 @@
-# Mitwirken an der Kleingarten-Verwaltung
+# Mitwirken am Gartenamt
 
 Danke für dein Interesse! Beiträge in Form von Bug-Reports, Verbesserungsvorschlägen und Pull Requests sind willkommen.
 
@@ -13,8 +13,8 @@ Danke für dein Interesse! Beiträge in Form von Bug-Reports, Verbesserungsvorsc
 Voraussetzungen: Go 1.21+ und ein C-Compiler (SQLite via cgo).
 
 ```bash
-git clone https://github.com/bl0rb/kleingarten-verwaltung.git
-cd kleingarten-verwaltung
+git clone https://github.com/bl0rb/Gartenamt.git
+cd gartenamt
 go run .
 ```
 

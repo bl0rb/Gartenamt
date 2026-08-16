@@ -2,7 +2,7 @@ package services
 
 import (
 	"database/sql"
-	"kleingarten-verwaltung/models"
+	"github.com/bl0rb/gartenamt/models"
 )
 
 type BerechnungsService struct {

@@ -26,7 +26,7 @@ type CertManager struct {
 
 // NewCertManager creates a new certificate manager
 func NewCertManager() *CertManager {
-	certDir := filepath.Join(os.Getenv("HOME"), ".kleingarten-verwaltung", "certs")
+	certDir := filepath.Join(os.Getenv("HOME"), ".gartenamt", "certs")
 	return &CertManager{
 		CertDir:  certDir,
 		CertFile: filepath.Join(certDir, "server.crt"),
@@ -115,7 +115,7 @@ func (cm *CertManager) generateSelfSignedCert() error {
 	template := x509.Certificate{
 		SerialNumber: serialNumber,
 		Subject: pkix.Name{
-			Organization: []string{"Kleingarten-Verwaltung"},
+			Organization: []string{"Gartenamt"},
 			CommonName:   "localhost",
 		},
 		NotBefore: notBefore,

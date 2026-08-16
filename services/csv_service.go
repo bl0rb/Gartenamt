@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"kleingarten-verwaltung/models"
+	"github.com/bl0rb/gartenamt/models"
 )
 
 type CSVService struct {

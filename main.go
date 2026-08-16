@@ -14,10 +14,10 @@ import (
 	"syscall"
 	"time"
 
-	"kleingarten-verwaltung/handlers"
-	"kleingarten-verwaltung/middleware"
-	"kleingarten-verwaltung/models"
-	"kleingarten-verwaltung/services"
+	"github.com/bl0rb/gartenamt/handlers"
+	"github.com/bl0rb/gartenamt/middleware"
+	"github.com/bl0rb/gartenamt/models"
+	"github.com/bl0rb/gartenamt/services"
 
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
@@ -96,7 +96,7 @@ func ensureWritableWorkdir() bool {
 		return false
 	}
 
-	dataDir := filepath.Join(configDir, "Kleingarten-Verwaltung")
+	dataDir := filepath.Join(configDir, "Gartenamt")
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
 		log.Printf("⚠️  Datenverzeichnis %s konnte nicht angelegt werden: %v", dataDir, err)
 		return false
@@ -260,7 +260,7 @@ func main() {
 
 	// Server starten
 	log.Println("\n" + strings.Repeat("=", 80))
-	log.Println("🚀 KLEINGARTEN-VERWALTUNG SERVER GESTARTET (HTTPS)")
+	log.Println("🚀 GARTENAMT SERVER GESTARTET (HTTPS)")
 	log.Println(strings.Repeat("=", 80))
 	log.Println("📍 URL: https://localhost:8080")
 	log.Println("🔐 Login: https://localhost:8080/login")

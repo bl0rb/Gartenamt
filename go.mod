@@ -1,4 +1,4 @@
-module kleingarten-verwaltung
+module github.com/bl0rb/gartenamt
 
 go 1.21
 

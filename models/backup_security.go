@@ -13,7 +13,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"kleingarten-verwaltung/securestore"
+	"github.com/bl0rb/gartenamt/securestore"
 
 	_ "github.com/mattn/go-sqlite3"
 )

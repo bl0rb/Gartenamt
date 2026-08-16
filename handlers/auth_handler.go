@@ -11,9 +11,9 @@ import (
 	"strings"
 	"sync"
 
-	"kleingarten-verwaltung/middleware"
-	"kleingarten-verwaltung/models"
-	"kleingarten-verwaltung/services"
+	"github.com/bl0rb/gartenamt/middleware"
+	"github.com/bl0rb/gartenamt/models"
+	"github.com/bl0rb/gartenamt/services"
 
 	"github.com/gorilla/mux"
 )

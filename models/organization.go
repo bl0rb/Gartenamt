@@ -3,7 +3,7 @@ package models
 import (
 	"time"
 
-	"kleingarten-verwaltung/securestore"
+	"github.com/bl0rb/gartenamt/securestore"
 )
 
 // OrganizationSettings stores the Kleingarten organization's details for invoices

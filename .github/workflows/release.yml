@@ -32,15 +32,15 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build \
-            -ldflags "-s -w -X kleingarten-verwaltung/handlers.AppVersion=${VERSION}" \
-            -o "kleingarten-verwaltung-${VERSION}-windows-amd64.exe" .
-          sha256sum "kleingarten-verwaltung-${VERSION}-windows-amd64.exe" > "kleingarten-verwaltung-${VERSION}-windows-amd64.exe.sha256"
+            -ldflags "-s -w -X github.com/bl0rb/gartenamt/handlers.AppVersion=${VERSION}" \
+            -o "gartenamt-${VERSION}-windows-amd64.exe" .
+          sha256sum "gartenamt-${VERSION}-windows-amd64.exe" > "gartenamt-${VERSION}-windows-amd64.exe.sha256"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-amd64
-          path: kleingarten-verwaltung-*-windows-amd64.exe*
+          path: gartenamt-*-windows-amd64.exe*
           if-no-files-found: error
 
   build-linux:
@@ -57,15 +57,15 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build \
-            -ldflags "-s -w -X kleingarten-verwaltung/handlers.AppVersion=${VERSION}" \
-            -o "kleingarten-verwaltung-${VERSION}-linux-amd64" .
-          sha256sum "kleingarten-verwaltung-${VERSION}-linux-amd64" > "kleingarten-verwaltung-${VERSION}-linux-amd64.sha256"
+            -ldflags "-s -w -X github.com/bl0rb/gartenamt/handlers.AppVersion=${VERSION}" \
+            -o "gartenamt-${VERSION}-linux-amd64" .
+          sha256sum "gartenamt-${VERSION}-linux-amd64" > "gartenamt-${VERSION}-linux-amd64.sha256"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: linux-amd64
-          path: kleingarten-verwaltung-*-linux-amd64*
+          path: gartenamt-*-linux-amd64*
           if-no-files-found: error
 
   build-macos:
@@ -81,12 +81,12 @@ jobs:
       - name: Build Universal Binary (arm64 + x86_64)
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          LDFLAGS="-s -w -X kleingarten-verwaltung/handlers.AppVersion=${VERSION}"
+          LDFLAGS="-s -w -X github.com/bl0rb/gartenamt/handlers.AppVersion=${VERSION}"
           CGO_ENABLED=1 GOARCH=arm64 go build -ldflags "$LDFLAGS" -o build-arm64 .
           CGO_ENABLED=1 GOARCH=amd64 CGO_CFLAGS="-arch x86_64" CGO_LDFLAGS="-arch x86_64" \
             go build -ldflags "$LDFLAGS" -o build-amd64 .
-          lipo -create -output kleingarten-verwaltung build-arm64 build-amd64
-          ARCHS=$(lipo -archs kleingarten-verwaltung)
+          lipo -create -output gartenamt build-arm64 build-amd64
+          ARCHS=$(lipo -archs gartenamt)
           echo "Architekturen: $ARCHS"
           case "$ARCHS" in
             *x86_64*arm64*|*arm64*x86_64*) ;;
@@ -96,9 +96,9 @@ jobs:
       - name: Assemble .app bundle and DMG
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          APP="Kleingarten Verwaltung.app"
+          APP="Gartenamt.app"
           mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-          cp kleingarten-verwaltung "$APP/Contents/MacOS/kleingarten-verwaltung"
+          cp gartenamt "$APP/Contents/MacOS/gartenamt"
           cp packaging/macos/icon.icns "$APP/Contents/Resources/icon.icns"
           sed "s/__APP_VERSION__/${VERSION}/g" packaging/macos/Info.plist > "$APP/Contents/Info.plist"
           # Ad-hoc-Signatur (Pflicht auf Apple Silicon; lipo invalidiert die Build-Signatur)
@@ -107,15 +107,15 @@ jobs:
           mkdir dmg-staging
           cp -R "$APP" dmg-staging/
           ln -s /Applications dmg-staging/Applications
-          hdiutil create -volname "Kleingarten Verwaltung" -srcfolder dmg-staging -ov -format UDZO \
-            "kleingarten-verwaltung-${VERSION}-macos-universal.dmg"
-          shasum -a 256 "kleingarten-verwaltung-${VERSION}-macos-universal.dmg" > "kleingarten-verwaltung-${VERSION}-macos-universal.dmg.sha256"
+          hdiutil create -volname "Gartenamt" -srcfolder dmg-staging -ov -format UDZO \
+            "gartenamt-${VERSION}-macos-universal.dmg"
+          shasum -a 256 "gartenamt-${VERSION}-macos-universal.dmg" > "gartenamt-${VERSION}-macos-universal.dmg.sha256"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: macos-universal
-          path: kleingarten-verwaltung-*-macos-universal.dmg*
+          path: gartenamt-*-macos-universal.dmg*
           if-no-files-found: error
 
   docker-publish:
@@ -147,8 +147,8 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            ghcr.io/bl0rb/kleingarten-verwaltung:${{ steps.v.outputs.version }}
-            ghcr.io/bl0rb/kleingarten-verwaltung:latest
+            ghcr.io/bl0rb/gartenamt:${{ steps.v.outputs.version }}
+            ghcr.io/bl0rb/gartenamt:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -164,5 +164,5 @@ jobs:
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          files: kleingarten-verwaltung-*
+          files: gartenamt-*
           generate_release_notes: true

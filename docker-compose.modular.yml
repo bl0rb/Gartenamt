@@ -4,14 +4,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: kleingarten-verwaltung:modular
-    container_name: kleingarten-verwaltung
+    image: gartenamt:modular
+    container_name: gartenamt
     ports:
       - "8080:8080"
     environment:
       - DB_PATH=/data/kleingarten.db
     volumes:
-      - kleingarten-data:/data
+      - gartenamt-data:/data
     networks:
       - internal
     restart: unless-stopped
@@ -33,7 +33,7 @@ services:
     restart: unless-stopped
 
 volumes:
-  kleingarten-data:
+  gartenamt-data:
 
 networks:
   internal:

@@ -6,8 +6,8 @@ import (
 	"net/url"
 	"strings"
 
-	"kleingarten-verwaltung/models"
-	"kleingarten-verwaltung/services"
+	"github.com/bl0rb/gartenamt/models"
+	"github.com/bl0rb/gartenamt/services"
 )
 
 // ContextKey für Session-Daten

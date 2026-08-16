@@ -14,8 +14,8 @@ import (
 
 	"github.com/jung-kurt/gofpdf"
 
-	"kleingarten-verwaltung/models"
-	"kleingarten-verwaltung/services"
+	"github.com/bl0rb/gartenamt/models"
+	"github.com/bl0rb/gartenamt/services"
 
 	"github.com/gorilla/mux"
 )

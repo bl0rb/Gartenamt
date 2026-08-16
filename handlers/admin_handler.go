@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"kleingarten-verwaltung/models"
+	"github.com/bl0rb/gartenamt/models"
 
 	"github.com/gorilla/mux"
 )

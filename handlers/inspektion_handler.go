@@ -2,8 +2,8 @@ package handlers
 
 import (
 	"fmt"
+	"github.com/bl0rb/gartenamt/models"
 	"html/template"
-	"kleingarten-verwaltung/models"
 	"net/http"
 	"strconv"
 	"time"

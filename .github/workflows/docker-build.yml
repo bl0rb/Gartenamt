@@ -39,6 +39,6 @@ jobs:
           context: .
           file: ./Dockerfile
           push: false
-          tags: kleingarten-verwaltung:test
+          tags: gartenamt:test
           cache-from: type=gha
           cache-to: type=gha,mode=max

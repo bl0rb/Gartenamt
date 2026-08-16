@@ -13,8 +13,8 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"kleingarten-verwaltung/models"
-	"kleingarten-verwaltung/services"
+	"github.com/bl0rb/gartenamt/models"
+	"github.com/bl0rb/gartenamt/services"
 )
 
 // AdminBackupHandler - Erweitert für CSV Export/Import

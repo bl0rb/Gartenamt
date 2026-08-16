@@ -15,9 +15,9 @@ release/
 app
 app-arm64
 app.exe
-kleingarten-verwaltung
-kleingarten-verwaltung-amd64
-kleingarten-verwaltung-linux-amd64
+gartenamt
+gartenamt-amd64
+gartenamt-linux-amd64
 *.test
 
 # Secrets & Zertifikate - niemals committen

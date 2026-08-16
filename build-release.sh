@@ -9,7 +9,7 @@
 
 set -e
 
-PROJECT_NAME="kleingarten-verwaltung"
+PROJECT_NAME="gartenamt"
 VERSION_FILE="VERSION"
 if [ -n "$1" ]; then
     VERSION="$1"
@@ -30,7 +30,7 @@ fi
 echo "$VERSION" > "$VERSION_FILE"
 
 BINARY_DIR="binary"
-LDFLAGS="-s -w -X kleingarten-verwaltung/handlers.AppVersion=${VERSION}"
+LDFLAGS="-s -w -X github.com/bl0rb/gartenamt/handlers.AppVersion=${VERSION}"
 
 echo "🔨 Building $PROJECT_NAME v$VERSION"
 mkdir -p "$BINARY_DIR"
