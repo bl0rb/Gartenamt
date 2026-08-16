@@ -14,8 +14,8 @@
 <body>
     <nav class="navbar navbar-dark bg-success">
         <div class="container">
-            <a class="navbar-brand" href="/">
-                <i class="fas fa-seedling"></i> Gartenamt
+            <a class="navbar-brand d-flex align-items-center" href="/">
+                <img src="/static/favicon.svg" alt="" width="26" height="26" class="me-2"> Gartenamt
             </a>
             
             <div class="navbar-nav d-flex flex-row align-items-center">
@@ -120,7 +120,7 @@
         <div class="container">
             <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
                 <small class="text-muted">
-                    <i class="fas fa-seedling" style="color: var(--color-primary);"></i>
+                    <img src="/static/favicon.svg" alt="" width="16" height="16" style="vertical-align: text-bottom;">
                     Gartenamt
                     {{if .Session}}
                     &nbsp;&middot;&nbsp; Angemeldet als <strong>{{.Session.Username}}</strong>
