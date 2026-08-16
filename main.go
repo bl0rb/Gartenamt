@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"syscall"
@@ -72,8 +73,52 @@ func loadEnvFiles() {
 	log.Printf("📄 Env-Dateien geladen: %s", strings.Join(existing, ", "))
 }
 
+// ensureWritableWorkdir wechselt in ein benutzerspezifisches Datenverzeichnis,
+// wenn das aktuelle Arbeitsverzeichnis nicht beschreibbar ist - z.B. beim Start
+// als macOS-App-Bundle aus dem Finder (Arbeitsverzeichnis "/") oder als
+// Windows-Exe unter "Programme". Datenbank, Exporte, Backups und .app_secret
+// landen dann dort statt im Arbeitsverzeichnis. Gibt true zurück, wenn das
+// Verzeichnis gewechselt wurde.
+func ensureWritableWorkdir() bool {
+	if os.Getenv("DB_PATH") != "" {
+		return false // explizite Konfiguration hat Vorrang
+	}
+
+	if probe, err := os.CreateTemp(".", ".write-probe-*"); err == nil {
+		probe.Close()
+		os.Remove(probe.Name())
+		return false
+	}
+
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		log.Printf("⚠️  Arbeitsverzeichnis nicht beschreibbar und kein Datenverzeichnis ermittelbar: %v", err)
+		return false
+	}
+
+	dataDir := filepath.Join(configDir, "Kleingarten-Verwaltung")
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+		log.Printf("⚠️  Datenverzeichnis %s konnte nicht angelegt werden: %v", dataDir, err)
+		return false
+	}
+
+	if err := os.Chdir(dataDir); err != nil {
+		log.Printf("⚠️  Wechsel ins Datenverzeichnis %s fehlgeschlagen: %v", dataDir, err)
+		return false
+	}
+
+	log.Printf("📁 Datenverzeichnis: %s", dataDir)
+	return true
+}
+
 func main() {
+	// Env-Dateien zuerst aus dem Startverzeichnis laden (z.B. .env neben der
+	// Exe), dann ggf. ins Datenverzeichnis wechseln und dortige Env-Dateien
+	// nachladen (godotenv überschreibt bereits gesetzte Werte nicht).
 	loadEnvFiles()
+	if ensureWritableWorkdir() {
+		loadEnvFiles()
+	}
 
 	// 1. Initialize embedded filesystem
 	handlers.SetEmbeddedFS(embeddedFS)
