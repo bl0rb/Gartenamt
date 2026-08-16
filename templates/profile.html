@@ -3,6 +3,15 @@
     <div class="col-12">
         <h2><i class="fas fa-user"></i> Benutzerprofil</h2>
         
+        {{if .User.MustChangePassword}}
+        <div class="alert alert-warning" role="alert">
+            <i class="fas fa-exclamation-triangle"></i>
+            <strong>Bitte ändern Sie jetzt Ihr Initialpasswort.</strong>
+            Das automatisch erzeugte Passwort wird bis zur Änderung auf der Login-Seite angezeigt.
+            Alle weiteren Funktionen sind erst nach der Passwortänderung verfügbar.
+        </div>
+        {{end}}
+
         {{if .Success}}
         <div class="alert alert-success alert-dismissible fade show" role="alert">
             <i class="fas fa-check-circle"></i>
@@ -114,18 +123,18 @@
 
                             <div class="mb-3">
                                 <label for="new_password" class="form-label">Neues Passwort *</label>
-                                <input type="password" class="form-control" id="new_password" 
-                                       name="new_password" minlength="6" required>
-                                <div class="form-text">Mindestens 6 Zeichen</div>
+                                <input type="password" class="form-control" id="new_password"
+                                       name="new_password" minlength="10" required>
+                                <div class="form-text">Mindestens 10 Zeichen</div>
                                 <div class="invalid-feedback">
-                                    Neues Passwort muss mindestens 6 Zeichen haben.
+                                    Neues Passwort muss mindestens 10 Zeichen haben.
                                 </div>
                             </div>
 
                             <div class="mb-3">
                                 <label for="confirm_password" class="form-label">Passwort bestätigen *</label>
-                                <input type="password" class="form-control" id="confirm_password" 
-                                       name="confirm_password" minlength="6" required>
+                                <input type="password" class="form-control" id="confirm_password"
+                                       name="confirm_password" minlength="10" required>
                                 <div class="invalid-feedback">
                                     Passwort-Bestätigung ist erforderlich.
                                 </div>

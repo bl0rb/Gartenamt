@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -294,8 +295,17 @@ func main() {
 
 	// Start server in goroutine if using browser
 	if len(os.Args) == 1 || (len(os.Args) > 1 && os.Args[1] != "--no-browser") {
+		// Läuft bereits eine Instanz (Port belegt), nur den Browser öffnen und
+		// beenden - sonst bliebe bei jedem Doppelklick ein Prozess ohne Server zurück
+		listener, err := net.Listen("tcp", server.Addr)
+		if err != nil {
+			log.Println("⚠️  Port 8080 ist bereits belegt - vermutlich läuft Gartenamt schon. Öffne Browser...")
+			openBrowserApp("https://localhost:8080")
+			return
+		}
+
 		go func() {
-			if err := server.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
+			if err := server.ServeTLS(listener, "", ""); err != nil && err != http.ErrServerClosed {
 				log.Printf("Server error: %v", err)
 			}
 		}()
