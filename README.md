@@ -7,8 +7,8 @@ Verwaltungssoftware für Kleingartenvereine: Parzellen, Pächter, Inspektionen, 
 ## Funktionen
 
 - **Parzellenverwaltung** — Parzellen mit Pächterdaten anlegen, bearbeiten und verwalten
-- **Inspektionen** — Begehungsprotokolle mit Mängelerfassung
-- **Wertermittlung** — Wertermittlungsprotokolle mit PDF-Export (angelehnt an die Richtlinie des Landesbundes der Gartenfreunde in Hamburg e.V.)
+- **Inspektionen** — Begehungsprotokolle mit Mängelerfassung (im Standard nach den Hamburger Richtlinien)
+- **Wertermittlung** — Wertermittlungsprotokolle mit PDF-Export (im Standard nach der Richtlinie des Landesbundes der Gartenfreunde in Hamburg e.V.)
 - **Abrechnung** — Wasser-/Stromzählerstände, Rechnungserstellung als PDF, Sammelexport
 - **E-Mail-Versand** — Rechnungen und Infos direkt an Pächter senden (SMTP)
 - **Benutzer & Rollen** — Rollenmodell (Admin, Vorstand, Kassenwart, Wertermittler, Benutzer) mit feingranularen Berechtigungen
@@ -63,7 +63,7 @@ SMTP-Zugangsdaten für den E-Mail-Versand werden in der App unter *Admin → Ver
 
 ## Wertermittlung nach LGH-Richtlinie
 
-Die Wertermittlung orientiert sich an der Richtlinie zur Wertermittlung des [Landesbundes der Gartenfreunde in Hamburg e.V.](https://www.gartenfreunde-hh.de/) Die offiziellen Richtlinien- und Formulardokumente sind urheberrechtlich geschützt und daher nicht Teil dieses Repositories — sie sind beim Landesbund erhältlich. Für andere Landesverbände lassen sich die Bewertungsgrundlagen (Obstgehölze, Zieranpflanzungen, Bauindex) in der App unter *Admin → Stammdaten* anpassen.
+Wertermittlung und Inspektion folgen im Standard den Hamburger Richtlinien: der Richtlinie für die Inspektion und Wertermittlung von Kleingärten bei Pächterwechsel des [Landesbundes der Gartenfreunde in Hamburg e.V.](https://www.gartenfreunde-hh.de/) Die offiziellen Richtlinien- und Formulardokumente sind urheberrechtlich geschützt und daher nicht Teil dieses Repositories — sie sind beim Landesbund erhältlich. Für andere Landesverbände lassen sich die Bewertungsgrundlagen (Obstgehölze, Zieranpflanzungen, Bauindex) in der App unter *Admin → Stammdaten* anpassen.
 
 ## Repository-Struktur
 
