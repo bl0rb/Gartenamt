@@ -11,16 +11,17 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/gorilla/mux"
+
 	"kleingarten-verwaltung/models"
 	"kleingarten-verwaltung/services"
 )
 
 // AdminBackupHandler - Erweitert für CSV Export/Import
-// AdminBackupHandler - Erweitert für CSV Export/Import
 func AdminBackupHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
-		handleBackupPost(w, r) // ÄNDERUNG: "return" entfernt
-		return                 // HINZUGEFÜGT: explizites return
+		handleBackupPost(w, r)
+		return
 	}
 
 	// GET - Backup/CSV Interface anzeigen
@@ -305,4 +306,24 @@ func saveUploadedFile(path string, file multipart.File) error {
 		return err
 	}
 	return nil
+}
+
+// AdminExportDownloadHandler liefert eine zuvor erstellte CSV-Export-Datei
+// aus dem exports/-Verzeichnis aus (nur Dateiname, kein Pfad-Traversal möglich).
+func AdminExportDownloadHandler(w http.ResponseWriter, r *http.Request) {
+	fileName := filepath.Base(mux.Vars(r)["filename"])
+	if fileName == "." || fileName == ".." || filepath.Ext(fileName) != ".csv" {
+		http.Error(w, "Ungültiger Dateiname", http.StatusBadRequest)
+		return
+	}
+
+	filePath := filepath.Join("exports", fileName)
+	if _, err := os.Stat(filePath); err != nil {
+		http.Error(w, "Export nicht gefunden", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", "attachment; filename="+fileName)
+	http.ServeFile(w, r, filePath)
 }

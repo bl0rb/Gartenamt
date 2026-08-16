@@ -2,11 +2,11 @@ package middleware
 
 import (
 	"context"
-	"fmt"
-	"kleingarten-verwaltung/models"
 	"net/http"
+	"net/url"
 	"strings"
 
+	"kleingarten-verwaltung/models"
 	"kleingarten-verwaltung/services"
 )
 
@@ -33,7 +33,7 @@ func RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 		session, err := services.GlobalAuth.ValidateSession(cookie.Value)
 		if err != nil {
 			// Ungültige Session = Cookie löschen und redirect
-			clearSessionCookie(w)
+			ClearSessionCookie(w)
 			redirectToLogin(w, r)
 			return
 		}
@@ -82,23 +82,42 @@ func RequirePermission(permission string, next http.HandlerFunc) http.HandlerFun
 	})
 }
 
-// RequirePremiumFeature sperrt Premium-Funktionen ohne aktive Lizenz.
-func RequirePremiumFeature(feature string, next http.HandlerFunc) http.HandlerFunc {
-	return RequireAuth(func(w http.ResponseWriter, r *http.Request) {
-		if models.HasPremiumFeature(feature) {
-			next.ServeHTTP(w, r)
-			return
+// CSRFProtect weist state-ändernde Requests ab, deren Origin/Referer nicht zum
+// eigenen Host passt. Requests ohne beide Header (z.B. curl) werden durchgelassen,
+// da CSRF nur über automatisch mitgesendete Browser-Cookies funktioniert.
+func CSRFProtect(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
+			if !sameOriginRequest(r) {
+				http.Error(w, "Zugriff verweigert - Cross-Origin-Anfrage blockiert", http.StatusForbidden)
+				return
+			}
 		}
-
-		if strings.Contains(r.Header.Get("Accept"), "application/json") {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusPaymentRequired)
-			w.Write([]byte(fmt.Sprintf(`{"error":"premium_required","feature":"%s"}`, feature)))
-			return
-		}
-
-		http.Redirect(w, r, "/admin/system-info?license_error=premium_required", http.StatusSeeOther)
+		next.ServeHTTP(w, r)
 	})
+}
+
+func sameOriginRequest(r *http.Request) bool {
+	check := func(raw string) bool {
+		parsed, err := url.Parse(raw)
+		if err != nil {
+			return false
+		}
+		return strings.EqualFold(parsed.Host, r.Host)
+	}
+
+	if origin := r.Header.Get("Origin"); origin != "" {
+		// "Origin: null" (z.B. sandboxed iframe) ist nie same-origin
+		if origin == "null" {
+			return false
+		}
+		return check(origin)
+	}
+	if referer := r.Header.Get("Referer"); referer != "" {
+		return check(referer)
+	}
+	return true
 }
 
 // OptionalAuth Middleware für Routen die sowohl authenticated als auch anonymous funktionieren
@@ -115,7 +134,7 @@ func OptionalAuth(next http.HandlerFunc) http.HandlerFunc {
 				r = r.WithContext(ctx)
 			} else {
 				// Ungültige Session = Cookie löschen
-				clearSessionCookie(w)
+				ClearSessionCookie(w)
 			}
 		}
 
@@ -173,14 +192,15 @@ func redirectToLogin(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/login?redirect="+r.URL.Path, http.StatusSeeOther)
 }
 
-func clearSessionCookie(w http.ResponseWriter) {
+// ClearSessionCookie löscht das Session-Cookie.
+func ClearSessionCookie(w http.ResponseWriter) {
 	cookie := &http.Cookie{
 		Name:     "session_id",
 		Value:    "",
 		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
-		Secure:   false, // Für Development - in Production auf true setzen
+		Secure:   true,
 		SameSite: http.SameSiteStrictMode,
 	}
 	http.SetCookie(w, cookie)
@@ -194,7 +214,7 @@ func SetSessionCookie(w http.ResponseWriter, sessionID string) {
 		Path:     "/",
 		MaxAge:   86400, // 24 Stunden
 		HttpOnly: true,
-		Secure:   false, // Für Development - in Production auf true setzen
+		Secure:   true,
 		SameSite: http.SameSiteStrictMode,
 	}
 	http.SetCookie(w, cookie)

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -44,7 +45,7 @@ func CreateEncryptedDatabaseBackup() (string, error) {
 		return "", err
 	}
 
-	plainData, err := os.ReadFile("kleingarten.db")
+	plainData, err := os.ReadFile(databaseFilePath())
 	if err != nil {
 		return "", err
 	}
@@ -107,7 +108,7 @@ func VerifyEncryptedBackup(path string) (*BackupVerificationResult, error) {
 
 	plainData, err := securestore.DecryptBytes(cipherPayload)
 	if err != nil {
-		return nil, errors.New("Backup konnte mit aktuellem Schluessel nicht entschluesselt werden")
+		return nil, errors.New("backup konnte mit aktuellem Schluessel nicht entschluesselt werden")
 	}
 
 	checksum := sha256Hex(plainData)
@@ -172,34 +173,64 @@ func RestoreEncryptedDatabaseBackup(path string) error {
 		_ = DB.Close()
 	}
 
-	originalPath := "kleingarten.db"
-	backupOriginalPath := "kleingarten.db.pre_restore"
+	originalPath := databaseFilePath()
+	backupOriginalPath := originalPath + ".pre_restore"
 	_ = os.Remove(backupOriginalPath)
 
+	// reopenOriginalDB versucht nach einem fehlgeschlagenen Restore die
+	// ursprüngliche Datenbankdatei wieder zu öffnen und die package-level
+	// DB-Variable neu zu setzen, damit die Anwendung weiterhin funktioniert.
+	reopenOriginalDB := func() {
+		reopened, reopenErr := sql.Open("sqlite3", originalPath)
+		if reopenErr != nil {
+			log.Printf("KRITISCH: Datenbank konnte nach fehlgeschlagenem Restore nicht wieder geoeffnet werden: %v", reopenErr)
+			return
+		}
+
+		if _, reopenErr := reopened.Exec("PRAGMA foreign_keys = ON"); reopenErr != nil {
+			log.Printf("KRITISCH: Datenbank konnte nach fehlgeschlagenem Restore nicht initialisiert werden: %v", reopenErr)
+			_ = reopened.Close()
+			return
+		}
+
+		if reopenErr := reopened.Ping(); reopenErr != nil {
+			log.Printf("KRITISCH: Datenbank antwortet nach fehlgeschlagenem Restore nicht: %v", reopenErr)
+			_ = reopened.Close()
+			return
+		}
+
+		DB = reopened
+	}
+
 	if err := os.Rename(originalPath, backupOriginalPath); err != nil {
+		reopenOriginalDB()
 		return err
 	}
 
 	if err := os.Rename(tmpPath, originalPath); err != nil {
 		_ = os.Rename(backupOriginalPath, originalPath)
+		reopenOriginalDB()
 		return err
 	}
 
 	newDB, err := sql.Open("sqlite3", originalPath)
 	if err != nil {
 		_ = os.Rename(backupOriginalPath, originalPath)
+		reopenOriginalDB()
 		return err
 	}
 
 	if _, err := newDB.Exec("PRAGMA foreign_keys = ON"); err != nil {
 		_ = newDB.Close()
 		_ = os.Rename(backupOriginalPath, originalPath)
+		reopenOriginalDB()
 		return err
 	}
 
 	if err := newDB.Ping(); err != nil {
 		_ = newDB.Close()
 		_ = os.Rename(backupOriginalPath, originalPath)
+		reopenOriginalDB()
 		return err
 	}
 

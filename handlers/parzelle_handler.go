@@ -90,7 +90,7 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/admin", http.StatusSeeOther)
 		return
 	}
-	http.Redirect(w, r, "/parzellen", http.StatusSeeOther)
+	http.Redirect(w, r, "/profile", http.StatusSeeOther)
 }
 
 func ParzellenListHandler(w http.ResponseWriter, r *http.Request) {

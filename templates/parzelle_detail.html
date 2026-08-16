@@ -241,10 +241,19 @@ function renderMailMessage(msg, type) {
     }
 
     const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
-    container.innerHTML = `<div class="alert ${alertClass}" role="alert">${msg}</div>`;
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert ${alertClass}`;
+    alertDiv.setAttribute('role', 'alert');
+    alertDiv.textContent = msg;
+    container.innerHTML = '';
+    container.appendChild(alertDiv);
     setTimeout(() => {
         container.innerHTML = '';
     }, 5000);
+}
+
+function escapeHtml(v) {
+    return String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 function sendParzelleInfoMail(parzelleId) {
@@ -295,17 +304,17 @@ function loadParzelleMailHistory(parzelleId) {
 
             const items = logs.map(log => {
                 const created = new Date(log.created_at).toLocaleString('de-DE');
-                const messageText = (log.message || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                const messageText = escapeHtml(log.message);
                 const statusClass = log.status === 'sent' ? 'success' : 'danger';
-                const errorText = log.error_message ? `<div><small class="text-danger">${log.error_message}</small></div>` : '';
+                const errorText = log.error_message ? `<div><small class="text-danger">${escapeHtml(log.error_message)}</small></div>` : '';
 
                 return `
                     <div class="border rounded p-2 mb-2">
                         <div class="d-flex justify-content-between align-items-center">
-                            <strong>${log.subject || '-'}</strong>
-                            <span class="badge bg-${statusClass}">${log.status}</span>
+                            <strong>${escapeHtml(log.subject || '-')}</strong>
+                            <span class="badge bg-${statusClass}">${escapeHtml(log.status)}</span>
                         </div>
-                        <div><small class="text-muted">${created} • ${log.recipient || '-'}</small></div>
+                        <div><small class="text-muted">${escapeHtml(created)} • ${escapeHtml(log.recipient || '-')}</small></div>
                         <div class="mt-1"><small>${messageText || '-'}</small></div>
                         ${errorText}
                     </div>

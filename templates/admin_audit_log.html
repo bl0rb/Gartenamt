@@ -1,0 +1,58 @@
+{{define "content"}}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-clipboard-list"></i> Audit-Log</h2>
+            <a href="/admin" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Zurück
+            </a>
+        </div>
+
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-history me-2"></i>Letzte Aktionen</h5>
+                <form method="GET" action="/admin/audit-log" class="d-flex align-items-center gap-2">
+                    <label for="limit" class="form-label mb-0 small text-muted">Anzahl</label>
+                    <select id="limit" name="limit" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="50" {{if eq .Limit 50}}selected{{end}}>50</option>
+                        <option value="100" {{if eq .Limit 100}}selected{{end}}>100</option>
+                        <option value="250" {{if eq .Limit 250}}selected{{end}}>250</option>
+                        <option value="500" {{if eq .Limit 500}}selected{{end}}>500</option>
+                    </select>
+                </form>
+            </div>
+            <div class="card-body p-0">
+                {{if .AuditLogs}}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover mb-0 align-middle">
+                        <thead>
+                            <tr>
+                                <th>Zeitpunkt</th>
+                                <th>Aktion</th>
+                                <th>Beschreibung</th>
+                                <th>IP-Adresse</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{range .AuditLogs}}
+                            <tr>
+                                <td class="text-nowrap">{{.Zeitstempel.Format "02.01.2006 15:04:05"}}</td>
+                                <td><span class="badge bg-secondary">{{.Aktion}}</span></td>
+                                <td>{{.Beschreibung}}</td>
+                                <td class="text-muted small">{{.IPAdresse}}</td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+                {{else}}
+                <div class="p-4 text-center text-muted">
+                    <i class="fas fa-inbox fa-2x mb-2"></i>
+                    <p class="mb-0">Noch keine Audit-Einträge vorhanden.</p>
+                </div>
+                {{end}}
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}

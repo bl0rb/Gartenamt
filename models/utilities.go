@@ -4,6 +4,28 @@ import (
 	"time"
 )
 
+// toTimePointer konvertiert SQLite-Zeitwerte (string/[]byte/time.Time) in *time.Time.
+func toTimePointer(value interface{}) (*time.Time, bool) {
+	switch v := value.(type) {
+	case string:
+		if v == "" {
+			return nil, false
+		}
+		if parsed, err := time.Parse(time.RFC3339, v); err == nil {
+			return &parsed, true
+		}
+		if parsed, err := time.Parse("2006-01-02 15:04:05", v); err == nil {
+			return &parsed, true
+		}
+	case []byte:
+		return toTimePointer(string(v))
+	case time.Time:
+		copy := v
+		return &copy, true
+	}
+	return nil, false
+}
+
 // Wasser - Water consumption record per Parzelle
 type Wasser struct {
 	ID         int       `json:"id"`

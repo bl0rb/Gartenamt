@@ -1,17 +1,21 @@
 package handlers
 
 import (
+	"errors"
 	"html/template"
 	"log"
+	"net"
 	"net/http"
-	"strconv" // MISSING IMPORT ADDED
+	"os"
+	"strconv"
 	"strings"
+	"sync"
 
 	"kleingarten-verwaltung/middleware"
 	"kleingarten-verwaltung/models"
 	"kleingarten-verwaltung/services"
 
-	"github.com/gorilla/mux" // MISSING IMPORT ADDED
+	"github.com/gorilla/mux"
 )
 
 // LoginHandler zeigt Login-Formular oder verarbeitet Login
@@ -23,7 +27,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, "/admin", http.StatusSeeOther)
 			return
 		}
-		http.Redirect(w, r, "/parzellen", http.StatusSeeOther)
+		http.Redirect(w, r, "/profile", http.StatusSeeOther)
 		return
 	}
 
@@ -46,7 +50,11 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		session, err := services.GlobalAuth.Login(username, password, ipAddress, userAgent)
 		if err != nil {
 			log.Printf("Login-Fehler für Benutzer '%s' von IP %s: %v", username, ipAddress, err)
-			showLoginWithError(w, r, "Ungültige Anmeldedaten", redirectURL)
+			if errors.Is(err, services.ErrLoginThrottled) {
+				showLoginWithError(w, r, "Zu viele fehlgeschlagene Anmeldeversuche. Bitte versuchen Sie es in 15 Minuten erneut.", redirectURL)
+			} else {
+				showLoginWithError(w, r, "Ungültige Anmeldedaten", redirectURL)
+			}
 			return
 		}
 
@@ -63,7 +71,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 			if models.IsBackofficeRole(session.Role) {
 				http.Redirect(w, r, "/admin", http.StatusSeeOther)
 			} else {
-				http.Redirect(w, r, "/parzellen", http.StatusSeeOther)
+				http.Redirect(w, r, "/profile", http.StatusSeeOther)
 			}
 		}
 		return
@@ -89,7 +97,7 @@ func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Session-Cookie löschen
-	clearSessionCookie(w)
+	middleware.ClearSessionCookie(w)
 
 	// Zur Login-Seite weiterleiten
 	http.Redirect(w, r, "/login?message=logout", http.StatusSeeOther)
@@ -187,8 +195,8 @@ func ChangePasswordHandler(w http.ResponseWriter, r *http.Request) {
 
 // AdminUserEditHandler handles user editing (admin only)
 func AdminUserEditHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)                     // NOW WORKS - mux imported
-	userID, err := strconv.Atoi(vars["id"]) // NOW WORKS - strconv imported
+	vars := mux.Vars(r)
+	userID, err := strconv.Atoi(vars["id"])
 	if err != nil {
 		http.Error(w, "Ungültige Benutzer-ID", http.StatusBadRequest)
 		return
@@ -439,30 +447,49 @@ func adminUsersTemplateFuncMap() template.FuncMap {
 	}
 }
 
-func getClientIP(r *http.Request) string {
-	// X-Forwarded-For Header prüfen (für Proxy/Load Balancer)
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		return strings.Split(xff, ",")[0]
-	}
+// trustedProxyIPs wird erst beim ersten Request ausgewertet, damit auch
+// Werte aus einer per loadEnvFiles() geladenen .env-Datei greifen.
+var trustedProxyIPs = sync.OnceValue(loadTrustedProxyIPs)
 
-	// X-Real-IP Header prüfen
-	if xri := r.Header.Get("X-Real-IP"); xri != "" {
-		return xri
+func loadTrustedProxyIPs() map[string]bool {
+	trusted := make(map[string]bool)
+	raw := os.Getenv("TRUSTED_PROXY_IPS")
+	if raw == "" {
+		return trusted
+	}
+	for _, ip := range strings.Split(raw, ",") {
+		ip = strings.TrimSpace(ip)
+		if ip != "" {
+			trusted[ip] = true
+		}
+	}
+	return trusted
+}
+
+// remoteHost extrahiert den Host-Anteil aus RemoteAddr (ohne Port).
+func remoteHost(remoteAddr string) string {
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		return remoteAddr
+	}
+	return host
+}
+
+func getClientIP(r *http.Request) string {
+	directIP := remoteHost(r.RemoteAddr)
+
+	// X-Forwarded-For / X-Real-IP nur vertrauen, wenn der direkte Peer ein
+	// vertrauenswürdiger Proxy ist (via TRUSTED_PROXY_IPS konfiguriert).
+	if trustedProxyIPs()[directIP] {
+		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			return strings.TrimSpace(strings.Split(xff, ",")[0])
+		}
+
+		if xri := r.Header.Get("X-Real-IP"); xri != "" {
+			return strings.TrimSpace(xri)
+		}
 	}
 
 	// Standard RemoteAddr verwenden
-	return strings.Split(r.RemoteAddr, ":")[0]
-}
-
-func clearSessionCookie(w http.ResponseWriter) {
-	cookie := &http.Cookie{
-		Name:     "session_id",
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   false, // Für Development - in Production auf true setzen
-		SameSite: http.SameSiteStrictMode,
-	}
-	http.SetCookie(w, cookie)
+	return directIP
 }

@@ -13,6 +13,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -124,7 +125,7 @@ func (cm *CertManager) generateSelfSignedCert() error {
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
 
-		DNSNames: []string{"localhost", "127.0.0.1"},
+		DNSNames: certDNSNames(),
 		IPAddresses: []net.IP{
 			net.ParseIP("127.0.0.1"),
 			net.ParseIP("::1"),
@@ -168,6 +169,25 @@ func (cm *CertManager) generateSelfSignedCert() error {
 	log.Printf("   Gültig bis: %s", notAfter.Format("02.01.2006 15:04:05"))
 
 	return nil
+}
+
+// certDNSNames liefert die SAN-Hostnamen für das selbstsignierte Zertifikat:
+// localhost, der Rechnername sowie optionale Einträge aus TLS_EXTRA_HOSTS
+// (kommagetrennt), damit LAN-Zugriffe keinen Hostname-Mismatch erzeugen.
+func certDNSNames() []string {
+	names := []string{"localhost"}
+
+	if hostname, err := os.Hostname(); err == nil && hostname != "" {
+		names = append(names, hostname)
+	}
+
+	for _, extra := range strings.Split(os.Getenv("TLS_EXTRA_HOSTS"), ",") {
+		if extra = strings.TrimSpace(extra); extra != "" {
+			names = append(names, extra)
+		}
+	}
+
+	return names
 }
 
 // GetTLSConfig returns the TLS configuration for the server

@@ -284,8 +284,6 @@ func CountUsers() int {
 	return count
 }
 
-// Add these functions to your existing models/user.go
-
 // ChangePassword ändert das Passwort eines Benutzers
 func (u *User) ChangePassword(newPassword string) error {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
@@ -328,14 +326,9 @@ func ReactivateUser(id int) error {
 
 // ValidatePassword validates password requirements
 func ValidatePassword(password string) error {
-	if len(password) < 6 {
-		return errors.New("passwort muss mindestens 6 Zeichen lang sein")
+	if len(password) < 10 {
+		return errors.New("passwort muss mindestens 10 Zeichen lang sein")
 	}
-
-	// Additional password requirements can be added here
-	// hasUpper := strings.ContainsAny(password, "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
-	// hasLower := strings.ContainsAny(password, "abcdefghijklmnopqrstuvwxyz")
-	// hasDigit := strings.ContainsAny(password, "0123456789")
 
 	return nil
 }

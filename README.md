@@ -1,148 +1,88 @@
 # Kleingarten-Verwaltung
 
-Kleingarten-Verwaltung is a modular system with three deployable parts:
+Verwaltungssoftware für Kleingartenvereine: Parzellen, Pächter, Inspektionen, Wertermittlungen, Wasser-/Stromabrechnung und Rechnungsversand — als einzelne Go-Anwendung mit SQLite, ohne externe Dienste selbst zu hosten.
 
-- Verwaltung App (Go + SQLite): internal member/admin workflows
-- License Server (Go + SQLite): license issuing, validation, revocation
-- Public Webpage (Nginx static site): public-facing content
+*Management software for German allotment garden associations (Kleingartenvereine), built with Go and SQLite. The application and its documentation are in German, as its workflows follow German allotment-garden regulations.*
 
-## Repository Layout
+## Funktionen
 
-- `main.go`, `handlers/`, `models/`, `services/`: Verwaltung App
-- `modules/license-server/`: dedicated license server module
-- `modules/public-web/`: public website module
-- `docker-compose.modular.yml`: multi-module docker setup
+- **Parzellenverwaltung** — Parzellen mit Pächterdaten anlegen, bearbeiten und verwalten
+- **Inspektionen** — Begehungsprotokolle mit Mängelerfassung
+- **Wertermittlung** — Wertermittlungsprotokolle mit PDF-Export (angelehnt an die Richtlinie des Landesbundes der Gartenfreunde in Hamburg e.V.)
+- **Abrechnung** — Wasser-/Stromzählerstände, Rechnungserstellung als PDF, Sammelexport
+- **E-Mail-Versand** — Rechnungen und Infos direkt an Pächter senden (SMTP)
+- **Benutzer & Rollen** — Rollenmodell (Admin, Vorstand, Kassenwart, Wertermittler, Benutzer) mit feingranularen Berechtigungen
+- **Backup** — verschlüsselte Datenbank-Backups mit Wiederherstellung, CSV-Export/-Import
+- **Audit-Log** — Nachverfolgung administrativer Aktionen
 
-## Quick Start (Modular Docker)
+Die Weboberfläche läuft komplett lokal (HTTPS mit selbstsigniertem Zertifikat); es werden keine externen Dienste oder CDNs eingebunden.
 
-1. Copy environment template:
+## Schnellstart (lokal)
+
+Voraussetzung: Go 1.21+ und ein C-Compiler (für SQLite/cgo).
 
 ```bash
-cp .env.modular.xample .env
+git clone https://github.com/bl0rb/kleingarten-verwaltung.git
+cd kleingarten-verwaltung
+go run .
 ```
 
-2. Fill required values in `.env`:
-- `LICENSE_PUBLIC_KEY`
-- `LICENSE_PRIVATE_KEY_BASE64` (required for issue/revoke in license server)
-- `LICENSE_SERVER_ADMIN_TOKEN`
-- `LICENSE_SERVER_CLIENT_TOKEN`
+Die App startet unter `https://localhost:8080` und öffnet den Browser automatisch (unterdrückbar mit `--no-browser`). Beim ersten Start wird ein Administrator-Konto **admin** mit einem **zufällig generierten Passwort** angelegt — das Passwort wird einmalig auf der Konsole ausgegeben.
 
-Fuer die Verwaltung App gilt: Entweder `LICENSE_PUBLIC_KEY` passend zum License Server setzen oder `LICENSE_SERVER_URL` konfigurieren, damit der Public Key automatisch von `http://.../v1/keys/public` geladen werden kann.
+> Hinweis: Das TLS-Zertifikat ist selbstsigniert; die Browser-Warnung beim ersten Aufruf ist erwartbar. Zusätzliche Hostnamen für das Zertifikat können über `TLS_EXTRA_HOSTS` konfiguriert werden.
 
-Beim lokalen Start mit `go run .` werden `.env`, `.env.local`, `.env.modular` und als Fallback auch `.env.modular.xample` automatisch geladen.
+## Schnellstart (Docker)
 
-3. Start all services:
+```bash
+docker compose up -d
+```
+
+Die Datenbank liegt im Volume `kleingarten-data` (`/data/kleingarten.db`). Details und NAS-Hinweise: [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md).
+
+Optional gibt es ein modulares Setup mit zusätzlicher öffentlicher Vereins-Webseite (Nginx):
 
 ```bash
 docker compose -f docker-compose.modular.yml up --build
 ```
 
-## Service Endpoints
+## Konfiguration
 
-- Verwaltung App: http://localhost:8080
-- License Server Health: http://localhost:8090/health
-- Public Webpage: http://localhost:8081
+Alle Einstellungen sind optional und werden über Umgebungsvariablen (oder eine `.env`-Datei, siehe [.env.example](.env.example)) gesetzt:
 
-## License Flow
+| Variable | Zweck |
+|---|---|
+| `APP_SECRET_KEY` | Schlüssel für Backup-Verschlüsselung (32 Bytes, base64). Wird sonst beim ersten Start erzeugt. |
+| `APP_SECRET_KEY_FILE` | Alternativ: Pfad zur Schlüsseldatei (Default: `.app_secret`) |
+| `DB_PATH` | Pfad zur SQLite-Datenbank (Default: `kleingarten.db`) |
+| `TLS_EXTRA_HOSTS` | Zusätzliche Hostnamen für das selbstsignierte Zertifikat (kommagetrennt) |
+| `TRUSTED_PROXY_IPS` | IPs vertrauenswürdiger Reverse-Proxys für die korrekte Client-IP-Ermittlung |
 
-- License Server signs/validates license keys.
-- Verwaltung App uses premium feature gating and can call License Server.
-- Public Webpage only links to the app login and does not include admin logic.
+SMTP-Zugangsdaten für den E-Mail-Versand werden in der App unter *Admin → Vereinseinstellungen* hinterlegt (verschlüsselt gespeichert).
 
-## Entwicklung (lokaler Start ohne Docker)
+## Wertermittlung nach LGH-Richtlinie
 
-### License Server
+Die Wertermittlung orientiert sich an der Richtlinie zur Wertermittlung des [Landesbundes der Gartenfreunde in Hamburg e.V.](https://www.gartenfreunde-hh.de/) Die offiziellen Richtlinien- und Formulardokumente sind urheberrechtlich geschützt und daher nicht Teil dieses Repositories — sie sind beim Landesbund erhältlich. Für andere Landesverbände lassen sich die Bewertungsgrundlagen (Obstgehölze, Zieranpflanzungen, Bauindex) in der App unter *Admin → Stammdaten* anpassen.
 
-```bash
-cd modules/license-server
-go mod tidy
-go run .
-```
+## Repository-Struktur
 
-Der Server erzeugt die Schluessel beim ersten Start selbst und legt auch automatisch einen persistenten Admin-Token an.
+- `main.go`, `handlers/`, `models/`, `services/`, `middleware/` — die Verwaltungs-App
+- `templates/`, `static/` — Weboberfläche (eingebettet ins Binary, inkl. lokal ausgelieferter Bootstrap-/Font-Awesome-Assets)
+- `securestore/` — Verschlüsselung für gespeicherte Zugangsdaten und Backups
+- `modules/public-web/` — optionale öffentliche Vereins-Webseite (statisch, Nginx)
+- `build-release.sh` — Release-Build inkl. Docker-Image-Export
 
-Der Server läuft dann auf `http://localhost:8090`.
-Die UI befuellt das Feld `Admin Token` automatisch mit dem aktiven Wert.
-
-### Verwaltung App
-
-```bash
-# Im Wurzelverzeichnis des Repos
-go run .
-```
-
-Wenn `LICENSE_PUBLIC_KEY` leer ist, kann die App den Public Key optional ueber `LICENSE_SERVER_URL` vom License Server abrufen.
-
-## Build (Root App)
+## Build
 
 ```bash
-go build ./...
+go build ./...        # kompilieren
+go vet ./...          # statische Prüfung
+./build-release.sh    # Release-Build (Docker-Image, Versionierung über VERSION-Datei)
 ```
 
-## Step-by-Step Guide (NAS/Server)
+## Mitwirken
 
-1. Prepare certificates for public HTTPS.
+Beiträge sind willkommen — siehe [CONTRIBUTING.md](CONTRIBUTING.md). Sicherheitslücken bitte nicht öffentlich melden, sondern wie in [SECURITY.md](SECURITY.md) beschrieben.
 
-Create these files:
-- `modules/public-web/certs/fullchain.pem`
-- `modules/public-web/certs/privkey.pem`
+## Lizenz
 
-2. Create your environment file.
-
-```bash
-cp .env.modular.xample .env
-```
-
-3. Set required secrets in `.env`.
-
-Minimum values:
-- `LICENSE_SERVER_ADMIN_TOKEN=your-admin-token`
-- `LICENSE_SERVER_CLIENT_TOKEN=your-client-token`
-
-Optional key bootstrap modes:
-- Mode A (automatic first start): leave `LICENSE_PUBLIC_KEY` and `LICENSE_PRIVATE_KEY_BASE64` empty.
-- Mode B (fixed keys): set both values explicitly.
-
-4. Start the full stack.
-
-```bash
-docker compose -f docker-compose.modular.yml up -d --build
-```
-
-5. Open the license server first.
-
-- UI: `http://<server>:8090/`
-- On first start it auto-generates keys if not provided.
-- Copy and store the displayed public key/fingerprint.
-
-6. Generate first app license code.
-
-In the license server UI:
-- Enter `Admin Token`
-- Plan: `premium`
-- Issued To: your organization
-- Features: `wertermittlung,inspektion,mailing,invoice_print`
-- Click `Lizenz erstellen`
-
-7. Activate the license in the app.
-
-- Open Verwaltung App: `http://<server>:8080`
-- Go to Admin -> System-Info -> Lizenzverwaltung
-- Paste generated `KGV1...` key and activate
-
-8. Verify public webpage via HTTPS.
-
-- HTTPS endpoint: `https://<server>:8443`
-- HTTP endpoint (`:8081`) redirects to HTTPS
-
-9. Validate service health.
-
-```bash
-docker compose -f docker-compose.modular.yml ps
-curl -k https://<server>:8443/
-curl http://<server>:8090/health
-```
-
-10. Update production ports (optional).
-
-For a real domain on NAS, map public web ports to 80/443 in `docker-compose.modular.yml`.
+Dieses Projekt steht unter der [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0). Wer die Software verändert und als Dienst betreibt, muss den Quellcode der veränderten Version den Nutzern zugänglich machen.

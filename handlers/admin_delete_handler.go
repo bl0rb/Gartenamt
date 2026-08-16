@@ -7,7 +7,6 @@ import (
 	"kleingarten-verwaltung/models"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
 	"runtime"
 	"runtime/debug"
@@ -19,21 +18,12 @@ import (
 )
 
 func AdminParzellenVerwaltungHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("DEBUG: Lade Parzellen-Statistiken...")
 
 	parzellen, err := models.GetAllParzellenMitStatistiken()
 	if err != nil {
 		log.Printf("ERROR: Fehler beim Laden der Parzellen: %v", err)
 		http.Error(w, "Fehler beim Laden der Parzellen: "+err.Error(), http.StatusInternalServerError)
 		return
-	}
-
-	log.Printf("DEBUG: %d Parzellen geladen", len(parzellen))
-
-	// Debug: Erste Parzelle ausgeben
-	if len(parzellen) > 0 {
-		p := parzellen[0]
-		log.Printf("DEBUG: Erste Parzelle - GesamtWert: %f, LetzteAktivitaet: %v", p.GesamtWert, p.LetzteAktivitaet)
 	}
 
 	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/admin_parzellen_verwalten.html"))
@@ -48,11 +38,9 @@ func AdminParzellenVerwaltungHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Println("DEBUG: Template erfolgreich gerendert")
 }
 
 func AdminProtokollVerwaltungHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("DEBUG: Lade Protokoll-Daten...")
 
 	// Alle Inspektionen laden
 	inspektionen, err := models.GetAllInspektionen()
@@ -61,7 +49,6 @@ func AdminProtokollVerwaltungHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Fehler beim Laden der Inspektionen: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	log.Printf("DEBUG: %d Inspektionen geladen", len(inspektionen))
 
 	// Alle Wertermittlungen laden
 	wertermittlungen, err := models.GetAllWertermittlungen()
@@ -69,14 +56,6 @@ func AdminProtokollVerwaltungHandler(w http.ResponseWriter, r *http.Request) {
 		log.Printf("ERROR: Fehler beim Laden der Wertermittlungen: %v", err)
 		http.Error(w, "Fehler beim Laden der Wertermittlungen: "+err.Error(), http.StatusInternalServerError)
 		return
-	}
-	log.Printf("DEBUG: %d Wertermittlungen geladen", len(wertermittlungen))
-
-	// Debug: Erste Wertermittlung ausgeben
-	if len(wertermittlungen) > 0 {
-		w := wertermittlungen[0]
-		log.Printf("DEBUG: Erste Wertermittlung - ID: %d, Gesamtwert: %f, Parzelle: %s",
-			w.Wertermittlung.ID, w.Wertermittlung.GesamtWert, w.ParzelleNummer)
 	}
 
 	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/admin_protokolle_verwalten.html"))
@@ -134,7 +113,10 @@ func AdminInspektionLoeschenHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		// Abhängige Wertermittlungen ebenfalls löschen
 		for _, wert := range wertermittlungen {
-			models.DeleteWertermittlung(wert.ID)
+			if err := models.DeleteWertermittlung(wert.ID); err != nil {
+				http.Error(w, fmt.Sprintf("Fehler beim Löschen der abhängigen Wertermittlung %d: %v", wert.ID, err), http.StatusInternalServerError)
+				return
+			}
 		}
 	}
 
@@ -323,36 +305,14 @@ func AdminSystemInfoHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			http.Redirect(w, r, "/admin/system-info?key_success=acknowledged", http.StatusSeeOther)
 			return
-		case "activate_license":
-			licenseKey := strings.TrimSpace(r.FormValue("license_key"))
-			if licenseKey == "" {
-				http.Redirect(w, r, "/admin/system-info?license_error=missing_key", http.StatusSeeOther)
-				return
-			}
-
-			if _, err := models.ActivateLicenseKey(licenseKey); err != nil {
-				http.Redirect(w, r, "/admin/system-info?license_error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
-				return
-			}
-
-			http.Redirect(w, r, "/admin/system-info?license_success=activated", http.StatusSeeOther)
-			return
-		case "deactivate_license":
-			if err := models.DeactivateLicense(); err != nil {
-				http.Redirect(w, r, "/admin/system-info?license_error=deactivate_failed", http.StatusSeeOther)
-				return
-			}
-			http.Redirect(w, r, "/admin/system-info?license_success=deactivated", http.StatusSeeOther)
-			return
 		default:
-			http.Redirect(w, r, "/admin/system-info?license_error=invalid_action", http.StatusSeeOther)
+			http.Redirect(w, r, "/admin/system-info?key_error=invalid_action", http.StatusSeeOther)
 			return
 		}
 	}
 
 	systemInfo := models.GetSystemInfo()
 	appMeta := getApplicationMetadata()
-	licenseStatus, _ := models.GetLicenseStatus()
 	backupKeyState, _ := models.GetBackupKeyState()
 	if backupKeyState == nil {
 		backupKeyState = &models.BackupKeyState{}
@@ -362,22 +322,17 @@ func AdminSystemInfoHandler(w http.ResponseWriter, r *http.Request) {
 		"divMB": func(size int64) float64 {
 			return float64(size) / (1024 * 1024)
 		},
-		"featureName": models.FeatureDisplayName,
 	}
 
 	tmpl := template.Must(LoadTemplateWithFuncs(funcMap, "templates/layout.html", "templates/admin_system_info.html"))
 	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
-		"Title":           "System-Information",
-		"SystemInfo":      systemInfo,
-		"AppMeta":         appMeta,
-		"LicenseStatus":   licenseStatus,
-		"PremiumFeatures": models.RequiredPremiumFeatures(),
-		"LicenseSuccess":  r.URL.Query().Get("license_success"),
-		"LicenseError":    r.URL.Query().Get("license_error"),
-		"BackupKeyState":  backupKeyState,
-		"BackupKey":       revealedBackupKey,
-		"KeySuccess":      keySuccess,
-		"KeyError":        keyError,
+		"Title":          "System-Information",
+		"SystemInfo":     systemInfo,
+		"AppMeta":        appMeta,
+		"BackupKeyState": backupKeyState,
+		"BackupKey":      revealedBackupKey,
+		"KeySuccess":     keySuccess,
+		"KeyError":       keyError,
 	}))
 }
 
@@ -430,7 +385,6 @@ func readApplicationVersion() string {
 	return version
 }
 
-// Hilfsfunktion am Ende der Datei hinzufügen
 func loescheParzelleMitAbhaengigkeiten(parzelleID int) error {
 	// In einer Transaktion alle abhängigen Daten löschen
 	tx, err := models.DB.Begin()
@@ -460,33 +414,9 @@ func loescheParzelleMitAbhaengigkeiten(parzelleID int) error {
 	return tx.Commit()
 }
 
-// AdminParzellenLoeschenHandler - Parzellen mit Sicherheitsabfrage löschen
+// AdminParzellenLoeschenHandler - Parzellen mit Sicherheitsabfrage löschen (nur POST,
+// die Bestätigung erfolgt über den Modal-Dialog in der Parzellen-Verwaltung)
 func AdminParzellenLoeschenHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "POST" {
-		vars := mux.Vars(r)
-		id, err := strconv.Atoi(vars["id"])
-		if err != nil {
-			http.Error(w, "Ungültige Parzellen-ID", http.StatusBadRequest)
-			return
-		}
-
-		// Sicherheitscheck: Bestätigung erforderlich
-		if r.FormValue("bestaetigung") != "LOESCHEN" {
-			http.Error(w, "Bestätigung erforderlich", http.StatusBadRequest)
-			return
-		}
-
-		// Parzelle und alle abhängigen Daten löschen
-		if err := loescheParzelleMitAbhaengigkeiten(id); err != nil {
-			http.Error(w, "Fehler beim Löschen: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		http.Redirect(w, r, "/admin?success=parzelle_geloescht", http.StatusSeeOther)
-		return
-	}
-
-	// GET - Löschbestätigung anzeigen
 	vars := mux.Vars(r)
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
@@ -494,15 +424,17 @@ func AdminParzellenLoeschenHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	parzelle, err := models.GetParzelleByID(id)
-	if err != nil {
-		http.Error(w, "Parzelle nicht gefunden", http.StatusNotFound)
+	// Sicherheitscheck: Bestätigung erforderlich
+	if r.FormValue("bestaetigung") != "LOESCHEN" {
+		http.Error(w, "Bestätigung erforderlich", http.StatusBadRequest)
 		return
 	}
 
-	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/admin_parzelle_loeschen.html"))
-	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
-		"Title":    "Parzelle löschen",
-		"Parzelle": parzelle,
-	}))
+	// Parzelle und alle abhängigen Daten löschen
+	if err := loescheParzelleMitAbhaengigkeiten(id); err != nil {
+		http.Error(w, "Fehler beim Löschen: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, "/admin?success=parzelle_geloescht", http.StatusSeeOther)
 }

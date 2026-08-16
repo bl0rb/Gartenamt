@@ -2,16 +2,32 @@ package services
 
 import (
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"log"
-	"strings" // NEU: für strings.Repeat
+	"strings"
 	"sync"
 	"time"
 
 	"kleingarten-verwaltung/models"
 )
+
+// Schwellwerte für die Login-Drosselung
+const (
+	maxFailedLogins  = 5
+	loginLockoutTime = 15 * time.Minute
+)
+
+type failedLoginState struct {
+	Count       int
+	LastAttempt time.Time
+	LockedUntil time.Time
+}
+
+// ErrLoginThrottled signalisiert eine aktive Login-Sperre nach zu vielen Fehlversuchen.
+var ErrLoginThrottled = errors.New("zu viele fehlgeschlagene Anmeldeversuche - bitte später erneut versuchen")
 
 // Session repräsentiert eine Benutzersitzung
 type Session struct {
@@ -27,14 +43,16 @@ type Session struct {
 
 // AuthService verwaltet Authentifizierung und Sessions
 type AuthService struct {
-	sessions map[string]*Session
-	mutex    sync.RWMutex
+	sessions     map[string]*Session
+	failedLogins map[string]*failedLoginState
+	mutex        sync.RWMutex
 }
 
 // NewAuthService erstellt einen neuen Auth-Service
 func NewAuthService() *AuthService {
 	service := &AuthService{
-		sessions: make(map[string]*Session),
+		sessions:     make(map[string]*Session),
+		failedLogins: make(map[string]*failedLoginState),
 	}
 
 	// Cleanup-Routine für abgelaufene Sessions
@@ -45,21 +63,30 @@ func NewAuthService() *AuthService {
 
 // Login authentifiziert einen Benutzer und erstellt eine Session
 func (as *AuthService) Login(username, password, ipAddress, userAgent string) (*Session, error) {
+	throttleKey := strings.ToLower(strings.TrimSpace(username)) + "|" + ipAddress
+	if err := as.checkLoginThrottle(throttleKey); err != nil {
+		return nil, err
+	}
+
 	// Benutzer aus Datenbank laden
 	user, err := models.GetUserByUsername(username)
 	if err != nil {
+		as.recordFailedLogin(throttleKey)
 		log.Printf("Login-Versuch fehlgeschlagen für Benutzer: %s - %v", username, err)
 		return nil, errors.New("ungültige Anmeldedaten")
 	}
 
 	// Passwort validieren
 	if !user.ValidatePassword(password) {
+		as.recordFailedLogin(throttleKey)
 		log.Printf("Falsches Passwort für Benutzer: %s", username)
 		return nil, errors.New("ungültige Anmeldedaten")
 	}
 
+	as.resetFailedLogins(throttleKey)
+
 	// Bestehende Sessions für diesen Benutzer löschen
-	as.invalidateUserSessions(user.ID)
+	as.InvalidateUserSessions(user.ID)
 
 	// Neue Session erstellen
 	sessionID, err := generateSessionID()
@@ -157,17 +184,63 @@ func (as *AuthService) GetActiveSessions() []*Session {
 	return sessions
 }
 
-// Private Hilfsfunktionen
-
-func (as *AuthService) invalidateUserSessions(userID int) {
+// InvalidateUserSessions beendet alle Sessions eines Benutzers.
+func (as *AuthService) InvalidateUserSessions(userID int) {
 	as.mutex.Lock()
 	defer as.mutex.Unlock()
 
 	for sessionID, session := range as.sessions {
 		if session.UserID == userID {
+			log.Printf("Session invalidiert: %s (Benutzer-ID: %d)", sessionID[:8], userID)
 			delete(as.sessions, sessionID)
 		}
 	}
+}
+
+// Private Hilfsfunktionen
+
+// checkLoginThrottle blockiert Logins, solange die Sperre nach zu vielen
+// Fehlversuchen aktiv ist.
+func (as *AuthService) checkLoginThrottle(key string) error {
+	as.mutex.RLock()
+	var lockedUntil time.Time
+	if state, exists := as.failedLogins[key]; exists {
+		lockedUntil = state.LockedUntil
+	}
+	as.mutex.RUnlock()
+
+	if time.Now().Before(lockedUntil) {
+		return ErrLoginThrottled
+	}
+	return nil
+}
+
+func (as *AuthService) recordFailedLogin(key string) {
+	as.mutex.Lock()
+	defer as.mutex.Unlock()
+
+	now := time.Now()
+	state, exists := as.failedLogins[key]
+	// Zähler nur neu beginnen, wenn der letzte Fehlversuch länger als das
+	// Sperrfenster zurückliegt (und keine aktive Sperre mehr besteht).
+	if !exists || (now.Sub(state.LastAttempt) > loginLockoutTime && now.After(state.LockedUntil)) {
+		state = &failedLoginState{}
+		as.failedLogins[key] = state
+	}
+
+	state.Count++
+	state.LastAttempt = now
+	if state.Count >= maxFailedLogins && now.After(state.LockedUntil) {
+		state.LockedUntil = now.Add(loginLockoutTime)
+		log.Printf("Login gesperrt für %s (%d Fehlversuche, Sperre bis %s)",
+			key, state.Count, state.LockedUntil.Format("15:04:05"))
+	}
+}
+
+func (as *AuthService) resetFailedLogins(key string) {
+	as.mutex.Lock()
+	defer as.mutex.Unlock()
+	delete(as.failedLogins, key)
 }
 
 func (as *AuthService) cleanupExpiredSessions() {
@@ -192,6 +265,14 @@ func (as *AuthService) cleanupExpiredSessions() {
 		if len(expired) > 0 {
 			log.Printf("Abgelaufene Sessions bereinigt: %d", len(expired))
 		}
+
+		// Veraltete Fehlversuchs-Einträge aufräumen (letzter Versuch älter als
+		// das Sperrfenster und keine aktive Sperre mehr)
+		for key, state := range as.failedLogins {
+			if now.Sub(state.LastAttempt) > loginLockoutTime && now.After(state.LockedUntil) {
+				delete(as.failedLogins, key)
+			}
+		}
 		as.mutex.Unlock()
 	}
 }
@@ -213,22 +294,24 @@ func InitAuth() {
 	log.Println("🔐 Auth-Service initialisiert")
 }
 
-// CreateDefaultAdmin erstellt einen Standard-Administrator falls noch keiner existiert
+// CreateDefaultAdmin erstellt einen Standard-Administrator falls noch keiner existiert.
+// Das Passwort wird zufällig generiert und einmalig auf der Konsole ausgegeben.
 func CreateDefaultAdmin() error {
 	if models.CountUsers() > 0 {
 		return nil // Bereits Benutzer vorhanden
 	}
 
-	// Standard-Admin erstellen
 	defaultUsername := "admin"
-	defaultPassword := "admin123" // MUSS nach erstem Login geändert werden!
+	defaultPassword, err := generateInitialPassword()
+	if err != nil {
+		return fmt.Errorf("konnte kein Initial-Passwort generieren: %w", err)
+	}
 
 	user, err := models.CreateUser(defaultUsername, "admin@kleingarten.local", defaultPassword, models.RoleAdmin)
 	if err != nil {
 		return err
 	}
 
-	// Warnung ausgeben - KORRIGIERT mit strings.Repeat
 	fmt.Println("\n" + strings.Repeat("=", 80))
 	fmt.Println("🔧 STANDARD-ADMINISTRATOR ERSTELLT")
 	fmt.Println(strings.Repeat("=", 80))
@@ -238,10 +321,9 @@ func CreateDefaultAdmin() error {
 	fmt.Printf("Passwort:     %s\n", defaultPassword)
 	fmt.Println()
 	fmt.Println("⚠️  WICHTIGE SICHERHEITSHINWEISE:")
-	fmt.Println("- Melden Sie sich SOFORT mit diesen Daten an")
-	fmt.Println("- Ändern Sie das Passwort UNVERZÜGLICH")
+	fmt.Println("- Das Passwort wird nur dieses eine Mal angezeigt - notieren Sie es jetzt")
+	fmt.Println("- Ändern Sie das Passwort nach dem ersten Login")
 	fmt.Println("- Erstellen Sie weitere Benutzer nach Bedarf")
-	fmt.Println("- Löschen Sie diesen Hinweis aus der Konsole")
 	fmt.Println(strings.Repeat("=", 80))
 	fmt.Println()
 
@@ -249,26 +331,11 @@ func CreateDefaultAdmin() error {
 	return nil
 }
 
-// Add this function to your existing services/auth_service.go
-
-// InvalidateUserSessions invalidates all sessions for a specific user
-func (as *AuthService) InvalidateUserSessions(userID int) {
-	as.mutex.Lock()
-	defer as.mutex.Unlock()
-
-	var sessionsToDelete []string
-	for sessionID, session := range as.sessions {
-		if session.UserID == userID {
-			sessionsToDelete = append(sessionsToDelete, sessionID)
-		}
+// generateInitialPassword erzeugt ein zufälliges, URL-sicheres Passwort.
+func generateInitialPassword() (string, error) {
+	bytes := make([]byte, 12)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
 	}
-
-	for _, sessionID := range sessionsToDelete {
-		log.Printf("Session invalidiert: %s (Benutzer-ID: %d)", sessionID[:8], userID)
-		delete(as.sessions, sessionID)
-	}
-
-	if len(sessionsToDelete) > 0 {
-		log.Printf("Alle Sessions für Benutzer-ID %d invalidiert (%d Sessions)", userID, len(sessionsToDelete))
-	}
+	return base64.RawURLEncoding.EncodeToString(bytes), nil
 }

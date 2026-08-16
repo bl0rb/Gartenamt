@@ -614,12 +614,6 @@ async function ladePeiseVonAPI() {
             aktuellerBauindex = bauindexData.bauindex;
         }
         
-        console.log('Preise erfolgreich von API geladen:', {
-            obstarten: Object.keys(obstPreisTabelle).length,
-            zieranpflanzungen: Object.keys(zieranpflanzungsPreise).length,
-            bauindex: aktuellerBauindex
-        });
-        
     } catch (error) {
         console.error('Fehler beim Laden der Preise von API:', error);
         // Fallback auf hardcoded Werte

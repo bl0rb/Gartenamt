@@ -7,7 +7,7 @@
 docker load -i kleingarten-verwaltung-amd64.tar
 
 # Run with compose (recommended)
-docker-compose -f docker-compose.nas.yml up -d
+docker compose up -d
 
 # View logs
 docker logs -f kleingarten-verwaltung

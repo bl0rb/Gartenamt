@@ -9,12 +9,21 @@ import (
 
 var DB *sql.DB
 
+// dbFilePath merkt sich den Pfad der geöffneten Datenbank (für Backup/Restore).
+var dbFilePath = "kleingarten.db"
+
+// databaseFilePath liefert den Pfad der aktuell verwendeten Datenbankdatei.
+func databaseFilePath() string {
+	return dbFilePath
+}
+
 func InitDB(dbPath string) (*sql.DB, error) {
 	var err error
 	DB, err = sql.Open("sqlite3", dbPath)
 	if err != nil {
 		return nil, err
 	}
+	dbFilePath = dbPath
 
 	// Verbindung testen
 	if err := DB.Ping(); err != nil {
@@ -258,21 +267,6 @@ func createTables() error {
 		FOREIGN KEY (parzelle_id) REFERENCES parzellen (id) ON DELETE SET NULL
 	);`
 
-	licenseStateSQL := `
-	CREATE TABLE IF NOT EXISTS license_state (
-		id INTEGER PRIMARY KEY CHECK (id = 1),
-		is_active BOOLEAN NOT NULL DEFAULT 0,
-		plan TEXT,
-		issued_to TEXT,
-		key_hash TEXT,
-		features_json TEXT,
-		expires_at DATETIME,
-		activated_at DATETIME,
-		last_validation DATETIME,
-		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-	);`
-
 	appSecurityStateSQL := `
 	CREATE TABLE IF NOT EXISTS app_security_state (
 		id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -309,7 +303,6 @@ func createTables() error {
 		"strom":                 stromSQL,
 		"organization_settings": organizationSettingsSQL,
 		"email_logs":            emailLogsSQL,
-		"license_state":         licenseStateSQL,
 		"app_security_state":    appSecurityStateSQL,
 		"restore_history":       restoreHistorySQL,
 	}
@@ -336,7 +329,6 @@ func createTables() error {
 		"CREATE INDEX IF NOT EXISTS idx_strom_jahr_monat ON strom(jahr, monat);",
 		"CREATE INDEX IF NOT EXISTS idx_email_logs_parzelle ON email_logs(parzelle_id);",
 		"CREATE INDEX IF NOT EXISTS idx_email_logs_created_at ON email_logs(created_at);",
-		"CREATE INDEX IF NOT EXISTS idx_license_state_active ON license_state(is_active);",
 		"CREATE INDEX IF NOT EXISTS idx_restore_history_created_at ON restore_history(created_at);",
 	}
 
@@ -486,53 +478,6 @@ func runMigrations() error {
 			log.Printf("⚠️  Could not add message column to email_logs: %v", err)
 		} else {
 			log.Println("✅ Added message column to email_logs table")
-		}
-	}
-
-	rows, err = DB.Query("PRAGMA table_info(license_state)")
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-
-	existingLicenseColumns := make(map[string]bool)
-	for rows.Next() {
-		var cid int
-		var name string
-		var typeStr string
-		var notnull int
-		var dfltValue interface{}
-		var pk int
-		if err := rows.Scan(&cid, &name, &typeStr, &notnull, &dfltValue, &pk); err == nil {
-			existingLicenseColumns[name] = true
-		}
-	}
-
-	licenseColumns := []struct {
-		name string
-		sql  string
-	}{
-		{name: "is_active", sql: "ALTER TABLE license_state ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT 0"},
-		{name: "plan", sql: "ALTER TABLE license_state ADD COLUMN plan TEXT"},
-		{name: "issued_to", sql: "ALTER TABLE license_state ADD COLUMN issued_to TEXT"},
-		{name: "key_hash", sql: "ALTER TABLE license_state ADD COLUMN key_hash TEXT"},
-		{name: "features_json", sql: "ALTER TABLE license_state ADD COLUMN features_json TEXT"},
-		{name: "expires_at", sql: "ALTER TABLE license_state ADD COLUMN expires_at DATETIME"},
-		{name: "activated_at", sql: "ALTER TABLE license_state ADD COLUMN activated_at DATETIME"},
-		{name: "last_validation", sql: "ALTER TABLE license_state ADD COLUMN last_validation DATETIME"},
-		{name: "updated_at", sql: "ALTER TABLE license_state ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP"},
-		{name: "created_at", sql: "ALTER TABLE license_state ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP"},
-	}
-
-	for _, column := range licenseColumns {
-		if existingLicenseColumns[column.name] {
-			continue
-		}
-
-		if _, err := DB.Exec(column.sql); err != nil {
-			log.Printf("⚠️  Could not add %s column to license_state: %v", column.name, err)
-		} else {
-			log.Printf("✅ Added %s column to license_state table", column.name)
 		}
 	}
 

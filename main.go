@@ -51,20 +51,12 @@ func loadEnvFiles() {
 	candidates := []string{
 		".env",
 		".env.local",
-		".env.modular",
-		".env.modular.local",
 	}
 
 	var existing []string
 	for _, candidate := range candidates {
 		if _, err := os.Stat(candidate); err == nil {
 			existing = append(existing, candidate)
-		}
-	}
-
-	if len(existing) == 0 {
-		if _, err := os.Stat(".env.modular.xample"); err == nil {
-			existing = append(existing, ".env.modular.xample")
 		}
 	}
 
@@ -98,8 +90,12 @@ func main() {
 	services.InitAuth()
 
 	// 2. Datenbank initialisieren
+	dbPath := os.Getenv("DB_PATH")
+	if dbPath == "" {
+		dbPath = "kleingarten.db"
+	}
 	log.Println("📊 Initialisiere Datenbank...")
-	db, err := models.InitDB("kleingarten.db")
+	db, err := models.InitDB(dbPath)
 	if err != nil {
 		log.Fatal("Fehler beim Initialisieren der Datenbank:", err)
 	}
@@ -114,28 +110,30 @@ func main() {
 	// Router erstellen
 	r := mux.NewRouter()
 
-	// Static files (UNGESCHÜTZT)
+	// CSRF-Schutz für alle state-ändernden Requests (Origin/Referer-Prüfung)
+	r.Use(middleware.CSRFProtect)
+
+	// Static files (UNGESCHÜTZT - nur eingebettete Assets, keine Nutzerdaten)
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.FS(handlers.GetEmbeddedStaticFS()))))
-	r.PathPrefix("/exports/").Handler(http.StripPrefix("/exports/", http.FileServer(http.Dir("exports/"))))
 
 	// *** AUTHENTIFIZIERUNGS-ROUTEN (UNGESCHÜTZT) ***
 	r.HandleFunc("/login", handlers.LoginHandler).Methods("GET", "POST")
-	r.HandleFunc("/logout", handlers.LogoutHandler).Methods("POST", "GET")
+	r.HandleFunc("/logout", handlers.LogoutHandler).Methods("POST")
 
 	// *** GESCHÜTZTE HAUPT-ROUTEN (Benutzer + Admin) ***
 	// Home-Route mit optionaler Auth (für Redirects)
 	r.HandleFunc("/", middleware.CheckLoginStatus(handlers.HomeHandler)).Methods("GET")
 
-	// Parzellen-Management (für alle authentifizierten Benutzer)
-	r.HandleFunc("/parzellen", middleware.RequireAuth(handlers.ParzellenListHandler)).Methods("GET")
-	r.HandleFunc("/parzellen/neu", middleware.RequireAuth(handlers.ParzelleNeuHandler)).Methods("GET", "POST")
-	r.HandleFunc("/parzellen/{id}/edit", middleware.RequireAuth(handlers.ParzelleEditHandler)).Methods("GET", "POST")
-	r.HandleFunc("/parzellen/{id}", middleware.RequireAuth(handlers.ParzelleDetailHandler)).Methods("GET")
+	// Parzellen-Management (enthält Pächterdaten - nur mit Berechtigung)
+	r.HandleFunc("/parzellen", middleware.RequirePermission("parzellen.manage", handlers.ParzellenListHandler)).Methods("GET")
+	r.HandleFunc("/parzellen/neu", middleware.RequirePermission("parzellen.manage", handlers.ParzelleNeuHandler)).Methods("GET", "POST")
+	r.HandleFunc("/parzellen/{id}/edit", middleware.RequirePermission("parzellen.manage", handlers.ParzelleEditHandler)).Methods("GET", "POST")
+	r.HandleFunc("/parzellen/{id}", middleware.RequirePermission("parzellen.manage", handlers.ParzelleDetailHandler)).Methods("GET")
 
-	// Inspektion/Wertermittlung (für alle authentifizierten Benutzer)
-	r.HandleFunc("/inspektion/{parzelle_id}", middleware.RequirePremiumFeature(models.FeatureInspektion, handlers.InspektionHandler)).Methods("GET", "POST")
-	r.HandleFunc("/wertermittlung/{parzelle_id}", middleware.RequirePremiumFeature(models.FeatureWertermittlung, handlers.WertermittlungHandler)).Methods("GET", "POST")
-	r.HandleFunc("/protokoll/{typ}/{id}", middleware.RequireAuth(handlers.ProtokollHandler)).Methods("GET")
+	// Inspektion/Wertermittlung (nur mit Protokoll-Berechtigung)
+	r.HandleFunc("/inspektion/{parzelle_id}", middleware.RequirePermission("protokolle.manage", handlers.InspektionHandler)).Methods("GET", "POST")
+	r.HandleFunc("/wertermittlung/{parzelle_id}", middleware.RequirePermission("protokolle.manage", handlers.WertermittlungHandler)).Methods("GET", "POST")
+	r.HandleFunc("/protokoll/{typ}/{id}", middleware.RequirePermission("protokolle.manage", handlers.ProtokollHandler)).Methods("GET")
 
 	// *** BENUTZER-PROFIL ROUTEN (für alle authentifizierten Benutzer) ***
 	r.HandleFunc("/profile", middleware.RequireAuth(handlers.ProfileHandler)).Methods("GET")
@@ -163,7 +161,7 @@ func main() {
 
 	// Parzellen-Verwaltung (Löschen)
 	adminRoutes.HandleFunc("/parzellen/verwalten", middleware.RequirePermission("parzellen.manage", handlers.AdminParzellenVerwaltungHandler)).Methods("GET")
-	adminRoutes.HandleFunc("/parzellen/{id}/delete", middleware.RequirePermission("parzellen.manage", handlers.AdminParzellenLoeschenHandler)).Methods("GET", "POST")
+	adminRoutes.HandleFunc("/parzellen/{id}/delete", middleware.RequirePermission("parzellen.manage", handlers.AdminParzellenLoeschenHandler)).Methods("POST")
 
 	// Protokoll-Verwaltung (Löschen)
 	adminRoutes.HandleFunc("/protokolle", middleware.RequirePermission("protokolle.manage", handlers.AdminProtokollVerwaltungHandler)).Methods("GET")
@@ -173,6 +171,7 @@ func main() {
 
 	// System-Management
 	adminRoutes.HandleFunc("/backup", middleware.RequirePermission("backup.manage", handlers.AdminBackupHandler)).Methods("GET", "POST")
+	adminRoutes.HandleFunc("/exports/{filename}", middleware.RequirePermission("backup.manage", handlers.AdminExportDownloadHandler)).Methods("GET")
 	adminRoutes.HandleFunc("/audit-log", middleware.RequirePermission("audit.view", handlers.AdminAuditLogHandler)).Methods("GET")
 	adminRoutes.HandleFunc("/system-info", middleware.RequirePermission("system.settings", handlers.AdminSystemInfoHandler)).Methods("GET", "POST")
 
@@ -198,19 +197,21 @@ func main() {
 	// Invoice preview and generation
 	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/invoice", middleware.RequirePermission("invoices.manage", handlers.InvoicePreviewHandler)).Methods("GET")
 	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/invoice/history", middleware.RequirePermission("invoices.manage", handlers.InvoiceHistoryHandler)).Methods("GET")
-	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/invoice/pdf", middleware.RequirePermission("invoices.manage", middleware.RequirePremiumFeature(models.FeatureInvoicePrint, handlers.InvoicePDFDownloadHandler))).Methods("GET")
-	adminRoutes.HandleFunc("/invoices/export", middleware.RequirePermission("invoices.manage", middleware.RequirePremiumFeature(models.FeatureInvoicePrint, handlers.AdminBulkInvoiceExportHandler))).Methods("GET")
-	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/email/send", middleware.RequirePermission("invoices.manage", middleware.RequirePremiumFeature(models.FeatureMailing, handlers.SendParzelleEmailHandler))).Methods("POST")
-	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/email/info", middleware.RequirePermission("invoices.manage", middleware.RequirePremiumFeature(models.FeatureMailing, handlers.SendParzelleInfoMailHandler))).Methods("POST")
+	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/invoice/pdf", middleware.RequirePermission("invoices.manage", handlers.InvoicePDFDownloadHandler)).Methods("GET")
+	adminRoutes.HandleFunc("/invoices/export", middleware.RequirePermission("invoices.manage", handlers.AdminBulkInvoiceExportHandler)).Methods("GET")
+	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/email/send", middleware.RequirePermission("invoices.manage", handlers.SendParzelleEmailHandler)).Methods("POST")
+	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/email/info", middleware.RequirePermission("invoices.manage", handlers.SendParzelleInfoMailHandler)).Methods("POST")
 	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/email/history", middleware.RequirePermission("invoices.manage", handlers.ParzelleEmailHistoryHandler)).Methods("GET")
-	adminRoutes.HandleFunc("/emails/send-bulk", middleware.RequirePermission("invoices.manage", middleware.RequirePremiumFeature(models.FeatureMailing, handlers.SendBulkParzelleEmailHandler))).Methods("POST")
+	adminRoutes.HandleFunc("/emails/send-bulk", middleware.RequirePermission("invoices.manage", handlers.SendBulkParzelleEmailHandler)).Methods("POST")
 
-	// *** API-ROUTEN (für authentifizierte Benutzer) ***
+	// *** API-ROUTEN ***
+	// Stammdaten/Preise: für alle authentifizierten Benutzer
 	r.HandleFunc("/api/obstarten/preise", middleware.RequireAuth(handlers.APIObstartenPreiseHandler)).Methods("GET")
 	r.HandleFunc("/api/zieranpflanzungen/preise", middleware.RequireAuth(handlers.APIZieranpflanzungsPreiseHandler)).Methods("GET")
 	r.HandleFunc("/api/gemuese/preise", middleware.RequireAuth(handlers.APIGemusePreiseHandler)).Methods("GET")
 	r.HandleFunc("/api/bauindex", middleware.RequireAuth(handlers.APIBauindexHandler)).Methods("GET")
-	r.HandleFunc("/api/parzellen", middleware.RequireAuth(handlers.APIParzellenHandler)).Methods("GET")
+	// Parzellendaten enthalten Pächter-PII: nur mit Berechtigung
+	r.HandleFunc("/api/parzellen", middleware.RequirePermission("parzellen.manage", handlers.APIParzellenHandler)).Methods("GET")
 
 	// Server starten
 	log.Println("\n" + strings.Repeat("=", 80))

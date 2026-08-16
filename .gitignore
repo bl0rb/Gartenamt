@@ -1,3 +1,4 @@
+# Laufzeitdaten
 backups/
 *.db
 *.csv
@@ -9,21 +10,27 @@ binary/
 build/
 release/
 
-# Temporary binaries
+# Temporäre Binaries
 app
 app-arm64
 app.exe
 kleingarten-verwaltung
 kleingarten-verwaltung-amd64
 kleingarten-verwaltung-linux-amd64
-/modules/license-server/kleingarten-license-server
-/modules/license-server/license-server
 *.test
+
+# Secrets & Zertifikate - niemals committen
+.app_secret
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# System- und Editor-Dateien
 .DS_Store
 *.log
 *.tmp
 *.bak
 *.swp
 *.swo
-*.env
-.app_secret

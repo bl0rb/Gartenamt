@@ -1,0 +1,7 @@
+Font Awesome Free 6.0.0 License
+
+Icons: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+Fonts: SIL Open Font License 1.1 (https://opensource.org/licenses/OFL-1.1)
+CSS: MIT License
+
+For full license details, visit: https://fontawesome.com/license/free

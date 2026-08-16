@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/jung-kurt/gofpdf"
 
@@ -115,7 +117,7 @@ func handleWertermittlungPostMitService(w http.ResponseWriter, r *http.Request, 
 			if restwertProzent := r.FormValue("laube_restwert_prozent"); restwertProzent != "" {
 				if rp, err := strconv.ParseFloat(restwertProzent, 64); err == nil {
 					if rp > 15.0 {
-						return errors.New("Restwert darf maximal 15% betragen")
+						return errors.New("restwert darf maximal 15% betragen")
 					}
 					laubeDetails.RestwertProzent = rp
 				}
@@ -648,7 +650,7 @@ func generateWertermittlungPDF(w http.ResponseWriter, id int) {
 			}
 			label := baulichkeitLabels[b.Typ]
 			if label == "" {
-				label = strings.Title(b.Typ)
+				label = capitalizeFirst(b.Typ)
 			}
 			if rowIdx%2 == 0 {
 				pdf.SetFillColor(255, 255, 255)
@@ -1040,8 +1042,11 @@ func generateWertermittlungPDF(w http.ResponseWriter, id int) {
 	}
 }
 
-func addWertZeile(pdf *gofpdf.Fpdf, bezeichnung string, wert float64) {
-	tr := pdf.UnicodeTranslatorFromDescriptor("")
-	pdf.CellFormat(115, 8, bezeichnung, "1", 0, "", false, 0, "")
-	pdf.CellFormat(75, 8, tr(fmt.Sprintf("%.2f €", wert)), "1", 1, "R", false, 0, "")
+// capitalizeFirst gibt s mit großgeschriebenem ersten Rune zurück.
+func capitalizeFirst(s string) string {
+	if s == "" {
+		return s
+	}
+	r, size := utf8.DecodeRuneInString(s)
+	return string(unicode.ToUpper(r)) + s[size:]
 }

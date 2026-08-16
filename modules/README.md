@@ -4,15 +4,11 @@ This repository contains separate modules for distributed deployment.
 
 ## Modules
 
-1. `license-server`
-- Standalone license authority service
-- Handles issue, validate, revoke endpoints
-
-2. `public-web`
+1. `public-web`
 - Public website module
 - Static pages served by Nginx
 
-3. Root app
+2. Root app
 - Internal Verwaltung App
 - Business logic, admin interface, backup/import tools
 
@@ -26,5 +22,5 @@ docker compose -f docker-compose.modular.yml up --build
 
 ## Network Separation
 
-- `internal` network: Verwaltung App + License Server
+- `internal` network: Verwaltung App
 - `public` network: Public Webpage

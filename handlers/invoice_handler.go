@@ -245,18 +245,6 @@ func InvoicePreviewHandler(w http.ResponseWriter, r *http.Request) {
 		"createdAt":    time.Now().Format("02.01.2006"),
 	}
 
-	// For water invoice
-	if invoiceType == "wasser" || invoiceType == "both" {
-		// Load wasser data from database
-		// This would be used by the template
-	}
-
-	// For electricity invoice
-	if invoiceType == "strom" || invoiceType == "both" {
-		// Load strom data from database
-		// This would be used by the template
-	}
-
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(invoiceData)
 }
