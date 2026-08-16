@@ -370,7 +370,14 @@ func CreateDefaultAdmin() error {
 			return nil
 		}
 		admin, err := models.GetUserByUsername(defaultUsername)
-		if err != nil || !admin.MustChangePassword {
+		if err != nil {
+			return nil
+		}
+		// Regenerieren, wenn die Passwortänderung noch aussteht - oder das
+		// Konto noch nie benutzt wurde (Upgrade von Versionen, die das
+		// Initialpasswort nur auf der Konsole ausgaben: es ist dann faktisch
+		// verloren, z.B. beim Start als macOS-App ohne sichtbare Konsole).
+		if !admin.MustChangePassword && admin.LastLogin != nil {
 			return nil
 		}
 
