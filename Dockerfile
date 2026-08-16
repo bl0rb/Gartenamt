@@ -16,7 +16,7 @@ RUN CGO_ENABLED=1 go build -a -o gartenamt .
 RUN ls -lh /build/gartenamt && echo "✅ Binary ready"
 
 # Runtime stage
-FROM ubuntu:22.04
+FROM ubuntu:26.04
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libsqlite3-0 ca-certificates curl && \
