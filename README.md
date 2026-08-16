@@ -27,9 +27,12 @@ cd Gartenamt
 go run .
 ```
 
-Die App startet unter `https://localhost:8080` und öffnet den Browser automatisch (unterdrückbar mit `--no-browser`). Beim ersten Start wird ein Administrator-Konto **admin** mit einem **zufällig generierten Passwort** angelegt. Die Zugangsdaten werden auf der Konsole ausgegeben und **direkt auf der Login-Seite angezeigt**, bis das Passwort beim ersten Login geändert wurde (die Änderung wird erzwungen). Wird die App vor dem ersten Login neu gestartet, wird das Initialpasswort neu generiert.
+Die App kennt zwei Betriebsmodi:
 
-> Hinweis: Das TLS-Zertifikat ist selbstsigniert; die Browser-Warnung beim ersten Aufruf ist erwartbar. Zusätzliche Hostnamen für das Zertifikat können über `TLS_EXTRA_HOSTS` konfiguriert werden.
+- **Desktop-Modus** (Standard, z.B. Doppelklick auf App/Exe): HTTP unter `http://localhost:8080`, gebunden nur an das Loopback-Interface — keine Zertifikatswarnung, von außen nicht erreichbar. Der Browser öffnet sich automatisch, und in der Menüleiste (macOS) bzw. im System-Tray (Windows) erscheint ein Symbol mit *Gartenamt öffnen* und *Beenden*.
+- **Server-Modus** (`--no-browser`, z.B. Docker/NAS): HTTPS unter `https://localhost:8080` auf allen Interfaces. Das TLS-Zertifikat ist selbstsigniert; die Browser-Warnung beim ersten Aufruf ist erwartbar. Zusätzliche Hostnamen für das Zertifikat können über `TLS_EXTRA_HOSTS` konfiguriert werden.
+
+Beim ersten Start wird ein Administrator-Konto **admin** mit einem **zufällig generierten Passwort** angelegt. Die Zugangsdaten werden auf der Konsole ausgegeben und **direkt auf der Login-Seite angezeigt**, bis das Passwort beim ersten Login geändert wurde (die Änderung wird erzwungen). Wird die App vor dem ersten Login neu gestartet, wird das Initialpasswort neu generiert.
 
 ## Schnellstart (Docker)
 
@@ -97,7 +100,7 @@ xattr -cr "/Applications/Gartenamt.app"
 
 Beim Start aus dem Finder legt die App ihre Daten (Datenbank, Backups, Exporte) unter `~/Library/Application Support/Gartenamt/` ab.
 
-Die App läuft als Hintergrundprozess ohne Dock-Symbol: Beim Öffnen startet der Server und der Browser öffnet sich automatisch. Ein erneutes Öffnen der App startet keinen zweiten Server, sondern öffnet nur wieder den Browser. Beendet wird der Server beim Abmelden/Herunterfahren des Macs (oder über die Aktivitätsanzeige, Prozess „gartenamt").
+Die App läuft ohne Dock-Symbol, zeigt aber ein Symbol in der Menüleiste: Darüber lässt sich Gartenamt jederzeit wieder im Browser öffnen und der Server sauber **beenden**. Ein erneutes Öffnen der App startet keinen zweiten Server, sondern öffnet nur wieder den Browser.
 
 **Datenbank-Updates sind automatisch und sicher:** Die App verwaltet ihr SQLite-Schema über versionierte Migrationen (Tabelle `schema_migrations`). Beim ersten Start einer neuen Version werden ausstehende Migrationen einzeln in Transaktionen angewendet — schlägt eine fehl, wird sie zurückgerollt und die App startet nicht mit halbem Schema. Ein Downgrade auf eine ältere Programmversion mit neuerer Datenbank wird erkannt und mit klarer Fehlermeldung abgelehnt. Vor größeren Updates empfiehlt sich trotzdem ein Backup (*Admin → Backup*).
 

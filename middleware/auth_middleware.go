@@ -200,6 +200,16 @@ func redirectToLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 // ClearSessionCookie löscht das Session-Cookie.
+// secureCookies steuert das Secure-Attribut der Session-Cookies: aktiv im
+// HTTPS-Server-Modus, deaktiviert im HTTP-Desktop-Modus (nur localhost).
+var secureCookies = true
+
+// SetSecureCookies konfiguriert das Secure-Attribut der Session-Cookies
+// (einmalig beim Start, vor dem ersten Request).
+func SetSecureCookies(secure bool) {
+	secureCookies = secure
+}
+
 func ClearSessionCookie(w http.ResponseWriter) {
 	cookie := &http.Cookie{
 		Name:     "session_id",
@@ -207,7 +217,7 @@ func ClearSessionCookie(w http.ResponseWriter) {
 		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
-		Secure:   true,
+		Secure:   secureCookies,
 		SameSite: http.SameSiteStrictMode,
 	}
 	http.SetCookie(w, cookie)
@@ -221,7 +231,7 @@ func SetSessionCookie(w http.ResponseWriter, sessionID string) {
 		Path:     "/",
 		MaxAge:   86400, // 24 Stunden
 		HttpOnly: true,
-		Secure:   true,
+		Secure:   secureCookies,
 		SameSite: http.SameSiteStrictMode,
 	}
 	http.SetCookie(w, cookie)
