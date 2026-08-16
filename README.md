@@ -76,8 +76,19 @@ Die Wertermittlung orientiert sich an der Richtlinie zur Wertermittlung des [Lan
 ```bash
 go build ./...        # kompilieren
 go vet ./...          # statische Prüfung
-./build-release.sh    # Release-Build (Docker-Image, Versionierung über VERSION-Datei)
+./build-release.sh    # lokaler Release-Build (Docker-Image, Versionierung über VERSION-Datei)
 ```
+
+## Releases & Updates
+
+Ein Git-Tag der Form `vX.Y.Z` löst den Release-Workflow aus, der fertige Binaries als GitHub-Release-Assets baut (inkl. SHA256-Prüfsummen):
+
+- `kleingarten-verwaltung-X.Y.Z-windows-amd64.exe`
+- `kleingarten-verwaltung-X.Y.Z-linux-amd64`
+
+**Datenbank-Updates sind automatisch und sicher:** Die App verwaltet ihr SQLite-Schema über versionierte Migrationen (Tabelle `schema_migrations`). Beim ersten Start einer neuen Version werden ausstehende Migrationen einzeln in Transaktionen angewendet — schlägt eine fehl, wird sie zurückgerollt und die App startet nicht mit halbem Schema. Ein Downgrade auf eine ältere Programmversion mit neuerer Datenbank wird erkannt und mit klarer Fehlermeldung abgelehnt. Vor größeren Updates empfiehlt sich trotzdem ein Backup (*Admin → Backup*).
+
+Abhängigkeits-Updates (Go-Module, GitHub Actions, Docker-Basis-Images) werden wöchentlich per Dependabot vorgeschlagen.
 
 ## Mitwirken
 

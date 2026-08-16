@@ -181,7 +181,7 @@ func RestoreEncryptedDatabaseBackup(path string) error {
 	// ursprüngliche Datenbankdatei wieder zu öffnen und die package-level
 	// DB-Variable neu zu setzen, damit die Anwendung weiterhin funktioniert.
 	reopenOriginalDB := func() {
-		reopened, reopenErr := sql.Open("sqlite3", originalPath)
+		reopened, reopenErr := sql.Open("sqlite3", sqliteDSN(originalPath))
 		if reopenErr != nil {
 			log.Printf("KRITISCH: Datenbank konnte nach fehlgeschlagenem Restore nicht wieder geoeffnet werden: %v", reopenErr)
 			return
@@ -213,7 +213,7 @@ func RestoreEncryptedDatabaseBackup(path string) error {
 		return err
 	}
 
-	newDB, err := sql.Open("sqlite3", originalPath)
+	newDB, err := sql.Open("sqlite3", sqliteDSN(originalPath))
 	if err != nil {
 		_ = os.Rename(backupOriginalPath, originalPath)
 		reopenOriginalDB()
@@ -235,6 +235,17 @@ func RestoreEncryptedDatabaseBackup(path string) error {
 	}
 
 	DB = newDB
+
+	// Migrationen auf dem wiederhergestellten Stand nachziehen: ein älteres
+	// Backup wird auf die aktuelle Schema-Version gehoben, ein Backup mit
+	// neuerem Schema wird vom Downgrade-Guard abgelehnt.
+	if err := applyPendingMigrations(); err != nil {
+		_ = newDB.Close()
+		_ = os.Rename(backupOriginalPath, originalPath)
+		reopenOriginalDB()
+		return fmt.Errorf("wiederhergestellte Datenbank konnte nicht migriert werden: %w", err)
+	}
+
 	recordRestoreHistory(filepath.Base(path), "success", verification.Details, verification.Checksum)
 	return nil
 }

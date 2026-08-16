@@ -1,0 +1,84 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Add MinGW to PATH (für CGO/SQLite)
+        shell: bash
+        run: echo "C:\msys64\mingw64\bin" >> "$GITHUB_PATH"
+
+      - name: Verify C compiler
+        shell: bash
+        run: gcc --version
+
+      - name: Build Windows amd64
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build \
+            -ldflags "-s -w -X kleingarten-verwaltung/handlers.AppVersion=${VERSION}" \
+            -o "kleingarten-verwaltung-${VERSION}-windows-amd64.exe" .
+          sha256sum "kleingarten-verwaltung-${VERSION}-windows-amd64.exe" > "kleingarten-verwaltung-${VERSION}-windows-amd64.exe.sha256"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-amd64
+          path: kleingarten-verwaltung-*-windows-amd64.exe*
+          if-no-files-found: error
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Build Linux amd64
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build \
+            -ldflags "-s -w -X kleingarten-verwaltung/handlers.AppVersion=${VERSION}" \
+            -o "kleingarten-verwaltung-${VERSION}-linux-amd64" .
+          sha256sum "kleingarten-verwaltung-${VERSION}-linux-amd64" > "kleingarten-verwaltung-${VERSION}-linux-amd64.sha256"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-amd64
+          path: kleingarten-verwaltung-*-linux-amd64*
+          if-no-files-found: error
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [build-windows, build-linux]
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: kleingarten-verwaltung-*
+          generate_release_notes: true

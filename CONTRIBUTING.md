@@ -25,6 +25,15 @@ go build ./...
 go vet ./...
 ```
 
+## Datenbank-Änderungen (Schema-Migrationen)
+
+Das SQLite-Schema wird über versionierte Migrationen in [models/migrations.go](models/migrations.go) verwaltet. Für jede Schemaänderung gilt:
+
+1. Neuen Eintrag ans Ende der `migrations`-Liste anhängen — Version = höchste bestehende Version + 1.
+2. **Niemals** eine bereits veröffentlichte Migration nachträglich ändern; Korrekturen sind eine neue Migration.
+3. Die Migration läuft in einer Transaktion und muss bei Fehlern sauber per `error` abbrechen (kein `log.Printf` + weitermachen).
+4. Zum Testen: App mit frischer Datenbank starten **und** mit einer Datenbank der Vorversion — beide müssen ohne Fehler auf die neue Schema-Version kommen.
+
 ## Pull Requests
 
 - Kleine, fokussierte PRs sind leichter zu prüfen als große Sammel-PRs.

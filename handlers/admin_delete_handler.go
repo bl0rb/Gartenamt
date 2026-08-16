@@ -371,7 +371,18 @@ func getApplicationMetadata() map[string]string {
 	return metadata
 }
 
+// AppVersion kann beim Release-Build per ldflags gesetzt werden:
+//
+//	go build -ldflags "-X kleingarten-verwaltung/handlers.AppVersion=1.2.3"
+//
+// Ohne Einbettung wird als Fallback die VERSION-Datei gelesen (Entwicklung).
+var AppVersion = ""
+
 func readApplicationVersion() string {
+	if AppVersion != "" {
+		return AppVersion
+	}
+
 	content, err := os.ReadFile("VERSION")
 	if err != nil {
 		return "Unbekannt"
