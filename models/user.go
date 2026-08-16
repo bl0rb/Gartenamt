@@ -9,14 +9,15 @@ import (
 )
 
 type User struct {
-	ID        int        `json:"id"`
-	Username  string     `json:"username"`
-	Email     string     `json:"email"`
-	Password  string     `json:"-"` // Wird nicht in JSON serialisiert
-	Role      string     `json:"role"`
-	Active    bool       `json:"active"`
-	CreatedAt time.Time  `json:"created_at"`
-	LastLogin *time.Time `json:"last_login"`
+	ID                 int        `json:"id"`
+	Username           string     `json:"username"`
+	Email              string     `json:"email"`
+	Password           string     `json:"-"` // Wird nicht in JSON serialisiert
+	Role               string     `json:"role"`
+	Active             bool       `json:"active"`
+	CreatedAt          time.Time  `json:"created_at"`
+	LastLogin          *time.Time `json:"last_login"`
+	MustChangePassword bool       `json:"-"` // Erzwungene Passwortänderung beim ersten Login
 }
 
 // UserRole definiert Benutzerrollen
@@ -171,13 +172,13 @@ func CreateUser(username, email, password string, role UserRole) (*User, error) 
 // GetUserByUsername findet einen Benutzer über den Benutzernamen
 func GetUserByUsername(username string) (*User, error) {
 	user := &User{}
-	query := `SELECT id, username, email, password_hash, role, active, created_at, last_login 
+	query := `SELECT id, username, email, password_hash, role, active, created_at, last_login, must_change_password
               FROM users WHERE username = ? AND active = 1`
 
 	var lastLogin sql.NullTime
 	err := DB.QueryRow(query, username).Scan(
 		&user.ID, &user.Username, &user.Email, &user.Password,
-		&user.Role, &user.Active, &user.CreatedAt, &lastLogin)
+		&user.Role, &user.Active, &user.CreatedAt, &lastLogin, &user.MustChangePassword)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -196,13 +197,13 @@ func GetUserByUsername(username string) (*User, error) {
 // GetUserByID findet einen Benutzer über die ID
 func GetUserByID(id int) (*User, error) {
 	user := &User{}
-	query := `SELECT id, username, email, password_hash, role, active, created_at, last_login 
+	query := `SELECT id, username, email, password_hash, role, active, created_at, last_login, must_change_password
               FROM users WHERE id = ?`
 
 	var lastLogin sql.NullTime
 	err := DB.QueryRow(query, id).Scan(
 		&user.ID, &user.Username, &user.Email, &user.Password,
-		&user.Role, &user.Active, &user.CreatedAt, &lastLogin)
+		&user.Role, &user.Active, &user.CreatedAt, &lastLogin, &user.MustChangePassword)
 
 	if err != nil {
 		return nil, err
@@ -239,7 +240,7 @@ func (u *User) IsAdmin() bool {
 
 // GetAllUsers gibt alle Benutzer zurück (für Admin)
 func GetAllUsers() ([]User, error) {
-	query := `SELECT id, username, email, role, active, created_at, last_login 
+	query := `SELECT id, username, email, role, active, created_at, last_login, must_change_password
               FROM users ORDER BY created_at DESC`
 	rows, err := DB.Query(query)
 	if err != nil {
@@ -253,7 +254,7 @@ func GetAllUsers() ([]User, error) {
 		var lastLogin sql.NullTime
 
 		err := rows.Scan(&user.ID, &user.Username, &user.Email,
-			&user.Role, &user.Active, &user.CreatedAt, &lastLogin)
+			&user.Role, &user.Active, &user.CreatedAt, &lastLogin, &user.MustChangePassword)
 		if err != nil {
 			continue
 		}
@@ -284,21 +285,40 @@ func CountUsers() int {
 	return count
 }
 
-// ChangePassword ändert das Passwort eines Benutzers
+// ChangePassword ändert das Passwort eines Benutzers und hebt eine
+// ggf. gesetzte erzwungene Passwortänderung auf.
 func (u *User) ChangePassword(newPassword string) error {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
 	if err != nil {
 		return err
 	}
 
-	query := `UPDATE users SET password_hash = ? WHERE id = ?`
+	query := `UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?`
 	_, err = DB.Exec(query, string(hashedPassword), u.ID)
 	if err != nil {
 		return err
 	}
 
 	u.Password = string(hashedPassword)
+	u.MustChangePassword = false
 	return nil
+}
+
+// SetMustChangePassword setzt oder löscht das Flag für die erzwungene Passwortänderung.
+func SetMustChangePassword(userID int, value bool) error {
+	_, err := DB.Exec(`UPDATE users SET must_change_password = ? WHERE id = ?`, value, userID)
+	return err
+}
+
+// SetInitialPassword setzt ein neues Initialpasswort und markiert den Benutzer
+// für die erzwungene Passwortänderung beim nächsten Login.
+func SetInitialPassword(userID int, password string) error {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	_, err = DB.Exec(`UPDATE users SET password_hash = ?, must_change_password = 1 WHERE id = ?`, string(hashedPassword), userID)
+	return err
 }
 
 // UpdateUser updates user information (admin only)

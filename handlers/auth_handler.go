@@ -80,11 +80,23 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	// GET Request - Login-Formular anzeigen
 	redirectURL := r.URL.Query().Get("redirect")
 
-	tmpl := template.Must(LoadTemplate("templates/login.html"))
-	tmpl.Execute(w, map[string]interface{}{
+	data := map[string]interface{}{
 		"Title":       "Anmeldung",
 		"RedirectURL": redirectURL,
-	})
+	}
+	addInitialCredentials(data)
+
+	tmpl := template.Must(LoadTemplate("templates/login.html"))
+	tmpl.Execute(w, data)
+}
+
+// addInitialCredentials ergänzt die Initial-Zugangsdaten des Standard-Admins,
+// solange dessen Initialpasswort noch nicht geändert wurde.
+func addInitialCredentials(data map[string]interface{}) {
+	if username, password, ok := services.InitialAdminCredentials(); ok {
+		data["InitialUsername"] = username
+		data["InitialPassword"] = password
+	}
 }
 
 // LogoutHandler meldet Benutzer ab
@@ -173,14 +185,22 @@ func ChangePasswordHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		wasInitialPassword := user.MustChangePassword
+
 		// Change password
 		if err := user.ChangePassword(newPassword); err != nil {
 			showProfileWithError(w, r, "Fehler beim Ändern des Passworts", session)
 			return
 		}
 
+		// Initial-Zugangsdaten nicht länger auf der Login-Seite anzeigen
+		if wasInitialPassword {
+			services.ClearInitialAdminCredentials()
+			services.GlobalAuth.ClearMustChangePassword(session.ID)
+		}
+
 		// Invalidate all other sessions for this user
-		services.GlobalAuth.InvalidateUserSessions(user.ID)
+		services.GlobalAuth.InvalidateOtherUserSessions(user.ID, session.ID)
 
 		log.Printf("Passwort geändert für Benutzer: %s", user.Username)
 
@@ -257,7 +277,9 @@ func AdminUserEditHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			if err := user.ChangePassword(newPassword); err != nil {
+			// Vom Admin vergebenes Passwort ist nur temporär: der Benutzer muss
+			// beim nächsten Login ein eigenes Passwort setzen
+			if err := models.SetInitialPassword(user.ID, newPassword); err != nil {
 				showUserEditWithError(w, r, user, "Fehler beim Ändern des Passworts")
 				return
 			}
@@ -379,13 +401,16 @@ func AdminUsersHandlerEnhanced(w http.ResponseWriter, r *http.Request) {
 // Helper functions
 
 func showLoginWithError(w http.ResponseWriter, r *http.Request, errorMsg, redirectURL string) {
-	tmpl := template.Must(LoadTemplate("templates/login.html"))
-	tmpl.Execute(w, map[string]interface{}{
+	data := map[string]interface{}{
 		"Title":       "Anmeldung",
 		"Error":       errorMsg,
 		"RedirectURL": redirectURL,
 		"Username":    r.FormValue("username"), // Benutzername beibehalten
-	})
+	}
+	addInitialCredentials(data)
+
+	tmpl := template.Must(LoadTemplate("templates/login.html"))
+	tmpl.Execute(w, data)
 }
 
 func showProfileWithError(w http.ResponseWriter, r *http.Request, errorMsg string, session *services.Session) {

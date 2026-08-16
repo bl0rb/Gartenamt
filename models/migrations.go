@@ -31,6 +31,7 @@ type migration struct {
 var migrations = []migration{
 	{Version: 1, Name: "baseline_schema", Apply: migrateBaselineSchema},
 	{Version: 2, Name: "legacy_column_upgrades", Apply: migrateLegacyColumns},
+	{Version: 3, Name: "users_must_change_password", Apply: migrateMustChangePassword},
 }
 
 // applyPendingMigrations führt alle noch nicht angewendeten Migrationen aus.
@@ -370,6 +371,22 @@ func migrateLegacyColumns(tx *sql.Tx) error {
 			return fmt.Errorf("spalte %s.%s konnte nicht ergänzt werden: %w", lc.table, lc.column, err)
 		}
 		log.Printf("✅ Spalte %s.%s ergänzt", lc.table, lc.column)
+	}
+	return nil
+}
+
+// migrateMustChangePassword ergänzt das Flag für die erzwungene Passwortänderung
+// nach dem ersten Login (gesetzt für den automatisch erzeugten Standard-Admin).
+func migrateMustChangePassword(tx *sql.Tx) error {
+	exists, err := columnExists(tx, "users", "must_change_password")
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+	if _, err := tx.Exec(`ALTER TABLE users ADD COLUMN must_change_password BOOLEAN NOT NULL DEFAULT 0`); err != nil {
+		return fmt.Errorf("spalte users.must_change_password konnte nicht ergänzt werden: %w", err)
 	}
 	return nil
 }

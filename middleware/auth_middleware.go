@@ -38,6 +38,13 @@ func RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
+		// Erzwungene Passwortänderung: bis zur Änderung des Initialpassworts
+		// sind nur Profil (mit Passwortformular) und Passwortänderung erreichbar
+		if session.MustChangePassword && r.URL.Path != "/profile" && r.URL.Path != "/change-password" {
+			http.Redirect(w, r, "/profile", http.StatusSeeOther)
+			return
+		}
+
 		// Session in Context einbetten
 		ctx := context.WithValue(r.Context(), SessionContextKey, session)
 

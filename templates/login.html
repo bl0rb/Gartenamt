@@ -86,7 +86,20 @@
                             Sie wurden erfolgreich abgemeldet.
                         </div>
                         {{end}}
-                        
+
+                        {{if .InitialPassword}}
+                        <div class="alert alert-warning" role="alert">
+                            <strong><i class="fas fa-key"></i> Erste Anmeldung</strong><br>
+                            Für Sie wurde ein Administrator-Konto mit Initial-Zugangsdaten angelegt:
+                            <div class="my-2 p-2 bg-light border rounded font-monospace">
+                                Benutzername: <strong>{{.InitialUsername}}</strong><br>
+                                Passwort: <strong>{{.InitialPassword}}</strong>
+                            </div>
+                            <small>Nach der Anmeldung muss ein eigenes Passwort gesetzt werden.
+                            Erst danach verschwindet dieser Hinweis.</small>
+                        </div>
+                        {{end}}
+
                         <form method="POST" class="needs-validation" novalidate>
                             {{if .RedirectURL}}
                             <input type="hidden" name="redirect" value="{{.RedirectURL}}">
@@ -126,14 +139,6 @@
                             Sichere Verbindung • Session-basierte Authentifizierung
                         </div>
                     </div>
-                </div>
-                
-                <!-- Entwicklungs-Hinweis (nur bei Standard-Admin sichtbar) -->
-                <div class="text-center mt-3">
-                    <small class="text-light">
-                        <i class="fas fa-info-circle"></i>
-                        Bei der ersten Anmeldung werden Standard-Zugangsdaten in der Konsole angezeigt
-                    </small>
                 </div>
             </div>
         </div>

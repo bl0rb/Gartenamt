@@ -27,7 +27,7 @@ cd Gartenamt
 go run .
 ```
 
-Die App startet unter `https://localhost:8080` und öffnet den Browser automatisch (unterdrückbar mit `--no-browser`). Beim ersten Start wird ein Administrator-Konto **admin** mit einem **zufällig generierten Passwort** angelegt — das Passwort wird einmalig auf der Konsole ausgegeben.
+Die App startet unter `https://localhost:8080` und öffnet den Browser automatisch (unterdrückbar mit `--no-browser`). Beim ersten Start wird ein Administrator-Konto **admin** mit einem **zufällig generierten Passwort** angelegt. Die Zugangsdaten werden auf der Konsole ausgegeben und **direkt auf der Login-Seite angezeigt**, bis das Passwort beim ersten Login geändert wurde (die Änderung wird erzwungen). Wird die App vor dem ersten Login neu gestartet, wird das Initialpasswort neu generiert.
 
 > Hinweis: Das TLS-Zertifikat ist selbstsigniert; die Browser-Warnung beim ersten Aufruf ist erwartbar. Zusätzliche Hostnamen für das Zertifikat können über `TLS_EXTRA_HOSTS` konfiguriert werden.
 
@@ -96,6 +96,8 @@ xattr -cr "/Applications/Gartenamt.app"
 ```
 
 Beim Start aus dem Finder legt die App ihre Daten (Datenbank, Backups, Exporte) unter `~/Library/Application Support/Gartenamt/` ab.
+
+Die App läuft als Hintergrundprozess ohne Dock-Symbol: Beim Öffnen startet der Server und der Browser öffnet sich automatisch. Ein erneutes Öffnen der App startet keinen zweiten Server, sondern öffnet nur wieder den Browser. Beendet wird der Server beim Abmelden/Herunterfahren des Macs (oder über die Aktivitätsanzeige, Prozess „gartenamt").
 
 **Datenbank-Updates sind automatisch und sicher:** Die App verwaltet ihr SQLite-Schema über versionierte Migrationen (Tabelle `schema_migrations`). Beim ersten Start einer neuen Version werden ausstehende Migrationen einzeln in Transaktionen angewendet — schlägt eine fehl, wird sie zurückgerollt und die App startet nicht mit halbem Schema. Ein Downgrade auf eine ältere Programmversion mit neuerer Datenbank wird erkannt und mit klarer Fehlermeldung abgelehnt. Vor größeren Updates empfiehlt sich trotzdem ein Backup (*Admin → Backup*).
 

@@ -31,14 +31,15 @@ var ErrLoginThrottled = errors.New("zu viele fehlgeschlagene Anmeldeversuche - b
 
 // Session repräsentiert eine Benutzersitzung
 type Session struct {
-	ID        string
-	UserID    int
-	Username  string
-	Role      string
-	CreatedAt time.Time
-	LastSeen  time.Time
-	IPAddress string
-	UserAgent string
+	ID                 string
+	UserID             int
+	Username           string
+	Role               string
+	CreatedAt          time.Time
+	LastSeen           time.Time
+	IPAddress          string
+	UserAgent          string
+	MustChangePassword bool
 }
 
 // AuthService verwaltet Authentifizierung und Sessions
@@ -95,14 +96,15 @@ func (as *AuthService) Login(username, password, ipAddress, userAgent string) (*
 	}
 
 	session := &Session{
-		ID:        sessionID,
-		UserID:    user.ID,
-		Username:  user.Username,
-		Role:      user.Role,
-		CreatedAt: time.Now(),
-		LastSeen:  time.Now(),
-		IPAddress: ipAddress,
-		UserAgent: userAgent,
+		ID:                 sessionID,
+		UserID:             user.ID,
+		Username:           user.Username,
+		Role:               user.Role,
+		CreatedAt:          time.Now(),
+		LastSeen:           time.Now(),
+		IPAddress:          ipAddress,
+		UserAgent:          userAgent,
+		MustChangePassword: user.MustChangePassword,
 	}
 
 	// Session speichern
@@ -143,6 +145,16 @@ func (as *AuthService) ValidateSession(sessionID string) (*Session, error) {
 	as.mutex.Unlock()
 
 	return session, nil
+}
+
+// ClearMustChangePassword hebt die erzwungene Passwortänderung für eine
+// laufende Session auf (nach erfolgreicher Passwortänderung).
+func (as *AuthService) ClearMustChangePassword(sessionID string) {
+	as.mutex.Lock()
+	defer as.mutex.Unlock()
+	if session, exists := as.sessions[sessionID]; exists {
+		session.MustChangePassword = false
+	}
 }
 
 // InvalidateSession beendet eine Session
@@ -191,6 +203,20 @@ func (as *AuthService) InvalidateUserSessions(userID int) {
 
 	for sessionID, session := range as.sessions {
 		if session.UserID == userID {
+			log.Printf("Session invalidiert: %s (Benutzer-ID: %d)", sessionID[:8], userID)
+			delete(as.sessions, sessionID)
+		}
+	}
+}
+
+// InvalidateOtherUserSessions beendet alle Sessions eines Benutzers außer der
+// angegebenen (z.B. nach einer Passwortänderung die aktuelle Sitzung behalten).
+func (as *AuthService) InvalidateOtherUserSessions(userID int, keepSessionID string) {
+	as.mutex.Lock()
+	defer as.mutex.Unlock()
+
+	for sessionID, session := range as.sessions {
+		if session.UserID == userID && sessionID != keepSessionID {
 			log.Printf("Session invalidiert: %s (Benutzer-ID: %d)", sessionID[:8], userID)
 			delete(as.sessions, sessionID)
 		}
@@ -294,14 +320,72 @@ func InitAuth() {
 	log.Println("🔐 Auth-Service initialisiert")
 }
 
-// CreateDefaultAdmin erstellt einen Standard-Administrator falls noch keiner existiert.
-// Das Passwort wird zufällig generiert und einmalig auf der Konsole ausgegeben.
+// Initial-Zugangsdaten des automatisch erzeugten Standard-Admins. Solange das
+// Initialpasswort noch nicht geändert wurde, werden sie auf der Login-Seite
+// angezeigt (die Konsolenausgabe ist z.B. beim Start als macOS-App unsichtbar).
+var (
+	initialCredsMutex    sync.RWMutex
+	initialAdminUsername string
+	initialAdminPassword string
+)
+
+// InitialAdminCredentials liefert die Initial-Zugangsdaten für die Anzeige auf
+// der Login-Seite, solange das Initialpasswort noch nicht geändert wurde.
+func InitialAdminCredentials() (username, password string, ok bool) {
+	initialCredsMutex.RLock()
+	defer initialCredsMutex.RUnlock()
+	return initialAdminUsername, initialAdminPassword, initialAdminPassword != ""
+}
+
+// ClearInitialAdminCredentials entfernt die Initial-Zugangsdaten aus der Anzeige
+// (aufzurufen, sobald das Initialpasswort geändert wurde).
+func ClearInitialAdminCredentials() {
+	initialCredsMutex.Lock()
+	defer initialCredsMutex.Unlock()
+	initialAdminUsername = ""
+	initialAdminPassword = ""
+}
+
+func setInitialAdminCredentials(username, password string) {
+	initialCredsMutex.Lock()
+	defer initialCredsMutex.Unlock()
+	initialAdminUsername = username
+	initialAdminPassword = password
+}
+
+// CreateDefaultAdmin erstellt einen Standard-Administrator falls noch keiner
+// existiert. Das Passwort wird zufällig generiert, auf der Konsole ausgegeben
+// und bis zur ersten Passwortänderung auf der Login-Seite angezeigt. Wurde die
+// App neu gestartet, bevor das Initialpasswort geändert wurde, wird es neu
+// generiert, damit die Anzeige auf der Login-Seite gültig bleibt.
 func CreateDefaultAdmin() error {
-	if models.CountUsers() > 0 {
-		return nil // Bereits Benutzer vorhanden
+	const defaultUsername = "admin"
+
+	if count := models.CountUsers(); count > 0 {
+		// Initialpasswort noch nie geändert? Dann neu generieren, damit es
+		// auf der Login-Seite angezeigt werden kann. Nur solange der
+		// automatisch erzeugte Admin der einzige Benutzer ist - ein per
+		// Admin-Reset gesetztes Flag darf keine Anzeige auslösen.
+		if count > 1 {
+			return nil
+		}
+		admin, err := models.GetUserByUsername(defaultUsername)
+		if err != nil || !admin.MustChangePassword {
+			return nil
+		}
+
+		password, err := generateInitialPassword()
+		if err != nil {
+			return fmt.Errorf("konnte kein Initial-Passwort generieren: %w", err)
+		}
+		if err := models.SetInitialPassword(admin.ID, password); err != nil {
+			return fmt.Errorf("initial-Passwort konnte nicht gesetzt werden: %w", err)
+		}
+		setInitialAdminCredentials(defaultUsername, password)
+		printInitialCredentials(defaultUsername, password, "Das Initialpasswort wurde noch nicht geändert und daher neu generiert:")
+		return nil
 	}
 
-	defaultUsername := "admin"
 	defaultPassword, err := generateInitialPassword()
 	if err != nil {
 		return fmt.Errorf("konnte kein Initial-Passwort generieren: %w", err)
@@ -311,24 +395,31 @@ func CreateDefaultAdmin() error {
 	if err != nil {
 		return err
 	}
-
-	fmt.Println("\n" + strings.Repeat("=", 80))
-	fmt.Println("🔧 STANDARD-ADMINISTRATOR ERSTELLT")
-	fmt.Println(strings.Repeat("=", 80))
-	fmt.Println("Da noch keine Benutzer vorhanden waren, wurde ein Standard-Administrator erstellt:")
-	fmt.Println()
-	fmt.Printf("Benutzername: %s\n", defaultUsername)
-	fmt.Printf("Passwort:     %s\n", defaultPassword)
-	fmt.Println()
-	fmt.Println("⚠️  WICHTIGE SICHERHEITSHINWEISE:")
-	fmt.Println("- Das Passwort wird nur dieses eine Mal angezeigt - notieren Sie es jetzt")
-	fmt.Println("- Ändern Sie das Passwort nach dem ersten Login")
-	fmt.Println("- Erstellen Sie weitere Benutzer nach Bedarf")
-	fmt.Println(strings.Repeat("=", 80))
-	fmt.Println()
+	if err := models.SetMustChangePassword(user.ID, true); err != nil {
+		return err
+	}
+	setInitialAdminCredentials(defaultUsername, defaultPassword)
+	printInitialCredentials(defaultUsername, defaultPassword, "Da noch keine Benutzer vorhanden waren, wurde ein Standard-Administrator erstellt:")
 
 	log.Printf("Standard-Administrator erstellt: ID=%d, Username=%s", user.ID, user.Username)
 	return nil
+}
+
+func printInitialCredentials(username, password, reason string) {
+	fmt.Println("\n" + strings.Repeat("=", 80))
+	fmt.Println("🔧 STANDARD-ADMINISTRATOR")
+	fmt.Println(strings.Repeat("=", 80))
+	fmt.Println(reason)
+	fmt.Println()
+	fmt.Printf("Benutzername: %s\n", username)
+	fmt.Printf("Passwort:     %s\n", password)
+	fmt.Println()
+	fmt.Println("⚠️  WICHTIGE SICHERHEITSHINWEISE:")
+	fmt.Println("- Die Zugangsdaten werden bis zur ersten Passwortänderung auch auf der Login-Seite angezeigt")
+	fmt.Println("- Nach dem ersten Login muss das Passwort geändert werden")
+	fmt.Println("- Erstellen Sie weitere Benutzer nach Bedarf")
+	fmt.Println(strings.Repeat("=", 80))
+	fmt.Println()
 }
 
 // generateInitialPassword erzeugt ein zufälliges, URL-sicheres Passwort.
