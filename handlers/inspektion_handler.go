@@ -108,7 +108,7 @@ func generateInspektionPDF(w http.ResponseWriter, id int) {
 	pdf.Cell(58, 7, tr(inspektion.Datum.Format("02.01.2006")))
 	pdf.SetXY(leftX+2, 22)
 	pdf.SetFont("Arial", "", 8)
-	pdf.Cell(pageW-4, 5, tr(lghOrgName))
+	pdf.Cell(pageW-4, 5, tr(lghOrgName+" — Inspektion nach den Hamburger Richtlinien"))
 
 	// ── Stammdaten-Block ────────────────────────────────────────────
 	pdf.SetFillColor(240, 244, 248)

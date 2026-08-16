@@ -496,7 +496,7 @@ func generateWertermittlungPDF(w http.ResponseWriter, id int) {
 	// Unterzeile
 	pdf.SetXY(leftX+2, 22)
 	pdf.SetFont("Arial", "", 8)
-	pdf.Cell(pageW-4, 5, tr(lghOrgName))
+	pdf.Cell(pageW-4, 5, tr(lghOrgName+" — Wertermittlung nach den Hamburger Richtlinien"))
 
 	// ── Stammdaten-Block (grau hinterlegt, 2-spaltig) ──────────────
 	pdf.SetFillColor(240, 244, 248)
