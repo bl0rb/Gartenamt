@@ -19,7 +19,7 @@ RUN ls -lh /build/kleingarten-verwaltung && echo "✅ Binary ready"
 FROM ubuntu:22.04
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libsqlite3-0 ca-certificates && \
+    libsqlite3-0 ca-certificates curl && \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /build/kleingarten-verwaltung /usr/bin/kleingarten-verwaltung

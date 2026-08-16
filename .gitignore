@@ -4,6 +4,7 @@ backups/
 *.csv
 exports/
 *.tar
+nas-data/
 
 # Build outputs - all in one place
 binary/

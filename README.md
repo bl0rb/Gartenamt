@@ -37,7 +37,9 @@ Die App startet unter `https://localhost:8080` und öffnet den Browser automatis
 docker compose up -d
 ```
 
-Die Datenbank liegt im Volume `kleingarten-data` (`/data/kleingarten.db`). Details und NAS-Hinweise: [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md).
+Die Datenbank liegt im Volume `kleingarten-data` (`/data/kleingarten.db`).
+
+**NAS (Synology & Co.):** [docker-compose.nas.yml](docker-compose.nas.yml) zieht das fertige Image von GHCR (`ghcr.io/bl0rb/kleingarten-verwaltung`) — nichts bauen, Daten liegen in `./nas-data/` neben der Compose-Datei, Update per `docker compose pull`. Details: [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md).
 
 Optional gibt es ein modulares Setup mit zusätzlicher öffentlicher Vereins-Webseite (Nginx):
 

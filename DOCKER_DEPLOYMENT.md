@@ -1,40 +1,47 @@
-# Docker Deployment Guide for NAS
+# Docker Deployment Guide für NAS
 
-## Quick Start (NAS)
+## Schnellstart (empfohlen: fertiges Image von GHCR)
+
+Das NAS baut nichts selbst — es zieht das fertige Image aus der GitHub Container Registry. Alle Daten liegen in `./nas-data/` neben der Compose-Datei.
 
 ```bash
-# Load the saved image (if transferring from Mac)
-docker load -i kleingarten-verwaltung-amd64.tar
+# 1. docker-compose.nas.yml in einen Ordner auf dem NAS kopieren,
+#    z.B. /volume1/docker/kleingarten
 
-# Run with compose (recommended)
-docker compose up -d
+# 2. Starten
+docker compose -f docker-compose.nas.yml up -d
 
-# View logs
+# 3. Logs ansehen (hier steht beim ersten Start das Admin-Passwort!)
 docker logs -f kleingarten-verwaltung
 ```
 
-## Image Versioning (important)
+Danach ist die App unter `https://<nas-ip>:8080` erreichbar (Zertifikatswarnung beim ersten Aufruf ist normal; `TLS_EXTRA_HOSTS` in einer `.env` neben der Compose-Datei vermeidet den Hostname-Mismatch).
 
-To avoid NAS image update conflicts with identical name+version:
-
-1. Increase VERSION before each release (for example 0.1.1 -> 0.1.2).
-2. Build and export again via ./build-release.sh.
-3. Import the new tar.gz and deploy the matching tag.
-
-Examples:
+**Update auf eine neue Version:**
 
 ```bash
-# Build with version from VERSION file
-./build-release.sh
-
-# Or override explicitly
-./build-release.sh 0.2.0
-
-# Run specific image tag
-docker run -d --name kleingarten -p 8080:8080 -v kleingarten-data:/data kleingarten-verwaltung:0.2.0
+docker compose -f docker-compose.nas.yml pull
+docker compose -f docker-compose.nas.yml up -d
 ```
 
-If you try to import the same version tag again, NAS tools may show an image conflict or update error.
+Datenbank-Migrationen laufen beim Start automatisch. Eine feste Version statt `latest` pinnt `KLEINGARTEN_TAG=0.2.0` in der `.env`.
+
+## Offline-Variante (NAS ohne Internetzugang)
+
+Auf einem Rechner mit Docker das Image bauen und als Archiv transferieren:
+
+```bash
+# Build mit Version aus der VERSION-Datei (oder ./build-release.sh 0.2.0)
+./build-release.sh
+
+# Das erzeugte binary/kleingarten-verwaltung-docker-<version>.tar.gz aufs NAS
+# übertragen und dort importieren:
+docker load -i kleingarten-verwaltung-docker-<version>.tar.gz
+docker run -d --name kleingarten -p 8080:8080 -v kleingarten-data:/data \
+  -e DB_PATH=/data/kleingarten.db kleingarten-verwaltung:<version>
+```
+
+Hinweis: Beim erneuten Import desselben Versions-Tags zeigen NAS-Tools ggf. einen Konflikt — vor jedem Release die VERSION erhöhen.
 
 ## Troubleshooting
 

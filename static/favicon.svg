@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- Flat-Design ohne Gradients/Clip-Paths: ImageMagicks interner
+       SVG-Renderer (ohne librsvg) unterstützt beides nicht zuverlässig. -->
+
+  <!-- Hintergrund (Himmel) -->
+  <rect x="0" y="0" width="1024" height="1024" rx="232" ry="232" fill="#8FCE7F"/>
+
+  <!-- Wiese: folgt unten den abgerundeten Ecken des Hintergrunds -->
+  <path d="M 0 760 Q 512 660 1024 760 L 1024 792 Q 1024 1024 792 1024 L 232 1024 Q 0 1024 0 792 Z" fill="#3B854A"/>
+
+  <!-- Sonne -->
+  <circle cx="790" cy="235" r="110" fill="#FFE9A0"/>
+
+  <!-- Zaunlatten -->
+  <g fill="#F7F1E1">
+    <rect x="120" y="700" width="46" height="180" rx="18"/>
+    <rect x="212" y="688" width="46" height="192" rx="18"/>
+    <rect x="766" y="688" width="46" height="192" rx="18"/>
+    <rect x="858" y="700" width="46" height="180" rx="18"/>
+    <rect x="96" y="742" width="186" height="34" rx="17"/>
+    <rect x="742" y="742" width="186" height="34" rx="17"/>
+  </g>
+
+  <!-- Gartenlaube -->
+  <g>
+    <!-- Korpus -->
+    <rect x="332" y="470" width="360" height="330" rx="14" fill="#FBF4E4"/>
+    <!-- Dach -->
+    <path d="M 292 500 L 512 300 L 732 500 Q 732 522 710 522 L 314 522 Q 292 522 292 500 Z" fill="#D96A4B"/>
+    <!-- Schornstein-Kappe -->
+    <rect x="472" y="278" width="80" height="44" rx="22" fill="#C05A3E"/>
+    <!-- Tür -->
+    <rect x="428" y="580" width="112" height="220" rx="12" fill="#B9895A"/>
+    <circle cx="516" cy="694" r="10" fill="#8A623C"/>
+    <!-- Fenster -->
+    <rect x="580" y="570" width="86" height="86" rx="10" fill="#BFE3F2"/>
+    <rect x="617" y="570" width="12" height="86" fill="#FBF4E4"/>
+    <rect x="580" y="607" width="86" height="12" fill="#FBF4E4"/>
+  </g>
+
+  <!-- Beet mit Pflanzen -->
+  <g>
+    <!-- Sonnenblume links -->
+    <rect x="236" y="640" width="18" height="180" rx="9" fill="#2F6B37"/>
+    <circle cx="245" cy="612" r="52" fill="#FFC93C"/>
+    <circle cx="245" cy="612" r="24" fill="#8A5A2B"/>
+    <!-- Busch rechts -->
+    <circle cx="806" cy="826" r="64" fill="#2F7A3D"/>
+    <circle cx="756" cy="856" r="48" fill="#357F42"/>
+    <circle cx="806" cy="812" r="14" fill="#FF8B6B"/>
+    <circle cx="836" cy="846" r="12" fill="#FFC93C"/>
+    <circle cx="772" cy="842" r="12" fill="#FF8B6B"/>
+  </g>
+
+  <!-- Setzling im Vordergrund -->
+  <g>
+    <rect x="352" y="856" width="14" height="70" rx="7" fill="#2F6B37"/>
+    <path d="M 359 866 Q 300 850 296 790 Q 356 794 359 866 Z" fill="#57B25F"/>
+    <path d="M 359 866 Q 418 850 422 790 Q 362 794 359 866 Z" fill="#57B25F"/>
+  </g>
+</svg>

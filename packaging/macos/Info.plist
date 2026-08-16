@@ -6,6 +6,8 @@
     <string>de_DE</string>
     <key>CFBundleExecutable</key>
     <string>kleingarten-verwaltung</string>
+    <key>CFBundleIconFile</key>
+    <string>icon.icns</string>
     <key>CFBundleIdentifier</key>
     <string>de.bl0rb.kleingarten-verwaltung</string>
     <key>CFBundleInfoDictionaryVersion</key>

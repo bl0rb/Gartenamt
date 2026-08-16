@@ -1,0 +1,44 @@
+name: kleingarten
+
+# NAS-Deployment: zieht das fertige Image von GHCR - auf dem NAS wird nichts
+# gebaut. Alle Daten liegen in ./nas-data/ neben dieser Datei und lassen sich
+# so einfach mit dem NAS-Backup sichern.
+#
+#   1. Diese Datei in einen Ordner auf dem NAS kopieren (z.B. /volume1/docker/kleingarten)
+#   2. docker compose -f docker-compose.nas.yml up -d
+#   3. https://<nas-ip>:8080 öffnen (Zertifikatswarnung beim ersten Mal ist normal)
+#
+# Update auf eine neue Version:
+#   docker compose -f docker-compose.nas.yml pull
+#   docker compose -f docker-compose.nas.yml up -d
+# (Datenbank-Migrationen laufen beim Start automatisch.)
+#
+# Feste Version statt "latest": KLEINGARTEN_TAG=0.2.0 in einer .env-Datei
+# neben dieser Compose-Datei setzen.
+
+services:
+  verwaltung:
+    image: ghcr.io/bl0rb/kleingarten-verwaltung:${KLEINGARTEN_TAG:-latest}
+    restart: always
+    container_name: kleingarten-verwaltung
+    ports:
+      - "8080:8080"
+    environment:
+      DB_PATH: /data/kleingarten.db
+      # Hostname/IP des NAS fürs selbstsignierte TLS-Zertifikat, damit der
+      # Browser-Zugriff im LAN keinen Hostname-Mismatch meldet,
+      # z.B. TLS_EXTRA_HOSTS=nas.local,192.168.1.10
+      TLS_EXTRA_HOSTS: ${TLS_EXTRA_HOSTS:-}
+      TZ: ${TZ:-Europe/Berlin}
+    volumes:
+      # Datenbank, Backups, Exporte, App-Secret
+      - ./nas-data/kleingarten:/data:rw
+      # TLS-Zertifikat persistieren (sonst bei jedem Neuerstellen des
+      # Containers eine neue Browser-Warnung)
+      - ./nas-data/certs:/root/.kleingarten-verwaltung:rw
+    healthcheck:
+      test: ["CMD", "curl", "-fsk", "https://localhost:8080/login"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
