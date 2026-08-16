@@ -18,7 +18,7 @@
         <div class="alert alert-success"><i class="fas fa-check-circle"></i> Wiederherstellung erfolgreich abgeschlossen.</div>
         {{end}}
         {{if eq .Success "verify"}}
-        <div class="alert alert-success"><i class="fas fa-shield-alt"></i> Backup-Pruefung erfolgreich: {{.VerifyInfo}}</div>
+        <div class="alert alert-success"><i class="fas fa-shield-alt"></i> Backup-Prüfung erfolgreich: {{.VerifyInfo}}</div>
         {{end}}
         {{if .Error}}
         <div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> Aktion fehlgeschlagen: {{.Error}}</div>
@@ -172,19 +172,19 @@
             <div class="col-md-6">
                 <div class="card">
                     <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-database me-2"></i>Verschluesseltes Datenbank-Backup</h5>
+                        <h5 class="mb-0"><i class="fas fa-database me-2"></i>Verschlüsseltes Datenbank-Backup</h5>
                     </div>
                     <div class="card-body">
-                        <p>Erstellt ein AES-GCM verschluesseltes Backup (.kgbak), geeignet fuer sichere Distribution und Restore.</p>
+                        <p>Erstellt ein AES-GCM verschlüsseltes Backup (.kgbak), geeignet für sichere Distribution und Restore.</p>
                         <form method="POST">
                             <input type="hidden" name="action" value="database_backup">
                             <button type="submit" class="btn btn-warning w-100">
-                                <i class="fas fa-lock"></i> Verschluesseltes Backup erstellen
+                                <i class="fas fa-lock"></i> Verschlüsseltes Backup erstellen
                             </button>
                         </form>
 
                         <hr>
-                        <h6>Backup pruefen</h6>
+                        <h6>Backup prüfen</h6>
                         <form method="POST" enctype="multipart/form-data">
                             <input type="hidden" name="action" value="database_verify">
                             <input type="file" class="form-control mb-2" name="backup_file" accept=".kgbak" required>
@@ -227,7 +227,7 @@
                             {{range .ExportFiles}}
                             <li class="list-group-item d-flex justify-content-between align-items-center">
                                 <small>{{.}}</small>
-                                <a href="/admin/exports/{{.}}" class="btn btn-outline-primary btn-sm">
+                                <a href="/admin/exports/{{.}}" class="btn btn-outline-primary btn-sm" title="Export herunterladen">
                                     <i class="fas fa-download"></i>
                                 </a>
                             </li>
@@ -237,7 +237,7 @@
                         <p class="text-muted">Noch keine Exports erstellt.</p>
                         {{end}}
 
-                        <h6 class="mt-3">Verfuegbare Backups:</h6>
+                        <h6 class="mt-3">Verfügbare Backups:</h6>
                         {{if .BackupFiles}}
                         <ul class="list-group list-group-flush">
                             {{range .BackupFiles}}
@@ -247,7 +247,7 @@
                             {{end}}
                         </ul>
                         {{else}}
-                        <p class="text-muted">Noch keine verschluesselten Backups erstellt.</p>
+                        <p class="text-muted">Noch keine verschlüsselten Backups erstellt.</p>
                         {{end}}
                     </div>
                 </div>

@@ -18,7 +18,7 @@
         
         <form method="POST" class="needs-validation" novalidate>
             <div class="card mb-4">
-                <div class="card-header bg-primary text-white">
+                <div class="card-header">
                     <h5 class="mb-0">Inspektionsprotokoll mit Auflagen und Fristsetzungen</h5>
                 </div>
                 <div class="card-body">
@@ -110,7 +110,7 @@
         
         {{if .Inspektion}}
         <div class="card mt-4">
-            <div class="card-header bg-success text-white">
+            <div class="card-header">
                 <h5 class="mb-0">Aktuelle Inspektion vom {{.Inspektion.Datum.Format "02.01.2006"}}</h5>
             </div>
             <div class="card-body">

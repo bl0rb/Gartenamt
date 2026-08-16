@@ -20,7 +20,7 @@
             <!-- User Information & Edit -->
             <div class="col-md-6">
                 <div class="card">
-                    <div class="card-header bg-primary text-white">
+                    <div class="card-header">
                         <h5 class="mb-0">Benutzerinformationen bearbeiten</h5>
                     </div>
                     <div class="card-body">
@@ -92,13 +92,13 @@
                             <div class="mb-3">
                                 <small class="text-muted">
                                     <strong>Erstellt:</strong> {{.User.CreatedAt.Format "02.01.2006 15:04"}}<br>
-                                    <strong>Letzter Login:</strong> 
+                                    <strong>Letzte Anmeldung:</strong> 
                                     {{if .User.LastLogin}}{{.User.LastLogin.Format "02.01.2006 15:04"}}{{else}}Nie{{end}}
                                 </small>
                             </div>
 
                             <div class="d-grid">
-                                <button type="submit" class="btn btn-primary">
+                                <button type="submit" class="btn btn-success">
                                     <i class="fas fa-save"></i> Änderungen speichern
                                 </button>
                             </div>
