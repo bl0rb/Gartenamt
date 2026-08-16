@@ -19,7 +19,7 @@
     <key>CFBundleVersion</key>
     <string>__APP_VERSION__</string>
     <key>NSHumanReadableCopyright</key>
-    <string>AGPL-3.0 - https://github.com/bl0rb/kleingarten-verwaltung</string>
+    <string>PolyForm Noncommercial 1.0.0 - https://github.com/bl0rb/kleingarten-verwaltung</string>
     <key>NSHighResolutionCapable</key>
     <true/>
 </dict>

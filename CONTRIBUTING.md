@@ -43,4 +43,4 @@ Das SQLite-Schema wird über versionierte Migrationen in [models/migrations.go](
 
 ## Lizenz deiner Beiträge
 
-Mit dem Einreichen eines Pull Requests erklärst du dich einverstanden, dass dein Beitrag unter der [AGPL-3.0](LICENSE) veröffentlicht wird.
+Mit dem Einreichen eines Pull Requests erklärst du dich einverstanden, dass dein Beitrag unter der [PolyForm Noncommercial License 1.0.0](LICENSE) veröffentlicht wird und dass der Projektinhaber deinen Beitrag zusätzlich unter anderen Lizenzbedingungen (z.B. einer kommerziellen Lizenz) weiterlizenzieren darf.

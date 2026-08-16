@@ -105,4 +105,6 @@ Beiträge sind willkommen — siehe [CONTRIBUTING.md](CONTRIBUTING.md). Sicherhe
 
 ## Lizenz
 
-Dieses Projekt steht unter der [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0). Wer die Software verändert und als Dienst betreibt, muss den Quellcode der veränderten Version den Nutzern zugänglich machen.
+Dieses Projekt steht unter der [PolyForm Noncommercial License 1.0.0](LICENSE): Der Quellcode ist offen, die Nutzung ist für **nicht-kommerzielle Zwecke** frei — also insbesondere für Kleingartenvereine, Privatpersonen, Bildungseinrichtungen und Behörden. **Kommerzielle Nutzung ist nicht gestattet**, etwa der Verkauf der Software oder das entgeltliche Anbieten als Hosting-Dienst. Für eine kommerzielle Lizenz bitte Kontakt über GitHub aufnehmen.
+
+*This project is source-available under the PolyForm Noncommercial License 1.0.0 — free for noncommercial use, commercial use is not permitted.*
