@@ -7,7 +7,7 @@
         <div class="alert alert-warning" role="alert">
             <i class="fas fa-exclamation-triangle"></i>
             <strong>Bitte ändern Sie jetzt Ihr Initialpasswort.</strong>
-            Das automatisch erzeugte Passwort wird bis zur Änderung auf der Login-Seite angezeigt.
+            Das automatisch erzeugte Passwort wird bis zur Änderung auf der Anmeldeseite angezeigt.
             Alle weiteren Funktionen sind erst nach der Passwortänderung verfügbar.
         </div>
         {{end}}
@@ -34,7 +34,7 @@
             <!-- User Information -->
             <div class="col-md-6">
                 <div class="card">
-                    <div class="card-header bg-primary text-white">
+                    <div class="card-header">
                         <h5 class="mb-0">Benutzerinformationen</h5>
                     </div>
                     <div class="card-body">
@@ -61,7 +61,7 @@
                             <div class="col-sm-8">{{.User.CreatedAt.Format "02.01.2006 15:04"}}</div>
                         </div>
                         <div class="row mb-3">
-                            <div class="col-sm-4"><strong>Letzter Login:</strong></div>
+                            <div class="col-sm-4"><strong>Letzte Anmeldung:</strong></div>
                             <div class="col-sm-8">
                                 {{if .User.LastLogin}}
                                     {{.User.LastLogin.Format "02.01.2006 15:04"}}
@@ -75,7 +75,7 @@
 
                 <!-- Session Information -->
                 <div class="card mt-4">
-                    <div class="card-header bg-info text-white">
+                    <div class="card-header">
                         <h6 class="mb-0">Aktuelle Sitzung</h6>
                     </div>
                     <div class="card-body">
@@ -151,7 +151,7 @@
 
                 <!-- Security Tips -->
                 <div class="card mt-4">
-                    <div class="card-header bg-light">
+                    <div class="card-header">
                         <h6 class="mb-0"><i class="fas fa-shield-alt"></i> Sicherheitstipps</h6>
                     </div>
                     <div class="card-body">

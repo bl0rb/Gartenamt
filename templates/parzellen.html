@@ -6,7 +6,7 @@
             <div class="d-flex gap-2">
                 {{if .IsAdminParzellen}}
                 <a href="/admin/parzellen/verwalten" class="btn btn-outline-danger">
-                    <i class="fas fa-trash"></i> Loeschen verwalten
+                    <i class="fas fa-trash"></i> Löschen verwalten
                 </a>
                 {{end}}
                 <a href="{{.ParzellenBasePath}}/neu" class="btn btn-success">
@@ -58,7 +58,7 @@
                                             </a>
                                         {{end}}
                                         {{if .Notizen}}
-                                            <button type="button" class="btn btn-outline-info btn-sm" 
+                                            <button type="button" class="btn btn-outline-primary btn-sm"
                                                     title="{{.Notizen}}" data-bs-toggle="tooltip">
                                                 <i class="fas fa-sticky-note"></i>
                                             </button>

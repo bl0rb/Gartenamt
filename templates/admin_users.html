@@ -63,8 +63,8 @@
                             </select>
                         </div>
                         <div class="col-md-1 d-flex align-items-end">
-                            <button type="submit" class="btn btn-primary w-100">
-                                <i class="fas fa-plus"></i>
+                            <button type="submit" class="btn btn-success w-100" title="Benutzer anlegen">
+                                <i class="fas fa-plus"></i> Benutzer anlegen
                             </button>
                         </div>
                     </div>
@@ -89,7 +89,7 @@
                                 <th>Rolle</th>
                                 <th>Status</th>
                                 <th>Erstellt</th>
-                                <th>Letzter Login</th>
+                                <th>Letzte Anmeldung</th>
                                 <th>Session</th>
                                 <th style="width: 200px;">Aktionen</th>
                             </tr>
@@ -146,23 +146,23 @@
                                 </td>
                                 <td>
                                     <div class="btn-group btn-group-sm">
-                                        <a href="/admin/users/{{.ID}}/edit" class="btn btn-outline-primary" title="Bearbeiten">
+                                        <a href="/admin/users/{{.ID}}/edit" class="btn btn-outline-secondary btn-sm" title="Bearbeiten">
                                             <i class="fas fa-edit"></i>
                                         </a>
                                         {{if not (eq .Username "admin")}}
                                             {{if .Active}}
-                                            <button type="button" class="btn btn-outline-warning" title="Deaktivieren"
+                                            <button type="button" class="btn btn-outline-danger btn-sm" title="Deaktivieren"
                                                     onclick="confirmDeactivateUser('{{.Username}}', {{.ID}})">
                                                 <i class="fas fa-ban"></i>
                                             </button>
                                             {{else}}
-                                            <button type="button" class="btn btn-outline-success" title="Reaktivieren"
+                                            <button type="button" class="btn btn-outline-success btn-sm" title="Reaktivieren"
                                                     onclick="confirmReactivateUser('{{.Username}}', {{.ID}})">
                                                 <i class="fas fa-check"></i>
                                             </button>
                                             {{end}}
                                         {{else}}
-                                        <button type="button" class="btn btn-outline-secondary" disabled title="Standard-Verwaltungskonto kann nicht deaktiviert werden">
+                                        <button type="button" class="btn btn-outline-secondary btn-sm" disabled title="Standard-Verwaltungskonto kann nicht deaktiviert werden">
                                             <i class="fas fa-shield-alt"></i>
                                         </button>
                                         {{end}}

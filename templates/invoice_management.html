@@ -23,7 +23,7 @@
 
         .tab-button.active {
             background: white;
-            border-bottom-color: #4CAF50;
+            border-bottom-color: var(--color-primary);
         }
 
         .tab-content {
@@ -58,7 +58,8 @@
             padding: 10px 16px;
             border: none;
             cursor: pointer;
-            min-height: 42px;
+            min-height: 40px;
+            border-radius: var(--radius-md);
         }
 
         .records-table {
@@ -83,19 +84,20 @@
             border: none;
             cursor: pointer;
             min-height: 34px;
+            border-radius: var(--radius-md);
         }
 
         .success-message {
-            background: #dff0d8;
-            color: #3c763d;
+            background: var(--green-50);
+            color: var(--green-900);
             padding: 10px;
             border-radius: 4px;
             margin-bottom: 10px;
         }
 
         .error-message {
-            background: #f8d7da;
-            color: #721c24;
+            background: var(--red-50);
+            color: var(--red-900);
             padding: 10px;
             border-radius: 4px;
             margin-bottom: 10px;
@@ -106,20 +108,20 @@
             font-weight: bold;
             margin-top: 20px;
             margin-bottom: 10px;
-            border-bottom: 2px solid #4CAF50;
+            border-bottom: 2px solid var(--color-primary);
             padding-bottom: 5px;
         }
 
         .info-box {
-            background: #e3f2fd;
-            border-left: 4px solid #2196F3;
+            background: var(--blue-100);
+            border-left: 4px solid var(--blue-500);
             padding: 10px;
             margin-bottom: 15px;
         }
     </style>
 
     <div class="invoice-container">
-        <h1>Rechnungs- und Gebuehrenverwaltung</h1>
+        <h1>Rechnungs- und Gebührenverwaltung</h1>
 
         <div id="message"></div>
 
@@ -413,7 +415,7 @@
                     const html = records ? records.map(r =>
                         `<div style="border: 1px solid #ddd; padding: 10px; margin: 5px 0; border-radius: 3px;">
                             <strong>${r.monat}/${r.jahr}:</strong> ${r.verbrauch} m³ - €${r.kosten.toFixed(2)}
-                            <button class="delete-btn" onclick="deleteWasser(${r.id})">X</button>
+                            <button class="delete-btn" title="Eintrag entfernen" onclick="deleteWasser(${r.id})">X</button>
                         </div>`
                     ).join('') : '<p>Keine Einträge</p>';
                     document.getElementById('wasserList').innerHTML = html;
@@ -426,7 +428,7 @@
                     const html = records ? records.map(r =>
                         `<div style="border: 1px solid #ddd; padding: 10px; margin: 5px 0; border-radius: 3px;">
                             <strong>${r.monat}/${r.jahr}:</strong> ${r.verbrauch} kWh - €${r.kosten.toFixed(2)}
-                            <button class="delete-btn" onclick="deleteStrom(${r.id})">X</button>
+                            <button class="delete-btn" title="Eintrag entfernen" onclick="deleteStrom(${r.id})">X</button>
                         </div>`
                     ).join('') : '<p>Keine Einträge</p>';
                     document.getElementById('stromList').innerHTML = html;
@@ -514,12 +516,12 @@
                 .then(r => r.json())
                 .then(data => {
                     document.getElementById('invoicePreview').innerHTML = `
-                        <div style="border: 2px solid #4CAF50; padding: 20px; background: white;">
+                        <div style="border: 2px solid var(--color-primary); padding: 20px; background: white;">
                             <h3>Rechnung Vorschau</h3>
                             <p><strong>Parzelle:</strong> ${data.parzelle.nummer}</p>
                             <p><strong>Pächter:</strong> ${data.parzelle.paechter_name}</p>
                             <p><strong>Adresse:</strong><br>${formatInvoiceAddress(data.parzelle)}</p>
-                            <p><strong>Organistion:</strong> ${data.organization.name}</p>
+                            <p><strong>Organisation:</strong> ${data.organization.name}</p>
                             <p><strong>Zeitraum:</strong> ${data.month}/${data.year}</p>
                             <p><strong>Rechnung Typ:</strong> ${data.invoiceType}</p>
                         </div>
@@ -568,10 +570,10 @@
                     const rows = history.map(entry => {
                         const actions = [];
                         if (entry.has_wasser) {
-                            actions.push(`<button class="button" style="padding: 5px 10px;" onclick="downloadOldInvoice(${parzelleId}, ${entry.month}, ${entry.year}, 'wasser')">Wasser PDF</button>`);
+                            actions.push(`<button class="button" onclick="downloadOldInvoice(${parzelleId}, ${entry.month}, ${entry.year}, 'wasser')">Wasser PDF</button>`);
                         }
                         if (entry.has_strom) {
-                            actions.push(`<button class="button" style="padding: 5px 10px;" onclick="downloadOldInvoice(${parzelleId}, ${entry.month}, ${entry.year}, 'strom')">Strom PDF</button>`);
+                            actions.push(`<button class="button" onclick="downloadOldInvoice(${parzelleId}, ${entry.month}, ${entry.year}, 'strom')">Strom PDF</button>`);
                         }
 
                         return `
