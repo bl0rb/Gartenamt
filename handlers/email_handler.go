@@ -45,8 +45,8 @@ type parzelleEmailResult struct {
 }
 
 func SendParzelleEmailHandler(w http.ResponseWriter, r *http.Request) {
-	if !middleware.IsAdmin(r) {
-		http.Error(w, "Unauthorized", http.StatusForbidden)
+	if !middleware.HasPermission(r, "invoices.manage") {
+		http.Error(w, "Zugriff verweigert - Berechtigung fehlt", http.StatusForbidden)
 		return
 	}
 
@@ -76,8 +76,8 @@ func SendParzelleEmailHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func SendBulkParzelleEmailHandler(w http.ResponseWriter, r *http.Request) {
-	if !middleware.IsAdmin(r) {
-		http.Error(w, "Unauthorized", http.StatusForbidden)
+	if !middleware.HasPermission(r, "invoices.manage") {
+		http.Error(w, "Zugriff verweigert - Berechtigung fehlt", http.StatusForbidden)
 		return
 	}
 
@@ -106,8 +106,8 @@ func SendBulkParzelleEmailHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func SendParzelleInfoMailHandler(w http.ResponseWriter, r *http.Request) {
-	if !middleware.IsAdmin(r) {
-		http.Error(w, "Unauthorized", http.StatusForbidden)
+	if !middleware.HasPermission(r, "invoices.manage") {
+		http.Error(w, "Zugriff verweigert - Berechtigung fehlt", http.StatusForbidden)
 		return
 	}
 
@@ -144,8 +144,8 @@ func SendParzelleInfoMailHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func ParzelleEmailHistoryHandler(w http.ResponseWriter, r *http.Request) {
-	if !middleware.IsAdmin(r) {
-		http.Error(w, "Unauthorized", http.StatusForbidden)
+	if !middleware.HasPermission(r, "invoices.manage") {
+		http.Error(w, "Zugriff verweigert - Berechtigung fehlt", http.StatusForbidden)
 		return
 	}
 

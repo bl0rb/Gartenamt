@@ -1,6 +1,6 @@
 module github.com/bl0rb/gartenamt
 
-go 1.25.0
+go 1.26.6
 
 require (
 	fyne.io/systray v1.12.2

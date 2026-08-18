@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/gorilla/mux"
 
@@ -76,14 +75,7 @@ func handleCSVExportAll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Audit-Log
-	auditEntry := models.AuditLog{
-		Aktion:       "CSV_EXPORT_KOMPLETT",
-		Beschreibung: "Vollständiger CSV-Export erstellt: " + fileName,
-		Zeitstempel:  time.Now(),
-		IPAdresse:    r.RemoteAddr,
-	}
-	auditEntry.Save()
+	writeAudit(r, "CSV_EXPORT_KOMPLETT", "Vollständiger CSV-Export erstellt: "+fileName, nil, nil)
 
 	// Erste Datei zum Download anbieten (normalerweise wäre das ein ZIP)
 	filePath := filepath.Join("exports", fileName)
@@ -125,14 +117,8 @@ func handleCSVExportSingle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Audit-Log
-	auditEntry := models.AuditLog{
-		Aktion:       "CSV_EXPORT_" + tableName,
-		Beschreibung: fmt.Sprintf("CSV-Export für %s erstellt: %s", tableName, fileName),
-		Zeitstempel:  time.Now(),
-		IPAdresse:    r.RemoteAddr,
-	}
-	auditEntry.Save()
+	writeAudit(r, "CSV_EXPORT_"+tableName,
+		fmt.Sprintf("CSV-Export für %s erstellt: %s", tableName, fileName), nil, nil)
 
 	// Datei zum Download anbieten
 	filePath := filepath.Join("exports", fileName)
@@ -184,21 +170,15 @@ func handleCSVImport(w http.ResponseWriter, r *http.Request) {
 		healthNote = healthReport.ForeignKeyMsg
 	}
 
-	// Audit-Log
-	auditEntry := models.AuditLog{
-		Aktion:       "CSV_IMPORT_" + tableName,
-		Beschreibung: fmt.Sprintf("CSV-Import für %s aus Datei %s erfolgreich (%d importiert, %d Fehler)", tableName, fileHeader.Filename, report.ImportedRows, report.ErrorRows),
-		DatenVorher: map[string]interface{}{
+	writeAudit(r, "CSV_IMPORT_"+tableName,
+		fmt.Sprintf("CSV-Import für %s aus Datei %s erfolgreich (%d importiert, %d Fehler)", tableName, fileHeader.Filename, report.ImportedRows, report.ErrorRows),
+		map[string]interface{}{
 			"dateiname":  fileHeader.Filename,
 			"dateigröße": fileHeader.Size,
 			"tabelle":    tableName,
 			"report":     report,
 			"health":     healthNote,
-		},
-		Zeitstempel: time.Now(),
-		IPAdresse:   r.RemoteAddr,
-	}
-	auditEntry.Save()
+		}, nil)
 
 	// Erfolgs-Redirect
 	info := fmt.Sprintf("%d importiert, %d Fehler, %d uebersprungen", report.ImportedRows, report.ErrorRows, report.SkippedRows)
@@ -213,14 +193,7 @@ func handleDatabaseBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Audit-Log
-	auditEntry := models.AuditLog{
-		Aktion:       "BACKUP_ERSTELLT",
-		Beschreibung: "Datenbank-Backup erstellt: " + backupFile,
-		Zeitstempel:  time.Now(),
-		IPAdresse:    r.RemoteAddr,
-	}
-	auditEntry.Save()
+	writeAudit(r, "BACKUP_ERSTELLT", "Datenbank-Backup erstellt: "+backupFile, nil, nil)
 
 	// Backup zum Download anbieten
 	w.Header().Set("Content-Type", "application/octet-stream")
@@ -254,9 +227,18 @@ func handleDatabaseRestore(w http.ResponseWriter, r *http.Request) {
 	defer os.Remove(tmpPath)
 
 	if err := models.RestoreEncryptedDatabaseBackup(tmpPath); err != nil {
+		writeAudit(r, "BACKUP_RESTORE_FEHLGESCHLAGEN",
+			"Wiederherstellung aus "+fileHeader.Filename+" fehlgeschlagen: "+err.Error(),
+			map[string]interface{}{"dateiname": fileHeader.Filename}, nil)
 		http.Redirect(w, r, "/admin/backup?error=restore_failed", http.StatusSeeOther)
 		return
 	}
+
+	// Ein Restore ersetzt die gesamte Datenbank samt Benutzertabelle - das ist
+	// der eingriffsstärkste Vorgang der Anwendung und gehört ins Protokoll.
+	writeAudit(r, "BACKUP_WIEDERHERGESTELLT",
+		"Datenbank aus Backup "+fileHeader.Filename+" wiederhergestellt",
+		map[string]interface{}{"dateiname": fileHeader.Filename, "dateigröße": fileHeader.Size}, nil)
 
 	http.Redirect(w, r, "/admin/backup?success=restore", http.StatusSeeOther)
 }
@@ -291,6 +273,10 @@ func handleBackupVerify(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/admin/backup?error=verify_failed", http.StatusSeeOther)
 		return
 	}
+
+	writeAudit(r, "BACKUP_GEPRUEFT",
+		"Backup "+fileHeader.Filename+" geprüft: "+report.Details,
+		nil, map[string]interface{}{"pruefsumme": report.Checksum, "fingerprint": report.KeyFingerprint})
 
 	http.Redirect(w, r, "/admin/backup?success=verify&verify_info="+url.QueryEscape(report.Details), http.StatusSeeOther)
 }

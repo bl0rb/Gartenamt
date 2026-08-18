@@ -10,8 +10,8 @@ import (
 
 // AdminInvoiceManagementHandler displays the invoice management dashboard
 func AdminInvoiceManagementHandler(w http.ResponseWriter, r *http.Request) {
-	if !middleware.IsAdmin(r) {
-		http.Error(w, "Unauthorized", http.StatusForbidden)
+	if !middleware.HasPermission(r, "invoices.manage") {
+		http.Error(w, "Zugriff verweigert - Berechtigung fehlt", http.StatusForbidden)
 		return
 	}
 

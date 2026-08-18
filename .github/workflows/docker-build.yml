@@ -25,6 +25,25 @@ jobs:
       - name: Vet
         run: go vet ./...
 
+      - name: Test
+        run: go test ./...
+
+  govulncheck:
+    name: Schwachstellen-Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Meldet bekannte Schwachstellen in Go-Standardbibliothek und
+      # Abhängigkeiten, die der Code tatsächlich aufruft. Die verwendete
+      # Toolchain steht in go.mod - ein Fund heißt in der Regel: Go-Zeile dort
+      # auf einen aktuelleren Patch heben.
+      - name: govulncheck
+        uses: golang/govulncheck-action@032d45514ae346b1db93c04b0c90b841c370344f # v1.1.0
+        with:
+          go-version-file: go.mod
+          repo-checkout: false
+
   docker-build:
     runs-on: ubuntu-latest
     steps:

@@ -90,8 +90,8 @@ func RequirePermission(permission string, next http.HandlerFunc) http.HandlerFun
 }
 
 // CSRFProtect weist state-ändernde Requests ab, deren Origin/Referer nicht zum
-// eigenen Host passt. Requests ohne beide Header (z.B. curl) werden durchgelassen,
-// da CSRF nur über automatisch mitgesendete Browser-Cookies funktioniert.
+// eigenen Host passt. Fehlen beide Header, entscheidet das Session-Cookie:
+// ohne Cookie ist kein CSRF möglich, mit Cookie wird abgewiesen.
 func CSRFProtect(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
@@ -124,6 +124,17 @@ func sameOriginRequest(r *http.Request) bool {
 	if referer := r.Header.Get("Referer"); referer != "" {
 		return check(referer)
 	}
+
+	// Weder Origin noch Referer vorhanden: Browser senden bei Cross-Origin-
+	// POSTs immer einen Origin-Header, und dank "Referrer-Policy: same-origin"
+	// bleibt bei eigenen Formularen der Referer erhalten. Traegt die Anfrage
+	// trotzdem ein Session-Cookie, stammt sie nicht aus der Anwendung - dann
+	// wird abgewiesen statt durchgelassen. Anfragen ohne Session-Cookie
+	// koennen kein CSRF sein und bleiben erlaubt.
+	if _, err := r.Cookie("session_id"); err == nil {
+		return false
+	}
+
 	return true
 }
 
@@ -173,6 +184,15 @@ func IsAuthenticated(r *http.Request) bool {
 func IsAdmin(r *http.Request) bool {
 	session := GetSessionFromContext(r.Context())
 	return session != nil && session.Role == "admin"
+}
+
+// HasPermission prüft eine konkrete Berechtigung der aktuellen Session.
+// Handler nutzen sie, um dieselbe Bedingung zu prüfen wie ihre Route - so
+// bleibt der Schutz bestehen, falls eine Route einmal ohne
+// RequirePermission registriert wird.
+func HasPermission(r *http.Request, permission string) bool {
+	session := GetSessionFromContext(r.Context())
+	return session != nil && models.RoleHasPermission(session.Role, permission)
 }
 
 // IsBackoffice prüft ob die aktuelle Rolle Verwaltungszugriff hat.

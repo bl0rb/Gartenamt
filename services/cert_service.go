@@ -149,8 +149,9 @@ func (cm *CertManager) generateSelfSignedCert() error {
 		return fmt.Errorf("failed to encode certificate: %w", err)
 	}
 
-	// Save private key to file
-	keyOut, err := os.Create(cm.KeyFile)
+	// Save private key to file - 0600, os.Create wuerde 0666 abzueglich umask
+	// verwenden und den Schluessel damit lokal lesbar machen.
+	keyOut, err := os.OpenFile(cm.KeyFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return fmt.Errorf("failed to create key file: %w", err)
 	}

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"html/template"
 	"net/http"
+	"net/mail"
 	"regexp"
 	"strconv"
 	"strings"
@@ -17,6 +18,20 @@ import (
 
 var plzPattern = regexp.MustCompile(`^\d+$`)
 var errInvalidPLZ = errors.New("invalid plz")
+var errInvalidEmail = errors.New("invalid email")
+
+// parzelleFormErrorMessage übersetzt die Validierungsfehler des Formulars in
+// eine Meldung für die Oberfläche.
+func parzelleFormErrorMessage(err error) string {
+	switch {
+	case errors.Is(err, errInvalidEmail):
+		return "Die E-Mail-Adresse ist ungültig."
+	case errors.Is(err, errInvalidPLZ):
+		return "Die PLZ darf nur aus Zahlen bestehen."
+	default:
+		return "Die Eingaben sind unvollständig oder ungültig."
+	}
+}
 
 func isAdminParzellenScope(r *http.Request) bool {
 	return strings.HasPrefix(r.URL.Path, "/admin/parzellen")
@@ -43,6 +58,15 @@ func populateParzelleFromForm(parzelle *models.Parzelle, r *http.Request) error 
 
 	if parzelle.PaechterPLZ != "" && !plzPattern.MatchString(parzelle.PaechterPLZ) {
 		return errInvalidPLZ
+	}
+
+	// Die Adresse wird später ungeprüft als SMTP-Empfänger verwendet - bislang
+	// wurde die PLZ strenger geprüft als die E-Mail.
+	if parzelle.Email != "" {
+		address, err := mail.ParseAddress(parzelle.Email)
+		if err != nil || address.Address != parzelle.Email {
+			return errInvalidEmail
+		}
 	}
 
 	if groesse := r.FormValue("groesse"); groesse != "" {
@@ -124,7 +148,7 @@ func ParzelleNeuHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		parzelle := models.Parzelle{}
 		if err := populateParzelleFromForm(&parzelle, r); err != nil {
-			renderParzelleForm(w, r, "Neue Parzelle", parzelle, false, "Die PLZ darf nur aus Zahlen bestehen.")
+			renderParzelleForm(w, r, "Neue Parzelle", parzelle, false, parzelleFormErrorMessage(err))
 			return
 		}
 
@@ -154,7 +178,7 @@ func ParzelleEditHandler(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == "POST" {
 		if err := populateParzelleFromForm(parzelle, r); err != nil {
-			renderParzelleForm(w, r, "Parzelle bearbeiten", *parzelle, true, "Die PLZ darf nur aus Zahlen bestehen.")
+			renderParzelleForm(w, r, "Parzelle bearbeiten", *parzelle, true, parzelleFormErrorMessage(err))
 			return
 		}
 

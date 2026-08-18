@@ -24,7 +24,20 @@ docker compose -f docker-compose.nas.yml pull
 docker compose -f docker-compose.nas.yml up -d
 ```
 
-Datenbank-Migrationen laufen beim Start automatisch. Eine feste Version statt `latest` pinnt `KLEINGARTEN_TAG=0.2.0` in der `.env`.
+Datenbank-Migrationen laufen beim Start automatisch. Die Compose-Datei pinnt eine feste Version (`KLEINGARTEN_TAG`) statt eines beweglichen `latest`, damit ein Update reproduzierbar bleibt — für eine neue Version den Wert in der `.env` neben der Compose-Datei hochziehen.
+
+### Einmalige Umstellung beim Update auf 1.1.0
+
+Ab 1.1.0 läuft der Container nicht mehr als `root`, sondern unter UID/GID `10001`. Das Datenverzeichnis auf dem NAS gehört bisher `root` und muss deshalb einmalig übertragen werden — sonst startet die App mit einem Schreibfehler auf der Datenbank:
+
+```bash
+docker compose -f docker-compose.nas.yml down
+sudo chown -R 10001:10001 ./nas-data
+docker compose -f docker-compose.nas.yml pull
+docker compose -f docker-compose.nas.yml up -d
+```
+
+Das TLS-Zertifikat liegt jetzt unter `/home/gartenamt/.gartenamt` statt `/root/.gartenamt`; die aktualisierte Compose-Datei mountet den Pfad bereits richtig. Beim ersten Start wird das Zertifikat einmalig neu erzeugt — im Browser erscheint dadurch einmal wieder die bekannte Warnung.
 
 ## Offline-Variante (NAS ohne Internetzugang)
 
@@ -57,8 +70,8 @@ docker logs --follow --timestamps gartenamt
 **Common issues:**
 
 1. **Database permission error**
-   - Make sure `/data` volume has proper permissions
-   - The container user needs write access
+   - Der Container läuft als UID/GID `10001` und braucht Schreibrechte auf `/data`
+   - Nach einem Update von einer Version vor 1.1.0: `sudo chown -R 10001:10001 ./nas-data`
    
 2. **Port already in use**
    - Change port in compose: `8080:8080` → `8000:8080`

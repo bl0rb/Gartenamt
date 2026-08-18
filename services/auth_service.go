@@ -14,10 +14,21 @@ import (
 	"github.com/bl0rb/gartenamt/models"
 )
 
-// Schwellwerte für die Login-Drosselung
+// Schwellwerte für die Login-Drosselung und die Session-Laufzeit
 const (
 	maxFailedLogins  = 5
 	loginLockoutTime = 15 * time.Minute
+
+	// maxThrottleEntries deckelt die Fehlversuchs-Tabelle. Ihre Schlüssel
+	// enthalten den frei wählbaren Benutzernamen - ohne Obergrenze könnte ein
+	// Skript darüber den Speicher füllen.
+	maxThrottleEntries = 5000
+
+	// sessionIdleTimeout beendet Sitzungen ohne Aktivität, sessionMaxLifetime
+	// begrenzt sie unabhängig von der Aktivität. Ohne die zweite Grenze lässt
+	// sich eine Sitzung durch regelmäßige Aufrufe unbegrenzt verlängern.
+	sessionIdleTimeout = 24 * time.Hour
+	sessionMaxLifetime = 7 * 24 * time.Hour
 )
 
 type failedLoginState struct {
@@ -64,27 +75,30 @@ func NewAuthService() *AuthService {
 
 // Login authentifiziert einen Benutzer und erstellt eine Session
 func (as *AuthService) Login(username, password, ipAddress, userAgent string) (*Session, error) {
-	throttleKey := strings.ToLower(strings.TrimSpace(username)) + "|" + ipAddress
-	if err := as.checkLoginThrottle(throttleKey); err != nil {
+	// Zwei getrennte Zähler: einer pro Konto, einer pro Absender-IP. Eine
+	// Sperre allein pro Kombination ließe sich umgehen, indem der Angreifer
+	// die Quelladresse wechselt - im LAN ist das trivial.
+	keys := throttleKeys(username, ipAddress)
+	if err := as.checkLoginThrottle(keys); err != nil {
 		return nil, err
 	}
 
 	// Benutzer aus Datenbank laden
 	user, err := models.GetUserByUsername(username)
 	if err != nil {
-		as.recordFailedLogin(throttleKey)
+		as.recordFailedLogin(keys)
 		log.Printf("Login-Versuch fehlgeschlagen für Benutzer: %s - %v", username, err)
 		return nil, errors.New("ungültige Anmeldedaten")
 	}
 
 	// Passwort validieren
 	if !user.ValidatePassword(password) {
-		as.recordFailedLogin(throttleKey)
+		as.recordFailedLogin(keys)
 		log.Printf("Falsches Passwort für Benutzer: %s", username)
 		return nil, errors.New("ungültige Anmeldedaten")
 	}
 
-	as.resetFailedLogins(throttleKey)
+	as.resetFailedLogins(keys)
 
 	// Bestehende Sessions für diesen Benutzer löschen
 	as.InvalidateUserSessions(user.ID)
@@ -133,10 +147,15 @@ func (as *AuthService) ValidateSession(sessionID string) (*Session, error) {
 		return nil, errors.New("session nicht gefunden")
 	}
 
-	// Session-Timeout prüfen (24 Stunden)
-	if time.Since(session.LastSeen) > 24*time.Hour {
+	// Inaktivität und absolute Laufzeit prüfen
+	if time.Since(session.LastSeen) > sessionIdleTimeout {
 		as.InvalidateSession(sessionID)
 		return nil, errors.New("session abgelaufen")
+	}
+
+	if time.Since(session.CreatedAt) > sessionMaxLifetime {
+		as.InvalidateSession(sessionID)
+		return nil, errors.New("session hat die maximale Laufzeit erreicht")
 	}
 
 	// LastSeen aktualisieren
@@ -225,48 +244,90 @@ func (as *AuthService) InvalidateOtherUserSessions(userID int, keepSessionID str
 
 // Private Hilfsfunktionen
 
-// checkLoginThrottle blockiert Logins, solange die Sperre nach zu vielen
-// Fehlversuchen aktiv ist.
-func (as *AuthService) checkLoginThrottle(key string) error {
-	as.mutex.RLock()
-	var lockedUntil time.Time
-	if state, exists := as.failedLogins[key]; exists {
-		lockedUntil = state.LockedUntil
+// throttleKeys liefert die Zähler-Schlüssel eines Anmeldeversuchs: einen für
+// das Konto und einen für die Absender-IP.
+func throttleKeys(username, ipAddress string) []string {
+	return []string{
+		"user:" + strings.ToLower(strings.TrimSpace(username)),
+		"ip:" + ipAddress,
 	}
-	as.mutex.RUnlock()
+}
 
-	if time.Now().Before(lockedUntil) {
-		return ErrLoginThrottled
+// checkLoginThrottle blockiert Logins, solange eine der Sperren aktiv ist.
+func (as *AuthService) checkLoginThrottle(keys []string) error {
+	as.mutex.RLock()
+	defer as.mutex.RUnlock()
+
+	now := time.Now()
+	for _, key := range keys {
+		if state, exists := as.failedLogins[key]; exists && now.Before(state.LockedUntil) {
+			return ErrLoginThrottled
+		}
 	}
 	return nil
 }
 
-func (as *AuthService) recordFailedLogin(key string) {
+func (as *AuthService) recordFailedLogin(keys []string) {
 	as.mutex.Lock()
 	defer as.mutex.Unlock()
 
 	now := time.Now()
-	state, exists := as.failedLogins[key]
-	// Zähler nur neu beginnen, wenn der letzte Fehlversuch länger als das
-	// Sperrfenster zurückliegt (und keine aktive Sperre mehr besteht).
-	if !exists || (now.Sub(state.LastAttempt) > loginLockoutTime && now.After(state.LockedUntil)) {
-		state = &failedLoginState{}
-		as.failedLogins[key] = state
+	for _, key := range keys {
+		state, exists := as.failedLogins[key]
+		// Zähler nur neu beginnen, wenn der letzte Fehlversuch länger als das
+		// Sperrfenster zurückliegt (und keine aktive Sperre mehr besteht).
+		if !exists || (now.Sub(state.LastAttempt) > loginLockoutTime && now.After(state.LockedUntil)) {
+			state = &failedLoginState{}
+			as.failedLogins[key] = state
+		}
+
+		state.Count++
+		state.LastAttempt = now
+		if state.Count >= maxFailedLogins && now.After(state.LockedUntil) {
+			state.LockedUntil = now.Add(loginLockoutTime)
+			log.Printf("Login gesperrt für %s (%d Fehlversuche, Sperre bis %s)",
+				key, state.Count, state.LockedUntil.Format("15:04:05"))
+		}
 	}
 
-	state.Count++
-	state.LastAttempt = now
-	if state.Count >= maxFailedLogins && now.After(state.LockedUntil) {
-		state.LockedUntil = now.Add(loginLockoutTime)
-		log.Printf("Login gesperrt für %s (%d Fehlversuche, Sperre bis %s)",
-			key, state.Count, state.LockedUntil.Format("15:04:05"))
+	as.pruneFailedLoginsLocked(now)
+}
+
+// pruneFailedLoginsLocked hält die Tabelle klein: zuerst fallen abgelaufene
+// Einträge weg, danach - falls immer noch zu viele - die ältesten.
+// Der Aufrufer hält bereits den Schreib-Lock.
+func (as *AuthService) pruneFailedLoginsLocked(now time.Time) {
+	if len(as.failedLogins) <= maxThrottleEntries {
+		return
+	}
+
+	for key, state := range as.failedLogins {
+		if now.Sub(state.LastAttempt) > loginLockoutTime && now.After(state.LockedUntil) {
+			delete(as.failedLogins, key)
+		}
+	}
+
+	for len(as.failedLogins) > maxThrottleEntries {
+		oldestKey := ""
+		var oldest time.Time
+		for key, state := range as.failedLogins {
+			if oldestKey == "" || state.LastAttempt.Before(oldest) {
+				oldestKey, oldest = key, state.LastAttempt
+			}
+		}
+		if oldestKey == "" {
+			return
+		}
+		delete(as.failedLogins, oldestKey)
 	}
 }
 
-func (as *AuthService) resetFailedLogins(key string) {
+func (as *AuthService) resetFailedLogins(keys []string) {
 	as.mutex.Lock()
 	defer as.mutex.Unlock()
-	delete(as.failedLogins, key)
+	for _, key := range keys {
+		delete(as.failedLogins, key)
+	}
 }
 
 func (as *AuthService) cleanupExpiredSessions() {
@@ -279,7 +340,7 @@ func (as *AuthService) cleanupExpiredSessions() {
 		expired := make([]string, 0)
 
 		for sessionID, session := range as.sessions {
-			if now.Sub(session.LastSeen) > 24*time.Hour {
+			if now.Sub(session.LastSeen) > sessionIdleTimeout || now.Sub(session.CreatedAt) > sessionMaxLifetime {
 				expired = append(expired, sessionID)
 			}
 		}

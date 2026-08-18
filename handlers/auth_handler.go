@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	"html/template"
 	"log"
 	"net"
@@ -34,7 +35,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		username := strings.TrimSpace(r.FormValue("username"))
 		password := r.FormValue("password")
-		redirectURL := r.FormValue("redirect")
+		redirectURL := safeRedirectPath(r.FormValue("redirect"))
 
 		// Validierung
 		if username == "" || password == "" {
@@ -64,8 +65,8 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		// Erfolgreiche Anmeldung
 		log.Printf("Erfolgreiche Anmeldung: %s (Role: %s, IP: %s)", session.Username, session.Role, ipAddress)
 
-		// Weiterleitung
-		if redirectURL != "" && !strings.Contains(redirectURL, "login") {
+		// Weiterleitung (nur anwendungsinterne Ziele, siehe safeRedirectPath)
+		if redirectURL != "" {
 			http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 		} else {
 			if models.IsBackofficeRole(session.Role) {
@@ -78,7 +79,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// GET Request - Login-Formular anzeigen
-	redirectURL := r.URL.Query().Get("redirect")
+	redirectURL := safeRedirectPath(r.URL.Query().Get("redirect"))
 
 	data := map[string]interface{}{
 		"Title":       "Anmeldung",
@@ -88,6 +89,36 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	tmpl := template.Must(LoadTemplate("templates/login.html"))
 	tmpl.Execute(w, data)
+}
+
+// safeRedirectPath laesst als Weiterleitungsziel nur anwendungsinterne Pfade
+// zu. Ohne diese Pruefung schickt ein Link der Form
+// /login?redirect=https://fremde.tld den Benutzer nach erfolgreicher Anmeldung
+// auf eine fremde Seite - ein bequemer Phishing-Baustein, weil der Link auf die
+// echte Adresse der Anwendung zeigt und die Anmeldung normal funktioniert.
+func safeRedirectPath(raw string) string {
+	if raw == "" {
+		return ""
+	}
+
+	// Kein absoluter oder protokollrelativer Verweis ("//host", "/\host").
+	if !strings.HasPrefix(raw, "/") || strings.HasPrefix(raw, "//") || strings.HasPrefix(raw, "/\\") {
+		return ""
+	}
+
+	// Steuerzeichen wuerden den Location-Header zerlegen.
+	for _, r := range raw {
+		if r < 0x20 || r == 0x7f {
+			return ""
+		}
+	}
+
+	// Zurueck auf die Login-Seite waere eine Schleife.
+	if strings.Contains(raw, "login") {
+		return ""
+	}
+
+	return raw
 }
 
 // addInitialCredentials ergänzt die Initial-Zugangsdaten des Standard-Admins,
@@ -167,7 +198,7 @@ func ChangePasswordHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if err := models.ValidatePassword(newPassword); err != nil {
+		if err := models.ValidatePasswordForUser(newPassword, session.Username); err != nil {
 			showProfileWithError(w, r, err.Error(), session)
 			return
 		}
@@ -228,6 +259,19 @@ func AdminUserEditHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	session := middleware.GetSessionFromContext(r.Context())
+	if session == nil {
+		http.Error(w, "Nicht authentifiziert", http.StatusUnauthorized)
+		return
+	}
+
+	// Konten mit hoeherem Rang als dem eigenen bleiben unantastbar - sonst
+	// genuegt ein Passwort-Reset auf dem Admin-Konto zur Uebernahme.
+	if !models.CanManageRole(session.Role, user.Role) {
+		http.Error(w, "Zugriff verweigert - dieses Konto liegt über Ihrer Berechtigung", http.StatusForbidden)
+		return
+	}
+
 	if r.Method == "POST" {
 		action := r.FormValue("action")
 
@@ -235,7 +279,7 @@ func AdminUserEditHandler(w http.ResponseWriter, r *http.Request) {
 		case "update":
 			username := strings.TrimSpace(r.FormValue("username"))
 			email := strings.TrimSpace(r.FormValue("email"))
-			role := r.FormValue("role")
+			role := models.NormalizeRole(r.FormValue("role"))
 			active := r.FormValue("active") == "1"
 
 			if username == "" || email == "" {
@@ -249,10 +293,39 @@ func AdminUserEditHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
+			if role != user.Role {
+				// Die eigene Rolle zu aendern waere der direkte Weg zur
+				// Selbstbefoerderung.
+				if user.ID == session.UserID {
+					showUserEditWithError(w, r, user, "Die eigene Rolle kann nicht geändert werden")
+					return
+				}
+				if !models.CanManageRole(session.Role, role) {
+					showUserEditWithError(w, r, user, "Diese Rolle dürfen Sie nicht vergeben")
+					return
+				}
+			}
+
+			if !active && user.ID == session.UserID {
+				showUserEditWithError(w, r, user, "Das eigene Konto kann nicht deaktiviert werden")
+				return
+			}
+
 			if err := models.UpdateUser(userID, username, email, role, active); err != nil {
 				showUserEditWithError(w, r, user, "Fehler beim Aktualisieren des Benutzers")
 				return
 			}
+
+			if role != user.Role {
+				// Rechte aendern sich erst nach erneuter Anmeldung, weil die
+				// Rolle in der Session steckt.
+				services.GlobalAuth.InvalidateUserSessions(userID)
+			}
+
+			writeAudit(r, "BENUTZER_AKTUALISIERT",
+				fmt.Sprintf("Benutzer %s aktualisiert", username),
+				map[string]interface{}{"username": user.Username, "email": user.Email, "rolle": user.Role, "aktiv": user.Active},
+				map[string]interface{}{"username": username, "email": email, "rolle": role, "aktiv": active})
 
 			log.Printf("Benutzer aktualisiert: %s (Role: %s, Active: %v)", username, role, active)
 			http.Redirect(w, r, "/admin/users?success=user_updated", http.StatusSeeOther)
@@ -272,7 +345,7 @@ func AdminUserEditHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			if err := models.ValidatePassword(newPassword); err != nil {
+			if err := models.ValidatePasswordForUser(newPassword, user.Username); err != nil {
 				showUserEditWithError(w, r, user, err.Error())
 				return
 			}
@@ -287,11 +360,20 @@ func AdminUserEditHandler(w http.ResponseWriter, r *http.Request) {
 			// Invalidate all sessions for this user
 			services.GlobalAuth.InvalidateUserSessions(userID)
 
+			writeAudit(r, "PASSWORT_ZURUECKGESETZT",
+				fmt.Sprintf("Passwort für Benutzer %s zurückgesetzt (Änderung beim nächsten Login erzwungen)", user.Username),
+				nil, map[string]interface{}{"benutzer": user.Username, "benutzer_id": user.ID})
+
 			log.Printf("Passwort zurückgesetzt für Benutzer: %s", user.Username)
 			http.Redirect(w, r, "/admin/users?success=password_reset", http.StatusSeeOther)
 			return
 
 		case "deactivate":
+			if user.ID == session.UserID {
+				showUserEditWithError(w, r, user, "Das eigene Konto kann nicht deaktiviert werden")
+				return
+			}
+
 			if err := models.DeactivateUser(userID); err != nil {
 				showUserEditWithError(w, r, user, "Fehler beim Deaktivieren des Benutzers")
 				return
@@ -299,6 +381,10 @@ func AdminUserEditHandler(w http.ResponseWriter, r *http.Request) {
 
 			// Invalidate all sessions for this user
 			services.GlobalAuth.InvalidateUserSessions(userID)
+
+			writeAudit(r, "BENUTZER_DEAKTIVIERT",
+				fmt.Sprintf("Benutzer %s deaktiviert", user.Username),
+				map[string]interface{}{"aktiv": true}, map[string]interface{}{"aktiv": false, "benutzer": user.Username})
 
 			log.Printf("Benutzer deaktiviert: %s", user.Username)
 			http.Redirect(w, r, "/admin/users?success=user_deactivated", http.StatusSeeOther)
@@ -309,6 +395,10 @@ func AdminUserEditHandler(w http.ResponseWriter, r *http.Request) {
 				showUserEditWithError(w, r, user, "Fehler beim Reaktivieren des Benutzers")
 				return
 			}
+
+			writeAudit(r, "BENUTZER_REAKTIVIERT",
+				fmt.Sprintf("Benutzer %s reaktiviert", user.Username),
+				map[string]interface{}{"aktiv": false}, map[string]interface{}{"aktiv": true, "benutzer": user.Username})
 
 			log.Printf("Benutzer reaktiviert: %s", user.Username)
 			http.Redirect(w, r, "/admin/users?success=user_reactivated", http.StatusSeeOther)
@@ -328,11 +418,17 @@ func AdminUserEditHandler(w http.ResponseWriter, r *http.Request) {
 
 // AdminUsersHandlerEnhanced shows enhanced user management
 func AdminUsersHandlerEnhanced(w http.ResponseWriter, r *http.Request) {
+	session := middleware.GetSessionFromContext(r.Context())
+	if session == nil {
+		http.Error(w, "Nicht authentifiziert", http.StatusUnauthorized)
+		return
+	}
+
 	if r.Method == "POST" {
 		username := strings.TrimSpace(r.FormValue("username"))
 		email := strings.TrimSpace(r.FormValue("email"))
 		password := r.FormValue("password")
-		role := r.FormValue("role")
+		role := models.NormalizeRole(r.FormValue("role"))
 
 		if username == "" || password == "" || email == "" {
 			showUsersListWithError(w, r, "Alle Felder sind erforderlich")
@@ -344,18 +440,29 @@ func AdminUsersHandlerEnhanced(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if err := models.ValidatePassword(password); err != nil {
+		// Ohne diese Pruefung legt jedes Konto mit users.manage einfach einen
+		// neuen Admin an und meldet sich damit an.
+		if !models.CanManageRole(session.Role, role) {
+			showUsersListWithError(w, r, "Diese Rolle dürfen Sie nicht vergeben")
+			return
+		}
+
+		if err := models.ValidatePasswordForUser(password, username); err != nil {
 			showUsersListWithError(w, r, err.Error())
 			return
 		}
 
-		userRole := models.UserRole(models.NormalizeRole(role))
+		userRole := models.UserRole(role)
 
-		_, err := models.CreateUser(username, email, password, userRole)
+		created, err := models.CreateUser(username, email, password, userRole)
 		if err != nil {
 			showUsersListWithError(w, r, "Fehler beim Erstellen des Benutzers: "+err.Error())
 			return
 		}
+
+		writeAudit(r, "BENUTZER_ERSTELLT",
+			fmt.Sprintf("Benutzer %s mit Rolle %s angelegt", username, userRole),
+			nil, map[string]interface{}{"benutzer": username, "benutzer_id": created.ID, "email": email, "rolle": string(userRole)})
 
 		log.Printf("Neuer Benutzer erstellt: %s (Role: %s)", username, userRole)
 		http.Redirect(w, r, "/admin/users?success=user_created", http.StatusSeeOther)

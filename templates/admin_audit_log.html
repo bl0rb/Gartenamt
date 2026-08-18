@@ -28,6 +28,7 @@
                         <thead>
                             <tr>
                                 <th>Zeitpunkt</th>
+                                <th>Benutzer</th>
                                 <th>Aktion</th>
                                 <th>Beschreibung</th>
                                 <th>IP-Adresse</th>
@@ -37,6 +38,7 @@
                             {{range .AuditLogs}}
                             <tr>
                                 <td class="text-nowrap">{{.Zeitstempel.Format "02.01.2006 15:04:05"}}</td>
+                                <td class="text-nowrap">{{if .Benutzer}}{{.Benutzer}}{{else}}<span class="text-muted">unbekannt</span>{{end}}</td>
                                 <td><span class="badge bg-secondary">{{.Aktion}}</span></td>
                                 <td>{{.Beschreibung}}</td>
                                 <td class="text-muted small">{{.IPAdresse}}</td>

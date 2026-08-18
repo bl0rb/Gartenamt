@@ -12,7 +12,6 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gorilla/mux"
 )
@@ -94,14 +93,7 @@ func AdminInspektionLoeschenHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Audit-Log erstellen
-	auditEntry := models.AuditLog{
-		Aktion:       "INSPEKTION_GELOESCHT",
-		Beschreibung: fmt.Sprintf("Inspektion ID %d für Parzelle %d gelöscht", id, inspektion.ParzelleID),
-		DatenVorher:  inspektion,
-		Zeitstempel:  time.Now(),
-		IPAdresse:    r.RemoteAddr,
-	}
+	auditBeschreibung := fmt.Sprintf("Inspektion ID %d für Parzelle %d gelöscht", id, inspektion.ParzelleID)
 
 	// Abhängige Wertermittlungen prüfen
 	wertermittlungen, err := models.GetWertermittlungenByInspektionID(id)
@@ -126,8 +118,7 @@ func AdminInspektionLoeschenHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Audit-Log speichern
-	auditEntry.Save()
+	writeAudit(r, "INSPEKTION_GELOESCHT", auditBeschreibung, inspektion, nil)
 
 	http.Redirect(w, r, "/admin/protokolle?success=inspektion_geloescht", http.StatusSeeOther)
 }
@@ -159,14 +150,7 @@ func AdminWertermittlungLoeschenHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Audit-Log erstellen
-	auditEntry := models.AuditLog{
-		Aktion:       "WERTERMITTLUNG_GELOESCHT",
-		Beschreibung: fmt.Sprintf("Wertermittlung ID %d für Parzelle %d gelöscht (Wert: %.2f €)", id, wertermittlung.ParzelleID, wertermittlung.GesamtWert),
-		DatenVorher:  wertermittlung,
-		Zeitstempel:  time.Now(),
-		IPAdresse:    r.RemoteAddr,
-	}
+	auditBeschreibung := fmt.Sprintf("Wertermittlung ID %d für Parzelle %d gelöscht (Wert: %.2f €)", id, wertermittlung.ParzelleID, wertermittlung.GesamtWert)
 
 	// Wertermittlung löschen
 	if err := models.DeleteWertermittlung(id); err != nil {
@@ -174,8 +158,7 @@ func AdminWertermittlungLoeschenHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Audit-Log speichern
-	auditEntry.Save()
+	writeAudit(r, "WERTERMITTLUNG_GELOESCHT", auditBeschreibung, wertermittlung, nil)
 
 	http.Redirect(w, r, "/admin/protokolle?success=wertermittlung_geloescht", http.StatusSeeOther)
 }
@@ -231,19 +214,9 @@ func AdminBulkDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Audit-Log für Bulk-Delete
-	auditEntry := models.AuditLog{
-		Aktion:       "BULK_DELETE_" + typ,
-		Beschreibung: fmt.Sprintf("Bulk-Delete: %d von %d Einträgen (%s) erfolgreich gelöscht", deletedCount, len(ids), typ),
-		DatenVorher: map[string]interface{}{
-			"ids":    ids,
-			"typ":    typ,
-			"errors": errors,
-		},
-		Zeitstempel: time.Now(),
-		IPAdresse:   r.RemoteAddr,
-	}
-	auditEntry.Save()
+	writeAudit(r, "BULK_DELETE_"+typ,
+		fmt.Sprintf("Bulk-Delete: %d von %d Einträgen (%s) erfolgreich gelöscht", deletedCount, len(ids), typ),
+		map[string]interface{}{"ids": ids, "typ": typ, "errors": errors}, nil)
 
 	// Erfolgs-/Fehlermeldung
 	if len(errors) > 0 {
@@ -291,12 +264,22 @@ func AdminSystemInfoHandler(w http.ResponseWriter, r *http.Request) {
 		action := r.FormValue("action")
 		switch action {
 		case "reveal_backup_key":
-			fullKey, _, err := models.RevealBackupKey()
+			fullKey, state, err := models.RevealBackupKey()
 			if err != nil {
 				keyError = "reveal_limit"
+				writeAudit(r, "BACKUP_SCHLUESSEL_ANZEIGE_ABGELEHNT",
+					"Anzeige des Backup-Schlüssels abgelehnt: Anzeigelimit erreicht", nil, nil)
 			} else {
 				revealedBackupKey = fullKey
 				keySuccess = "revealed"
+				// Wer den Schlüssel gesehen hat, muss nachvollziehbar sein -
+				// der Zähler allein sagt nur, wie oft.
+				writeAudit(r, "BACKUP_SCHLUESSEL_ANGEZEIGT",
+					"Backup-Schlüssel im Klartext angezeigt",
+					nil, map[string]interface{}{
+						"fingerprint":          state.Fingerprint,
+						"anzeigen_verbleibend": state.RevealsRemaining,
+					})
 			}
 		case "ack_backup_key":
 			if err := models.AcknowledgeBackupKeySaved(); err != nil {
@@ -441,11 +424,22 @@ func AdminParzellenLoeschenHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Parzelle vor dem Löschen laden, damit der Audit-Eintrag den Stand festhält
+	parzelle, parzelleErr := models.GetParzelleByID(id)
+
 	// Parzelle und alle abhängigen Daten löschen
 	if err := loescheParzelleMitAbhaengigkeiten(id); err != nil {
 		http.Error(w, "Fehler beim Löschen: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	beschreibung := fmt.Sprintf("Parzelle ID %d samt abhängigen Protokollen gelöscht", id)
+	var davor interface{}
+	if parzelleErr == nil {
+		beschreibung = fmt.Sprintf("Parzelle %s (ID %d) samt abhängigen Protokollen gelöscht", parzelle.Nummer, id)
+		davor = parzelle
+	}
+	writeAudit(r, "PARZELLE_GELOESCHT", beschreibung, davor, nil)
 
 	http.Redirect(w, r, "/admin?success=parzelle_geloescht", http.StatusSeeOther)
 }

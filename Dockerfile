@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.25-bookworm AS builder
+FROM golang:1.26-bookworm AS builder
 
 WORKDIR /build
 
@@ -27,7 +27,21 @@ RUN chmod +x /usr/bin/gartenamt && \
     ls -lh /usr/bin/gartenamt && \
     echo "✅ Binary installed"
 
-RUN mkdir -p /data && chmod 777 /data
+# Unprivilegierter Benutzer mit fester UID/GID: /data enthält Datenbank,
+# Backups, Exporte und den Backup-Schlüssel .app_secret - das braucht weder
+# root noch die bisherigen 0777.
+# Beim Update einer bestehenden Installation muss das Datenverzeichnis auf dem
+# Host einmalig übertragen werden: chown -R 10001:10001 ./nas-data
+RUN groupadd --gid 10001 gartenamt && \
+    useradd --uid 10001 --gid 10001 --home-dir /home/gartenamt --create-home gartenamt && \
+    mkdir -p /data && \
+    chown -R gartenamt:gartenamt /data /home/gartenamt && \
+    chmod 750 /data
+
+# HOME steuert, wo das TLS-Zertifikat abgelegt wird (~/.gartenamt/certs).
+ENV HOME=/home/gartenamt
+
+USER gartenamt
 
 WORKDIR /data
 EXPOSE 8080

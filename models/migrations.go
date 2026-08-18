@@ -32,6 +32,7 @@ var migrations = []migration{
 	{Version: 1, Name: "baseline_schema", Apply: migrateBaselineSchema},
 	{Version: 2, Name: "legacy_column_upgrades", Apply: migrateLegacyColumns},
 	{Version: 3, Name: "users_must_change_password", Apply: migrateMustChangePassword},
+	{Version: 4, Name: "audit_log_description", Apply: migrateAuditLogDescription},
 }
 
 // applyPendingMigrations führt alle noch nicht angewendeten Migrationen aus.
@@ -208,6 +209,7 @@ func migrateBaselineSchema(tx *sql.Tx) error {
 			user_id INTEGER,
 			username TEXT,
 			action TEXT NOT NULL,
+			description TEXT,
 			table_name TEXT,
 			record_id INTEGER,
 			old_values TEXT,
@@ -392,6 +394,24 @@ func migrateMustChangePassword(tx *sql.Tx) error {
 }
 
 // columnExists prüft per PRAGMA table_info, ob eine Spalte existiert.
+// migrateAuditLogDescription ergänzt die Freitext-Spalte des Audit-Logs.
+// Der Go-Code schrieb bisher deutsche Spaltennamen (aktion, beschreibung, ...),
+// die Tabelle trägt aber englische - dadurch schlug jeder INSERT fehl und das
+// Audit-Log blieb leer. Der Schreib-/Lesepfad ist jetzt auf das tatsächliche
+// Schema umgestellt; dort fehlte nur eine Spalte für die Beschreibung.
+func migrateAuditLogDescription(tx *sql.Tx) error {
+	exists, err := columnExists(tx, "audit_log", "description")
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+
+	_, err = tx.Exec("ALTER TABLE audit_log ADD COLUMN description TEXT")
+	return err
+}
+
 func columnExists(tx *sql.Tx, table, column string) (bool, error) {
 	rows, err := tx.Query(fmt.Sprintf("PRAGMA table_info(%q)", table))
 	if err != nil {

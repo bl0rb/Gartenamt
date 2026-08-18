@@ -3,6 +3,7 @@ package models
 import (
 	"database/sql"
 	"errors"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -30,6 +31,11 @@ const (
 	RoleWertermittler UserRole = "wertermittler"
 	RoleUser          UserRole = "user"
 )
+
+// passwordHashCost liegt bewusst ueber bcrypt.DefaultCost (10). Bestehende
+// Hashes mit niedrigerem Kostenfaktor bleiben gueltig und werden bei der
+// naechsten Passwortaenderung angehoben.
+const passwordHashCost = 12
 
 type PermissionDefinition struct {
 	Key      string
@@ -108,6 +114,34 @@ func PermissionCatalog() []PermissionDefinition {
 	}
 }
 
+// RoleRank bildet die Rollen auf eine Rangfolge ab. Sie entscheidet, wer wen
+// verwalten darf: ein Konto kann nur Rollen vergeben und nur Benutzer
+// bearbeiten, deren Rang den eigenen nicht uebersteigt. Damit kann sich
+// niemand ueber die Benutzerverwaltung selbst hoeherstufen.
+func RoleRank(role string) int {
+	switch NormalizeRole(role) {
+	case string(RoleAdmin):
+		return 3
+	case string(RoleVorstand):
+		return 2
+	case string(RoleKassenwart), string(RoleWertermittler):
+		return 1
+	default:
+		return 0
+	}
+}
+
+// CanManageRole prueft, ob eine Rolle Konten der Zielrolle anlegen, bearbeiten
+// oder auf diese Rolle setzen darf.
+func CanManageRole(actorRole, targetRole string) bool {
+	return RoleHasPermission(actorRole, "users.manage") &&
+		RoleRank(actorRole) >= RoleRank(targetRole)
+}
+
+// DefaultRolePermissions liefert die Berechtigungen einer Rolle. Die
+// sicherheitsrelevanten Bereiche (Benutzerverwaltung, Backup, Audit-Log,
+// Einstellungen) bleiben Admin und Vorstand vorbehalten - sonst koennte sich
+// jedes Backoffice-Konto ueber die Benutzerverwaltung zum Admin machen.
 func DefaultRolePermissions(role string) map[string]bool {
 	permissions := map[string]bool{}
 
@@ -115,17 +149,21 @@ func DefaultRolePermissions(role string) map[string]bool {
 		permissions[permission.Key] = false
 	}
 
-	if role == string(RoleAdmin) || role == string(RoleVorstand) {
+	grant := func(keys ...string) {
+		for _, key := range keys {
+			permissions[key] = true
+		}
+	}
+
+	switch NormalizeRole(role) {
+	case string(RoleAdmin), string(RoleVorstand):
 		for _, permission := range PermissionCatalog() {
 			permissions[permission.Key] = true
 		}
-		return permissions
-	}
-
-	if role == string(RoleKassenwart) || role == string(RoleWertermittler) {
-		for _, permission := range PermissionCatalog() {
-			permissions[permission.Key] = permission.Key != "system.settings"
-		}
+	case string(RoleKassenwart):
+		grant("dashboard.access", "stammdaten.manage", "parzellen.manage", "invoices.manage")
+	case string(RoleWertermittler):
+		grant("dashboard.access", "stammdaten.manage", "parzellen.manage", "protokolle.manage")
 	}
 
 	return permissions
@@ -141,7 +179,7 @@ func CreateUser(username, email, password string, role UserRole) (*User, error) 
 	role = UserRole(NormalizeRole(string(role)))
 
 	// Passwort hashen
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), passwordHashCost)
 	if err != nil {
 		return nil, err
 	}
@@ -288,7 +326,7 @@ func CountUsers() int {
 // ChangePassword ändert das Passwort eines Benutzers und hebt eine
 // ggf. gesetzte erzwungene Passwortänderung auf.
 func (u *User) ChangePassword(newPassword string) error {
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), passwordHashCost)
 	if err != nil {
 		return err
 	}
@@ -313,7 +351,7 @@ func SetMustChangePassword(userID int, value bool) error {
 // SetInitialPassword setzt ein neues Initialpasswort und markiert den Benutzer
 // für die erzwungene Passwortänderung beim nächsten Login.
 func SetInitialPassword(userID int, password string) error {
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), passwordHashCost)
 	if err != nil {
 		return err
 	}
@@ -344,11 +382,63 @@ func ReactivateUser(id int) error {
 	return err
 }
 
-// ValidatePassword validates password requirements
+// weakPasswords sind offensichtliche Kandidaten, die trotz ausreichender
+// Laenge nicht zugelassen werden.
+var weakPasswords = map[string]bool{
+	"passwort12":    true,
+	"passwort123":   true,
+	"password12":    true,
+	"password123":   true,
+	"passwort1234":  true,
+	"kleingarten":   true,
+	"gartenamt1":    true,
+	"gartenamt12":   true,
+	"1234567890":    true,
+	"0123456789":    true,
+	"qwertzuiop":    true,
+	"qwertyuiop":    true,
+	"administrator": true,
+	"geheim1234":    true,
+	"willkommen1":   true,
+}
+
+// ValidatePassword prueft die Passwortregeln ohne Benutzerbezug.
 func ValidatePassword(password string) error {
-	if len(password) < 10 {
+	return ValidatePasswordForUser(password, "")
+}
+
+// ValidatePasswordForUser prueft die Passwortregeln und schliesst zusaetzlich
+// Passwoerter aus, die den Benutzernamen enthalten.
+func ValidatePasswordForUser(password, username string) error {
+	if len([]rune(password)) < 10 {
 		return errors.New("passwort muss mindestens 10 Zeichen lang sein")
 	}
 
+	lower := strings.ToLower(password)
+
+	if weakPasswords[lower] {
+		return errors.New("passwort ist zu leicht zu erraten - bitte ein anderes waehlen")
+	}
+
+	if username != "" {
+		if user := strings.ToLower(strings.TrimSpace(username)); user != "" && strings.Contains(lower, user) {
+			return errors.New("passwort darf den Benutzernamen nicht enthalten")
+		}
+	}
+
+	if isSingleRepeatedRune(password) {
+		return errors.New("passwort darf nicht aus einem einzigen wiederholten Zeichen bestehen")
+	}
+
 	return nil
+}
+
+func isSingleRepeatedRune(password string) bool {
+	runes := []rune(password)
+	for _, r := range runes[1:] {
+		if r != runes[0] {
+			return false
+		}
+	}
+	return true
 }

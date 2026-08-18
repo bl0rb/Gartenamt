@@ -6,6 +6,10 @@ services:
       dockerfile: Dockerfile
     image: gartenamt:modular
     container_name: gartenamt
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     ports:
       - "8080:8080"
     environment:
@@ -23,6 +27,8 @@ services:
       dockerfile: Dockerfile
     image: kleingarten-public-web:latest
     container_name: kleingarten-public-web
+    security_opt:
+      - no-new-privileges:true
     ports:
       - "8081:80"
       - "8443:443"

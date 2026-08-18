@@ -33,6 +33,33 @@ type CSVHealthReport struct {
 	Counts        map[string]int
 }
 
+// writeCSVRecord schreibt eine Datenzeile und entschaerft dabei jedes Feld.
+func writeCSVRecord(writer *csv.Writer, record []string) {
+	sanitized := make([]string, len(record))
+	for i, value := range record {
+		sanitized[i] = sanitizeCSVValue(value)
+	}
+	_ = writer.Write(sanitized)
+}
+
+// sanitizeCSVValue verhindert Formel-Injektion: Excel wertet Felder, die mit
+// "=", "+", "-", "@" oder einem Steuerzeichen beginnen, beim Oeffnen als
+// Formel aus. Ein vorangestelltes Apostroph macht daraus wieder Text. Die
+// Exporte sind ausdruecklich fuer Excel gedacht (BOM, Semikolon als Trenner),
+// deshalb ist genau dieser Weg vorgezeichnet.
+func sanitizeCSVValue(value string) string {
+	if value == "" {
+		return value
+	}
+
+	switch value[0] {
+	case '=', '+', '-', '@', '\t', '\r':
+		return "'" + value
+	}
+
+	return value
+}
+
 func NewCSVService() *CSVService {
 	exportDir := "exports"
 	os.MkdirAll(exportDir, 0755)
@@ -127,7 +154,7 @@ func (s *CSVService) ExportParzellen() (string, error) {
 			formatTimeForCSV(kuendigungDatum),
 			formatTimeForCSV(erstelltAm),
 		}
-		writer.Write(record)
+		writeCSVRecord(writer, record)
 	}
 
 	log.Printf("Parzellen exportiert: %s", fileName)
@@ -211,7 +238,7 @@ func (s *CSVService) ExportWertermittlungen() (string, error) {
 			begruendung,
 			erstelltAm.Format("2006-01-02 15:04:05"),
 		}
-		writer.Write(record)
+		writeCSVRecord(writer, record)
 	}
 
 	log.Printf("Wertermittlungen exportiert: %s", fileName)
@@ -268,7 +295,7 @@ func (s *CSVService) ExportObstarten() (string, error) {
 			beschreibung,
 			boolToString(aktiv),
 		}
-		writer.Write(record)
+		writeCSVRecord(writer, record)
 	}
 
 	log.Printf("Obstarten exportiert: %s", fileName)
@@ -330,7 +357,7 @@ func (s *CSVService) ExportZieranpflanzungen() (string, error) {
 			maxFlaecheStr,
 			boolToString(aktiv),
 		}
-		writer.Write(record)
+		writeCSVRecord(writer, record)
 	}
 
 	log.Printf("Zieranpflanzungen exportiert: %s", fileName)
@@ -376,7 +403,7 @@ func (s *CSVService) ExportBauindex() (string, error) {
 			strconv.Itoa(jahr),
 			fmt.Sprintf("%.1f", bauindex),
 		}
-		writer.Write(record)
+		writeCSVRecord(writer, record)
 	}
 
 	log.Printf("Bauindex exportiert: %s", fileName)

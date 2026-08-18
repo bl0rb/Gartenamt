@@ -13,14 +13,27 @@ name: gartenamt
 #   docker compose -f docker-compose.nas.yml up -d
 # (Datenbank-Migrationen laufen beim Start automatisch.)
 #
-# Feste Version statt "latest": KLEINGARTEN_TAG=0.2.0 in einer .env-Datei
-# neben dieser Compose-Datei setzen.
+# Die Version steht fest in KLEINGARTEN_TAG (Default unten). Ein bewegliches
+# "latest" macht Updates weder reproduzierbar noch überprüfbar - für eine neue
+# Version den Wert hier oder in einer .env-Datei daneben hochziehen.
+#
+# UMSTELLUNG AB 1.1.0: Der Container läuft nicht mehr als root. Bei einer
+# bestehenden Installation einmalig auf dem NAS ausführen, sonst kann die App
+# ihre Datenbank nicht mehr schreiben:
+#   sudo chown -R 10001:10001 ./nas-data
+# Das Zertifikat liegt jetzt unter /home/gartenamt statt /root und wird beim
+# ersten Start einmalig neu erzeugt (eine Browser-Warnung).
 
 services:
   verwaltung:
-    image: ghcr.io/bl0rb/gartenamt:${KLEINGARTEN_TAG:-latest}
+    image: ghcr.io/bl0rb/gartenamt:${KLEINGARTEN_TAG:-1.1.0}
     restart: always
     container_name: gartenamt
+    # Keine zusätzlichen Kernel-Rechte, keine Rechteausweitung im Container.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     ports:
       - "8080:8080"
     environment:
@@ -35,7 +48,7 @@ services:
       - ./nas-data/gartenamt:/data:rw
       # TLS-Zertifikat persistieren (sonst bei jedem Neuerstellen des
       # Containers eine neue Browser-Warnung)
-      - ./nas-data/certs:/root/.gartenamt:rw
+      - ./nas-data/certs:/home/gartenamt/.gartenamt:rw
     healthcheck:
       test: ["CMD", "curl", "-fsk", "https://localhost:8080/login"]
       interval: 30s

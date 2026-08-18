@@ -165,9 +165,6 @@ func main() {
 	// Router erstellen
 	r := mux.NewRouter()
 
-	// CSRF-Schutz für alle state-ändernden Requests (Origin/Referer-Prüfung)
-	r.Use(middleware.CSRFProtect)
-
 	// Static files (UNGESCHÜTZT - nur eingebettete Assets, keine Nutzerdaten)
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.FS(handlers.GetEmbeddedStaticFS()))))
 
@@ -297,9 +294,27 @@ func main() {
 	}
 	log.Println()
 
+	// Middleware-Kette um den gesamten Router - so greifen Header und Limits
+	// auch bei Anfragen, die auf keine Route passen.
+	//   SecurityHeaders  -> Schutz-Header und no-store
+	//   LimitRequestBody -> Obergrenze für Request-Körper
+	//   CSRFProtect      -> Origin/Referer-Prüfung für schreibende Methoden
+	handler := middleware.SecurityHeaders(
+		middleware.LimitRequestBody(
+			middleware.CSRFProtect(r)))
+
+	// Ohne Timeouts hält jede halb geöffnete Verbindung unbegrenzt eine
+	// Goroutine (Slowloris). ReadHeaderTimeout ist dabei die eigentliche
+	// Bremse; die übrigen Fristen sind großzügig, damit Backup-Uploads und
+	// PDF-Downloads im LAN nicht abbrechen.
 	server := &http.Server{
-		Addr:    ":8080",
-		Handler: r,
+		Addr:              ":8080",
+		Handler:           handler,
+		ReadHeaderTimeout: 15 * time.Second,
+		ReadTimeout:       5 * time.Minute,
+		WriteTimeout:      5 * time.Minute,
+		IdleTimeout:       2 * time.Minute,
+		MaxHeaderBytes:    1 << 20,
 	}
 
 	// Signal handling for graceful shutdown

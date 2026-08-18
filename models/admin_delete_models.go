@@ -20,7 +20,9 @@ type ParzelleStatistik struct {
 	GesamtWert             float64    `json:"gesamt_wert"`
 }
 
-// AuditLog für Nachverfolgung von Admin-Aktionen
+// AuditLog für Nachverfolgung von Admin-Aktionen.
+// Die Feldnamen sind deutsch, die Spalten der Tabelle englisch - das Mapping
+// steht in Save() und GetAuditLogs().
 type AuditLog struct {
 	ID           int         `json:"id"`
 	Aktion       string      `json:"aktion"`
@@ -30,6 +32,8 @@ type AuditLog struct {
 	Zeitstempel  time.Time   `json:"zeitstempel"`
 	IPAdresse    string      `json:"ip_adresse"`
 	BenutzerID   *int        `json:"benutzer_id,omitempty"`
+	Benutzer     string      `json:"benutzer,omitempty"`
+	UserAgent    string      `json:"user_agent,omitempty"`
 }
 
 // SystemInfo für Admin-Dashboard
@@ -311,10 +315,10 @@ func (a *AuditLog) Save() error {
 	datenVorherJSON, _ := json.Marshal(a.DatenVorher)
 	datenNachherJSON, _ := json.Marshal(a.DatenNachher)
 
-	query := `INSERT INTO audit_log (aktion, beschreibung, daten_vorher, daten_nachher, zeitstempel, ip_adresse, benutzer_id) 
-              VALUES (?, ?, ?, ?, ?, ?, ?)`
-	result, err := DB.Exec(query, a.Aktion, a.Beschreibung, string(datenVorherJSON),
-		string(datenNachherJSON), a.Zeitstempel, a.IPAdresse, a.BenutzerID)
+	query := `INSERT INTO audit_log (user_id, username, action, description, old_values, new_values, ip_address, user_agent, timestamp)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	result, err := DB.Exec(query, a.BenutzerID, a.Benutzer, a.Aktion, a.Beschreibung,
+		string(datenVorherJSON), string(datenNachherJSON), a.IPAdresse, a.UserAgent, a.Zeitstempel)
 	if err != nil {
 		return err
 	}
@@ -324,8 +328,9 @@ func (a *AuditLog) Save() error {
 }
 
 func GetAuditLogs(limit int) ([]AuditLog, error) {
-	query := `SELECT id, aktion, beschreibung, daten_vorher, daten_nachher, zeitstempel, ip_adresse, benutzer_id 
-              FROM audit_log ORDER BY zeitstempel DESC LIMIT ?`
+	query := `SELECT id, action, COALESCE(description, ''), COALESCE(old_values, ''), COALESCE(new_values, ''),
+                     timestamp, COALESCE(ip_address, ''), user_id, COALESCE(username, ''), COALESCE(user_agent, '')
+              FROM audit_log ORDER BY timestamp DESC, id DESC LIMIT ?`
 	rows, err := DB.Query(query, limit)
 	if err != nil {
 		return nil, err
@@ -339,7 +344,7 @@ func GetAuditLogs(limit int) ([]AuditLog, error) {
 		var benutzerID sql.NullInt64
 
 		err := rows.Scan(&a.ID, &a.Aktion, &a.Beschreibung, &datenVorherJSON,
-			&datenNachherJSON, &a.Zeitstempel, &a.IPAdresse, &benutzerID)
+			&datenNachherJSON, &a.Zeitstempel, &a.IPAdresse, &benutzerID, &a.Benutzer, &a.UserAgent)
 		if err != nil {
 			return nil, err
 		}

@@ -32,8 +32,8 @@ type invoiceHistoryEntry struct {
 // WasserHandler lists and manages water records for a parzelle
 func WasserHandler(w http.ResponseWriter, r *http.Request) {
 	// Check admin privilege
-	if !middleware.IsAdmin(r) {
-		http.Error(w, "Unauthorized", http.StatusForbidden)
+	if !middleware.HasPermission(r, "invoices.manage") {
+		http.Error(w, "Zugriff verweigert - Berechtigung fehlt", http.StatusForbidden)
 		return
 	}
 
@@ -77,8 +77,8 @@ func WasserHandler(w http.ResponseWriter, r *http.Request) {
 // StromHandler lists and manages electricity records for a parzelle
 func StromHandler(w http.ResponseWriter, r *http.Request) {
 	// Check admin privilege
-	if !middleware.IsAdmin(r) {
-		http.Error(w, "Unauthorized", http.StatusForbidden)
+	if !middleware.HasPermission(r, "invoices.manage") {
+		http.Error(w, "Zugriff verweigert - Berechtigung fehlt", http.StatusForbidden)
 		return
 	}
 
@@ -121,8 +121,8 @@ func StromHandler(w http.ResponseWriter, r *http.Request) {
 
 // DeleteWasserHandler deletes a water record
 func DeleteWasserHandler(w http.ResponseWriter, r *http.Request) {
-	if !middleware.IsAdmin(r) {
-		http.Error(w, "Unauthorized", http.StatusForbidden)
+	if !middleware.HasPermission(r, "invoices.manage") {
+		http.Error(w, "Zugriff verweigert - Berechtigung fehlt", http.StatusForbidden)
 		return
 	}
 
@@ -144,8 +144,8 @@ func DeleteWasserHandler(w http.ResponseWriter, r *http.Request) {
 
 // DeleteStromHandler deletes an electricity record
 func DeleteStromHandler(w http.ResponseWriter, r *http.Request) {
-	if !middleware.IsAdmin(r) {
-		http.Error(w, "Unauthorized", http.StatusForbidden)
+	if !middleware.HasPermission(r, "invoices.manage") {
+		http.Error(w, "Zugriff verweigert - Berechtigung fehlt", http.StatusForbidden)
 		return
 	}
 
@@ -167,9 +167,9 @@ func DeleteStromHandler(w http.ResponseWriter, r *http.Request) {
 
 // OrganizationSettingsHandler manages the organization details
 func OrganizationSettingsHandler(w http.ResponseWriter, r *http.Request) {
-	// Only admins can access
-	if !middleware.IsAdmin(r) {
-		http.Error(w, "Unauthorized", http.StatusForbidden)
+	// Vereins-/Maileinstellungen hängen an settings.manage - passend zur Route.
+	if !middleware.HasPermission(r, "settings.manage") {
+		http.Error(w, "Zugriff verweigert - Berechtigung fehlt", http.StatusForbidden)
 		return
 	}
 
@@ -206,8 +206,8 @@ func OrganizationSettingsHandler(w http.ResponseWriter, r *http.Request) {
 
 // InvoicePreviewHandler generates a preview of an invoice (for display before printing)
 func InvoicePreviewHandler(w http.ResponseWriter, r *http.Request) {
-	if !middleware.IsAdmin(r) {
-		http.Error(w, "Unauthorized", http.StatusForbidden)
+	if !middleware.HasPermission(r, "invoices.manage") {
+		http.Error(w, "Zugriff verweigert - Berechtigung fehlt", http.StatusForbidden)
 		return
 	}
 
@@ -251,8 +251,8 @@ func InvoicePreviewHandler(w http.ResponseWriter, r *http.Request) {
 
 // InvoiceHistoryHandler returns all available old invoices for a parzelle by month/year.
 func InvoiceHistoryHandler(w http.ResponseWriter, r *http.Request) {
-	if !middleware.IsAdmin(r) {
-		http.Error(w, "Unauthorized", http.StatusForbidden)
+	if !middleware.HasPermission(r, "invoices.manage") {
+		http.Error(w, "Zugriff verweigert - Berechtigung fehlt", http.StatusForbidden)
 		return
 	}
 
@@ -284,8 +284,8 @@ func InvoiceHistoryHandler(w http.ResponseWriter, r *http.Request) {
 
 // InvoicePDFDownloadHandler creates a PDF for a selected old invoice period and type.
 func InvoicePDFDownloadHandler(w http.ResponseWriter, r *http.Request) {
-	if !middleware.IsAdmin(r) {
-		http.Error(w, "Unauthorized", http.StatusForbidden)
+	if !middleware.HasPermission(r, "invoices.manage") {
+		http.Error(w, "Zugriff verweigert - Berechtigung fehlt", http.StatusForbidden)
 		return
 	}
 
@@ -350,8 +350,8 @@ func InvoicePDFDownloadHandler(w http.ResponseWriter, r *http.Request) {
 
 // AdminBulkInvoiceExportHandler exports all available invoices grouped by parzelle as ZIP.
 func AdminBulkInvoiceExportHandler(w http.ResponseWriter, r *http.Request) {
-	if !middleware.IsAdmin(r) {
-		http.Error(w, "Unauthorized", http.StatusForbidden)
+	if !middleware.HasPermission(r, "invoices.manage") {
+		http.Error(w, "Zugriff verweigert - Berechtigung fehlt", http.StatusForbidden)
 		return
 	}
 
