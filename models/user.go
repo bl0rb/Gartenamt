@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -252,6 +253,26 @@ func GetUserByID(id int) (*User, error) {
 	}
 
 	return user, nil
+}
+
+// dummyPasswordHash wird beim ersten Bedarf erzeugt und dient allein dazu,
+// bei unbekanntem Benutzernamen dieselbe Rechenzeit zu verbrauchen wie bei
+// einem echten Konto.
+var dummyPasswordHash = sync.OnceValue(func() []byte {
+	hash, err := bcrypt.GenerateFromPassword([]byte("kein-echtes-passwort"), passwordHashCost)
+	if err != nil {
+		return nil
+	}
+	return hash
+})
+
+// ConsumeDummyPasswordTime prüft ein Passwort gegen einen Wegwerf-Hash, damit
+// ein fehlgeschlagener Login unabhängig davon gleich lange dauert, ob es den
+// Benutzer gibt.
+func ConsumeDummyPasswordTime(password string) {
+	if hash := dummyPasswordHash(); hash != nil {
+		_ = bcrypt.CompareHashAndPassword(hash, []byte(password))
+	}
 }
 
 // ValidatePassword überprüft das Passwort

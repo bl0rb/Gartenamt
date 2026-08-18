@@ -166,7 +166,8 @@ func main() {
 	r := mux.NewRouter()
 
 	// Static files (UNGESCHÜTZT - nur eingebettete Assets, keine Nutzerdaten)
-	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.FS(handlers.GetEmbeddedStaticFS()))))
+	staticFiles := http.StripPrefix("/static/", http.FileServer(http.FS(handlers.GetEmbeddedStaticFS())))
+	r.PathPrefix("/static/").Handler(noDirectoryListing(staticFiles))
 
 	// *** AUTHENTIFIZIERUNGS-ROUTEN (UNGESCHÜTZT) ***
 	r.HandleFunc("/login", handlers.LoginHandler).Methods("GET", "POST")
@@ -364,6 +365,18 @@ func main() {
 
 		log.Fatal(server.ListenAndServeTLS("", ""))
 	}
+}
+
+// noDirectoryListing unterbindet die Verzeichnisauflistung des FileServers.
+// Sie legt sonst offen, welche Assets in welcher Version eingebettet sind.
+func noDirectoryListing(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/") {
+			http.NotFound(w, r)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // desktopURL ist die Adresse im Desktop-Modus (HTTP nur auf localhost).

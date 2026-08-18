@@ -153,6 +153,17 @@ func TestLimitRequestBody(t *testing.T) {
 		t.Errorf("übergroßer Request wurde nicht begrenzt: Status %d", recorder.Code)
 	}
 
+	// Ohne angekündigte Länge (chunked) muss MaxBytesReader greifen.
+	chunked := httptest.NewRequest(http.MethodPost, "/parzellen/neu",
+		strings.NewReader(strings.Repeat("x", maxRequestBody+1024)))
+	chunked.ContentLength = -1
+	chunkedRecorder := httptest.NewRecorder()
+	LimitRequestBody(readAll).ServeHTTP(chunkedRecorder, chunked)
+
+	if chunkedRecorder.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("übergroßer chunked-Request wurde nicht begrenzt: Status %d", chunkedRecorder.Code)
+	}
+
 	// Die Upload-Route darf mehr annehmen als das allgemeine Limit.
 	upload := strings.NewReader(strings.Repeat("x", maxRequestBody+1024))
 	uploadRequest := httptest.NewRequest(http.MethodPost, "/admin/backup", upload)

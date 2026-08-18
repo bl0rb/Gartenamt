@@ -30,6 +30,17 @@ func LimitRequestBody(next http.Handler) http.Handler {
 			if uploadPaths[r.URL.Path] {
 				limit = maxUploadBody
 			}
+
+			// Angekündigte Übergrößen sofort abweisen. Ohne diese Prüfung
+			// schneidet MaxBytesReader den Körper nur ab; die Handler werten
+			// den Fehler von ParseForm nicht aus und verarbeiten dann eine
+			// halbe Anfrage mit leeren Feldern.
+			if r.ContentLength > limit {
+				http.Error(w, "Anfrage zu groß", http.StatusRequestEntityTooLarge)
+				return
+			}
+
+			// Greift zusätzlich, wenn keine Länge angekündigt wurde (chunked).
 			r.Body = http.MaxBytesReader(w, r.Body, limit)
 		}
 		next.ServeHTTP(w, r)

@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -109,6 +110,14 @@ func safeRedirectPath(raw string) string {
 	// Steuerzeichen wuerden den Location-Header zerlegen.
 	for _, r := range raw {
 		if r < 0x20 || r == 0x7f {
+			return ""
+		}
+	}
+
+	// Auch in prozentkodierter Form kein protokollrelativer Verweis: manche
+	// Proxys und Browser normalisieren %2f, bevor sie das Ziel auswerten.
+	if decoded, err := url.PathUnescape(raw); err == nil {
+		if strings.HasPrefix(decoded, "//") || strings.HasPrefix(decoded, "/\\") {
 			return ""
 		}
 	}

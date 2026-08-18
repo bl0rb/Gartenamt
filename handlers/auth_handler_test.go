@@ -18,6 +18,9 @@ func TestSafeRedirectPath(t *testing.T) {
 		{"relativer Pfad ohne Slash", "parzellen", ""},
 		{"Zeilenumbruch im Ziel", "/parzellen\r\nSet-Cookie: a=b", ""},
 		{"Schleife auf die Loginseite", "/login?redirect=/admin", ""},
+		{"kodierter Doppel-Slash", "/%2f%2fangreifer.tld", ""},
+		{"kodierter Backslash", "/%5c%5cangreifer.tld", ""},
+		{"Tabulator roh", "/\t/angreifer.tld", ""},
 	}
 
 	for _, c := range cases {

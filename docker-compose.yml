@@ -1,7 +1,7 @@
 
 services:
   kleingarten:
-    image: gartenamt:${IMAGE_TAG:-1.1.0}
+    image: gartenamt:${IMAGE_TAG:-1.1.1}
     build:
       context: .
       dockerfile: Dockerfile
