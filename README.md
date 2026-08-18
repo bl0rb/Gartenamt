@@ -1,5 +1,21 @@
 # Gartenamt
 
+[![Build Check](https://img.shields.io/github/actions/workflow/status/bl0rb/Gartenamt/docker-build.yml?branch=main&label=Build%20Check&logo=githubactions&logoColor=white&style=flat-square)](https://github.com/bl0rb/Gartenamt/actions/workflows/docker-build.yml)
+[![Release](https://img.shields.io/github/v/release/bl0rb/Gartenamt?label=Release&logo=github&color=25503C&style=flat-square)](https://github.com/bl0rb/Gartenamt/releases/latest)
+[![Lizenz](https://img.shields.io/badge/Lizenz-PolyForm%20Noncommercial%201.0.0-6E7970?style=flat-square)](LICENSE)
+
+[![Go](https://img.shields.io/badge/Go-1.26.6-00ADD8?logo=go&logoColor=white&style=flat-square)](go.mod)
+[![SQLite](https://img.shields.io/badge/SQLite-eingebettet-003B57?logo=sqlite&logoColor=white&style=flat-square)](#repository-struktur)
+[![macOS](https://img.shields.io/badge/macOS-universal-000000?logo=apple&logoColor=white&style=flat-square)](https://github.com/bl0rb/Gartenamt/releases/latest)
+[![Windows](https://img.shields.io/badge/Windows-amd64-0078D4?logo=windows&logoColor=white&style=flat-square)](https://github.com/bl0rb/Gartenamt/releases/latest)
+[![Linux](https://img.shields.io/badge/Linux-amd64-FCC624?logo=linux&logoColor=black&style=flat-square)](https://github.com/bl0rb/Gartenamt/releases/latest)
+[![Docker](https://img.shields.io/badge/Docker-ubuntu%2026.04-2496ED?logo=docker&logoColor=white&style=flat-square)](DOCKER_DEPLOYMENT.md)
+
+[![govulncheck](https://img.shields.io/badge/govulncheck-0%20Befunde-2E6A44?logo=go&logoColor=white&style=flat-square)](.github/workflows/docker-build.yml)
+[![Audit & Pentest](https://img.shields.io/badge/Audit%20%26%20Pentest-Claude%20Opus%205-D97757?logo=anthropic&logoColor=white&style=flat-square)](#sicherheit)
+[![Container](https://img.shields.io/badge/Container-non--root%20uid%2010001-0DB7ED?logo=docker&logoColor=white&style=flat-square)](Dockerfile)
+[![HTTP-Header](https://img.shields.io/badge/HTTP-CSP%20%C2%B7%20HSTS%20%C2%B7%20SameSite-3F6382?style=flat-square)](middleware/security.go)
+
 Verwaltungssoftware für Kleingartenvereine: Parzellen, Pächter, Inspektionen, Wertermittlungen, Wasser-/Stromabrechnung und Rechnungsversand — als einzelne Go-Anwendung mit SQLite, ohne externe Dienste selbst zu hosten.
 
 *Management software for German allotment garden associations (Kleingartenvereine), built with Go and SQLite. The application and its documentation are in German, as its workflows follow German allotment-garden regulations.*
@@ -19,7 +35,7 @@ Die Weboberfläche läuft komplett lokal (HTTPS mit selbstsigniertem Zertifikat)
 
 ## Schnellstart (lokal)
 
-Voraussetzung: Go 1.21+ und ein C-Compiler (für SQLite/cgo).
+Voraussetzung: Go 1.26.6+ und ein C-Compiler (für SQLite/cgo).
 
 ```bash
 git clone https://github.com/bl0rb/Gartenamt.git
@@ -105,6 +121,28 @@ Die App läuft ohne Dock-Symbol, zeigt aber ein Symbol in der Menüleiste: Darü
 **Datenbank-Updates sind automatisch und sicher:** Die App verwaltet ihr SQLite-Schema über versionierte Migrationen (Tabelle `schema_migrations`). Beim ersten Start einer neuen Version werden ausstehende Migrationen einzeln in Transaktionen angewendet — schlägt eine fehl, wird sie zurückgerollt und die App startet nicht mit halbem Schema. Ein Downgrade auf eine ältere Programmversion mit neuerer Datenbank wird erkannt und mit klarer Fehlermeldung abgelehnt. Vor größeren Updates empfiehlt sich trotzdem ein Backup (*Admin → Backup*).
 
 Abhängigkeits-Updates (Go-Module, GitHub Actions, Docker-Basis-Images) werden wöchentlich per Dependabot vorgeschlagen.
+
+## Sicherheit
+
+Die Anwendung ist für den Betrieb im **lokalen Vereinsnetz** gedacht; für den Zugriff über das Internet gehört ein Reverse-Proxy mit echtem Zertifikat davor. Details und der Meldeweg für Schwachstellen stehen in [SECURITY.md](SECURITY.md).
+
+Was fest eingebaut ist:
+
+| Bereich | Umsetzung |
+| --- | --- |
+| Passwörter | bcrypt mit Kostenfaktor 12, Mindestlänge 10, Sperrliste, kein Benutzername im Passwort |
+| Sitzungen | 256-Bit-IDs aus `crypto/rand`, `HttpOnly` · `Secure` · `SameSite=Strict`, 24 h Inaktivität und 7 Tage Höchstdauer |
+| Anmeldung | Sperre nach 5 Fehlversuchen je Konto und 50 je IP, gleiche Antwortzeit für bekannte und unbekannte Konten |
+| Rollen | Benutzerverwaltung, Backup, Audit-Log und Einstellungen nur für Admin und Vorstand; niemand vergibt eine Rolle über der eigenen |
+| HTTP | CSP, `X-Frame-Options`, `nosniff`, `Referrer-Policy`, HSTS im Server-Modus, `no-store` außerhalb von `/static/` |
+| Daten | Backups und SMTP-Passwörter mit AES-256-GCM, parametrisierte SQL-Abfragen, automatisches Escaping in allen Templates |
+| Betrieb | Container als UID/GID 10001 ohne zusätzliche Kernel-Rechte, Server-Timeouts, Größenlimits für Anfragen |
+
+**Prüfstand:** Der Code wurde von **Claude Opus 5** einem Sicherheitsaudit und anschließend einem Penetrationstest gegen eine laufende Instanz unterzogen (Autorisierungsmatrix über alle Routen und Rollen, Injection, XSS, Pfad-Traversal, CSRF, Sitzungsangriffe, Uploads und Geschäftslogik). 23 der 24 Befunde sind behoben und in v1.1.1 veröffentlicht.
+
+Bewusst nicht geändert: Die Initial-Zugangsdaten des Administrators werden bis zur ersten Passwortänderung auf der Login-Seite angezeigt, damit sie beim Start als App-Bundle ohne sichtbare Konsole auffindbar bleiben. **Diese Änderung gehört deshalb in die Inbetriebnahme, nicht auf die Liste danach** — bis dahin kann jeder mit Netzzugriff das Konto übernehmen.
+
+`govulncheck` und die Testsuite laufen bei jedem Push in der CI.
 
 ## Mitwirken
 
