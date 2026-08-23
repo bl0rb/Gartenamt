@@ -15,13 +15,13 @@
         </div>
 
         {{if eq .Success "restore"}}
-        <div class="alert alert-success"><i class="fas fa-check-circle"></i> Wiederherstellung erfolgreich abgeschlossen.</div>
+        <div class="alert alert-success" role="alert"><i class="fas fa-check-circle"></i> Wiederherstellung erfolgreich abgeschlossen.</div>
         {{end}}
         {{if eq .Success "verify"}}
-        <div class="alert alert-success"><i class="fas fa-shield-alt"></i> Backup-Prüfung erfolgreich: {{.VerifyInfo}}</div>
+        <div class="alert alert-success" role="alert"><i class="fas fa-shield-alt"></i> Backup-Prüfung erfolgreich: {{.VerifyInfo}}</div>
         {{end}}
         {{if .Error}}
-        <div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> Aktion fehlgeschlagen: {{.Error}}</div>
+        <div class="alert alert-danger" role="alert"><i class="fas fa-exclamation-triangle"></i> Aktion fehlgeschlagen: {{.Error}}</div>
         {{end}}
 
         <!-- CSV EXPORT Sektion -->
@@ -126,6 +126,17 @@
                                 </select>
                             </div>
 
+                            <!-- Wertermittlungen bewusst NICHT im Select: Der CSV-Export bildet nur die
+                                 aggregierten Werte ab, nicht das verschachtelte Details-JSON (Laube,
+                                 Baulichkeiten[], Obst[], Gemuese[], Zier - siehe models.WertermittlungDetails).
+                                 Ein CSV-Import könnte dieses JSON nicht verlustfrei rekonstruieren und würde
+                                 damit die Nachvollziehbarkeit der Wertermittlung beschädigen. -->
+                            <div class="alert alert-secondary py-2 px-3 mb-3">
+                                <small><i class="fas fa-info-circle"></i>
+                                Wertermittlungen können aus Konsistenzgründen nur über das verschlüsselte
+                                Voll-Backup wiederhergestellt werden.</small>
+                            </div>
+
                             <div class="mb-3">
                                 <label for="csv_file" class="form-label">CSV-Datei</label>
                                 <input type="file" class="form-control" name="csv_file" id="csv_file" 
@@ -195,7 +206,7 @@
 
                         <hr>
                         <h6>Backup wiederherstellen</h6>
-                        <form method="POST" enctype="multipart/form-data" onsubmit="return confirm('Wirklich wiederherstellen? Die aktuelle Datenbank wird ersetzt.');">
+                        <form method="POST" enctype="multipart/form-data" id="restoreForm" onsubmit="event.preventDefault(); openRestoreConfirm();">
                             <input type="hidden" name="action" value="database_restore">
                             <input type="file" class="form-control mb-2" name="backup_file" accept=".kgbak" required>
                             <button type="submit" class="btn btn-danger w-100">
@@ -241,8 +252,11 @@
                         {{if .BackupFiles}}
                         <ul class="list-group list-group-flush">
                             {{range .BackupFiles}}
-                            <li class="list-group-item">
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
                                 <small>{{.}}</small>
+                                <a href="/admin/backups/{{.}}" class="btn btn-outline-primary btn-sm" title="Backup herunterladen">
+                                    <i class="fas fa-download"></i>
+                                </a>
                             </li>
                             {{end}}
                         </ul>
@@ -284,6 +298,31 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Wiederherstellung bestätigen -->
+<div class="modal fade" id="restoreModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Datenbank wiederherstellen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>Warnung:</strong> Die aktuelle Datenbank wird vollständig durch das Backup ersetzt. Diese Aktion kann nicht rückgängig gemacht werden!
+                </div>
+                <p>Geben Sie zur Bestätigung <strong>WIEDERHERSTELLEN</strong> ein:</p>
+                <input type="text" class="form-control" id="restore-confirmation" placeholder="WIEDERHERSTELLEN">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-danger" id="confirm-restore-btn" disabled
+                        onclick="executeRestore()">Wiederherstellung starten</button>
             </div>
         </div>
     </div>
@@ -345,6 +384,26 @@ document.getElementById('importForm').addEventListener('submit', function(e) {
         e.preventDefault();
         return;
     }
+});
+
+// Wiederherstellung: Tipp-Bestätigung statt natives confirm()
+function openRestoreConfirm() {
+    const fileInput = document.querySelector('#restoreForm input[name="backup_file"]');
+    if (!fileInput.files.length) {
+        fileInput.reportValidity();
+        return;
+    }
+    document.getElementById('restore-confirmation').value = '';
+    document.getElementById('confirm-restore-btn').disabled = true;
+    new bootstrap.Modal(document.getElementById('restoreModal')).show();
+}
+
+function executeRestore() {
+    document.getElementById('restoreForm').submit();
+}
+
+document.getElementById('restore-confirmation').addEventListener('input', function() {
+    document.getElementById('confirm-restore-btn').disabled = this.value !== 'WIEDERHERSTELLEN';
 });
 </script>
 {{end}}

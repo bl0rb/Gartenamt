@@ -12,6 +12,69 @@ import (
 	"github.com/jung-kurt/gofpdf"
 )
 
+// mangelView spiegelt models.Mangel für die Formularanzeige, ergänzt um
+// Checked (in diesem Submit angehakt) - so verwenden GET- und Fehler-Rerender
+// denselben Typ und das Template kann {{.Checked}} gefahrlos auf beiden Wegen
+// auswerten.
+type mangelView struct {
+	Nr              int
+	Beschreibung    string
+	Rechtsgrundlage string
+	Erfuellt        bool
+	Checked         bool
+}
+
+// buildMangelViews liefert die vordefinierten Mängel fürs Formular. checkedNrs
+// markiert die im aktuellen (fehlgeschlagenen) Submit angehakten Positionen,
+// damit sie beim Rerender erhalten bleiben; bei nil (GET) ist keine Position
+// angehakt.
+func buildMangelViews(checkedNrs map[int]bool) []mangelView {
+	views := make([]mangelView, 0, len(models.VordefinierteManagel))
+	for _, vm := range models.VordefinierteManagel {
+		views = append(views, mangelView{
+			Nr:              vm.Nr,
+			Beschreibung:    vm.Beschreibung,
+			Rechtsgrundlage: vm.Rechtsgrundlage,
+			Erfuellt:        vm.Erfuellt,
+			Checked:         checkedNrs[vm.Nr],
+		})
+	}
+	return views
+}
+
+// checkedMangelNrs liest die im Request angehakten Mängel-Nummern. Für bereits
+// erfüllte (disabled) Positionen liefert das Template zusätzlich ein
+// hidden-Feld mit demselben Namen - der Browser überträgt disabled-Checkboxen
+// sonst gar nicht.
+func checkedMangelNrs(r *http.Request) map[int]bool {
+	checked := make(map[int]bool)
+	for _, vm := range models.VordefinierteManagel {
+		if r.FormValue(fmt.Sprintf("mangel_%d", vm.Nr)) == "true" {
+			checked[vm.Nr] = true
+		}
+	}
+	return checked
+}
+
+// renderInspektionForm rendert das Inspektionsformular erneut - mit Fehlermeldung
+// und allen bereits eingegebenen Werten (angehakte Mängel, Frist, Freitext),
+// statt sie bei einem Speicherfehler zu verwerfen.
+func renderInspektionForm(w http.ResponseWriter, r *http.Request, parzelle *models.Parzelle, errMsg string) {
+	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/inspektion.html"))
+	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
+		"Title":                "Inspektion - Parzelle " + parzelle.Nummer,
+		"Parzelle":             parzelle,
+		"Inspektion":           nil,
+		"VordefinierteManagel": buildMangelViews(checkedMangelNrs(r)),
+		"Error":                errMsg,
+		"Today":                time.Now().Format("2006-01-02"),
+		"WeitereAuflagen":      r.FormValue("weitere_auflagen"),
+		"FristValue":           r.FormValue("frist"),
+		"AuflagenErfuellt":     r.FormValue("auflagen_erfuellt") == "true",
+		"ParzellenBasePath":    parzellenBasePath(r),
+	}))
+}
+
 func InspektionHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	parzelleID, _ := strconv.Atoi(vars["parzelle_id"])
@@ -42,17 +105,22 @@ func InspektionHandler(w http.ResponseWriter, r *http.Request) {
 		inspektion.Maengel = maengel
 
 		if err := inspektion.Save(); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			parzelle, pErr := models.GetParzelleByID(parzelleID)
+			if pErr != nil {
+				RenderErrorPage(w, r, http.StatusNotFound, "Nicht gefunden", "Diese Parzelle wurde nicht gefunden.", parzellenBasePath(r))
+				return
+			}
+			renderInspektionForm(w, r, parzelle, "Die Inspektion konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.")
 			return
 		}
 
-		http.Redirect(w, r, "/parzellen/"+strconv.Itoa(parzelleID), http.StatusSeeOther)
+		http.Redirect(w, r, parzellenBasePath(r)+"/"+strconv.Itoa(parzelleID), http.StatusSeeOther)
 		return
 	}
 
 	parzelle, err := models.GetParzelleByID(parzelleID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		RenderErrorPage(w, r, http.StatusNotFound, "Nicht gefunden", "Diese Parzelle wurde nicht gefunden.", parzellenBasePath(r))
 		return
 	}
 
@@ -63,20 +131,24 @@ func InspektionHandler(w http.ResponseWriter, r *http.Request) {
 		"Title":                "Inspektion - Parzelle " + parzelle.Nummer,
 		"Parzelle":             parzelle,
 		"Inspektion":           inspektion,
-		"VordefinierteManagel": models.VordefinierteManagel,
+		"VordefinierteManagel": buildMangelViews(nil),
+		"Today":                time.Now().Format("2006-01-02"),
+		"ParzellenBasePath":    parzellenBasePath(r),
 	}))
 }
 
-func generateInspektionPDF(w http.ResponseWriter, id int) {
+func generateInspektionPDF(w http.ResponseWriter, r *http.Request, id int) {
 	inspektion, err := models.GetInspektionByID(id)
 	if err != nil {
-		http.Error(w, "Inspektion nicht gefunden", http.StatusNotFound)
+		// Gestylte Fehlerseite wie beim Wertermittlungs-Pendant — ein
+		// veralteter Protokoll-Link fällt sonst aus dem Layout.
+		RenderErrorPage(w, r, http.StatusNotFound, "Nicht gefunden", "Diese Inspektion wurde nicht gefunden.", parzellenBasePath(r))
 		return
 	}
 
 	parzelle, err := models.GetParzelleByID(inspektion.ParzelleID)
 	if err != nil {
-		http.Error(w, "Parzelle nicht gefunden", http.StatusNotFound)
+		RenderErrorPage(w, r, http.StatusNotFound, "Nicht gefunden", "Diese Parzelle wurde nicht gefunden.", parzellenBasePath(r))
 		return
 	}
 
@@ -312,6 +384,10 @@ func generateInspektionPDF(w http.ResponseWriter, id int) {
 			parzelle.Nummer, inspektion.Datum.Format("2006-01-02")))
 
 	if err = pdf.Output(w); err != nil {
+		// Bewusst http.Error: die Content-Disposition-/PDF-Header sind zu
+		// diesem Zeitpunkt bereits gesendet, eine gerenderte HTML-Fehlerseite
+		// wäre hier nicht mehr sauber möglich (identisch zum
+		// Wertermittlungs-PDF-Pfad).
 		http.Error(w, "Fehler beim Generieren des PDFs", http.StatusInternalServerError)
 		return
 	}

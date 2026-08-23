@@ -35,3 +35,6 @@ gartenamt-linux-amd64
 *.bak
 *.swp
 *.swo
+
+# Lokales UI-Mockup (als Claude-Artifact veroeffentlicht, nicht Teil von Releases)
+docs/ui-mockup.html

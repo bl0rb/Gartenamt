@@ -19,9 +19,46 @@ func AdminDashboardHandler(w http.ResponseWriter, r *http.Request) {
 
 	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/admin_dashboard.html"))
 	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
-		"Title": "Verwaltung",
-		"Stats": stats,
+		"Title":           "Dashboard",
+		"Stats":           stats,
+		"Handlungsbedarf": getHandlungsbedarf(),
 	}))
+}
+
+// getHandlungsbedarf - Zählt offene Vorgänge für die "Handlungsbedarf"-Karte
+// im Dashboard. Es werden ausschließlich Zustände gezählt, die sich direkt aus
+// vorhandenen Modellfeldern ableiten lassen (keine neuen Fachkonzepte):
+//   - überschrittene Inspektionsfristen (frist < heute, auflagen_erfuellt = 0)
+//   - gekündigte Parzellen ohne jede Inspektion
+//   - abgeschlossene Inspektionen (auflagen_erfuellt = 1), deren Parzelle noch
+//     keine Wertermittlung hat
+func getHandlungsbedarf() map[string]interface{} {
+	var fristenUeberschritten int
+	models.DB.QueryRow(`
+		SELECT COUNT(*) FROM inspektionen
+		WHERE frist IS NOT NULL AND frist < date('now') AND auflagen_erfuellt = 0
+	`).Scan(&fristenUeberschritten)
+
+	var gekuendigtOhneInspektion int
+	models.DB.QueryRow(`
+		SELECT COUNT(*) FROM parzellen p
+		WHERE p.kuendigung_datum IS NOT NULL
+		AND NOT EXISTS (SELECT 1 FROM inspektionen i WHERE i.parzelle_id = p.id)
+	`).Scan(&gekuendigtOhneInspektion)
+
+	var inspektionenOhneWertermittlung int
+	models.DB.QueryRow(`
+		SELECT COUNT(*) FROM inspektionen i
+		WHERE i.auflagen_erfuellt = 1
+		AND NOT EXISTS (SELECT 1 FROM wertermittlungen w WHERE w.parzelle_id = i.parzelle_id)
+	`).Scan(&inspektionenOhneWertermittlung)
+
+	return map[string]interface{}{
+		"FristenUeberschritten":          fristenUeberschritten,
+		"GekuendigtOhneInspektion":       gekuendigtOhneInspektion,
+		"InspektionenOhneWertermittlung": inspektionenOhneWertermittlung,
+		"Gesamt":                         fristenUeberschritten + gekuendigtOhneInspektion + inspektionenOhneWertermittlung,
+	}
 }
 
 // AdminVerwaltungHandler shows central organization and mail server settings.
@@ -267,6 +304,13 @@ func AdminBauindexLoeschenHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/admin/bauindex?success=deleted", http.StatusSeeOther)
 }
 
+// handleBauindexPost bedient sowohl das "Neu"-Formular als auch das
+// Bearbeiten-Modal in admin_bauindex.html - beide posten ohne eigenes
+// action auf dieselbe /admin/bauindex-Route. models.CreateBauindex arbeitet
+// per INSERT OR REPLACE (siehe models/admin_models.go), verhält sich für ein
+// bereits vorhandenes Jahr also bereits wie ein Update; eine eigene
+// Update-Route war daher nicht nötig. models.UpdateBauindex existiert
+// separat und bleibt für Aufrufer nutzbar, die explizit kein Anlegen wollen.
 func handleBauindexPost(r *http.Request) error {
 	// Formulardaten verarbeiten
 	jahr, err := strconv.Atoi(strings.TrimSpace(r.FormValue("jahr")))

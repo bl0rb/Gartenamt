@@ -107,6 +107,9 @@ func PermissionCatalog() []PermissionDefinition {
 		{Key: "parzellen.manage", Label: "Parzellen & zugehoerige Daten", Category: "Verwaltung"},
 		{Key: "protokolle.manage", Label: "Protokolle verwalten", Category: "Verwaltung"},
 		{Key: "invoices.manage", Label: "Rechnungen & E-Mail", Category: "Finanzen"},
+		// Eigentuemer-Entscheidung 23.08.2026: Verwarnungen/Infos an Paechter sind
+		// Vorstandsarbeit, nicht nur Admin-Sache - eigene Permission statt Role=="admin".
+		{Key: "mail.send", Label: "Mailversand an Pächter", Category: "Verwaltung"},
 		{Key: "backup.manage", Label: "Backup & CSV", Category: "Sicherheit"},
 		{Key: "audit.view", Label: "Audit-Log", Category: "Sicherheit"},
 		{Key: "users.manage", Label: "Benutzer & Gruppen", Category: "Sicherheit"},

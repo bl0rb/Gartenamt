@@ -26,9 +26,12 @@ func AdminBackupHandler(w http.ResponseWriter, r *http.Request) {
 	// GET - Backup/CSV Interface anzeigen
 	csvService := services.NewCSVService()
 
-	// Bestehende Export-Dateien auflisten
-	exportFiles, _ := filepath.Glob("exports/*.csv")
-	backupFiles, _ := filepath.Glob("backups/*.kgbak")
+	// Bestehende Export-/Backup-Dateien auflisten. Glob liefert Pfade inkl.
+	// Verzeichnis-Präfix (z.B. "exports/foo.csv") - für die Download-Links im
+	// Template (/admin/exports/{filename} bzw. /admin/backups/{filename}, je
+	// ein einzelnes mux-Pfadsegment ohne Slash) wird nur der Dateiname benötigt.
+	exportFiles := listFileNames("exports/*.csv")
+	backupFiles := listFileNames("backups/*.kgbak")
 
 	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/admin_backup.html"))
 	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
@@ -42,6 +45,18 @@ func AdminBackupHandler(w http.ResponseWriter, r *http.Request) {
 		"ImportInfo":  r.URL.Query().Get("import_info"),
 		"VerifyInfo":  r.URL.Query().Get("verify_info"),
 	}))
+}
+
+// listFileNames globbt ein Verzeichnis und liefert nur die Basename-Liste
+// (ohne Verzeichnis-Präfix) - für Download-Links, deren Route den Dateinamen
+// als einzelnes mux-Pfadsegment erwartet.
+func listFileNames(pattern string) []string {
+	matches, _ := filepath.Glob(pattern)
+	names := make([]string, 0, len(matches))
+	for _, m := range matches {
+		names = append(names, filepath.Base(m))
+	}
+	return names
 }
 
 func handleBackupPost(w http.ResponseWriter, r *http.Request) {
@@ -310,6 +325,28 @@ func AdminExportDownloadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", "attachment; filename="+fileName)
+	http.ServeFile(w, r, filePath)
+}
+
+// AdminBackupDownloadHandler liefert eine zuvor erstellte verschlüsselte
+// Backup-Datei (.kgbak) aus dem backups/-Verzeichnis aus. Übernimmt exakt
+// das Sicherheitsmuster von AdminExportDownloadHandler (Filename-Validierung
+// gegen Path-Traversal, nur Dateien aus dem Backup-Verzeichnis).
+func AdminBackupDownloadHandler(w http.ResponseWriter, r *http.Request) {
+	fileName := filepath.Base(mux.Vars(r)["filename"])
+	if fileName == "." || fileName == ".." || filepath.Ext(fileName) != ".kgbak" {
+		http.Error(w, "Ungültiger Dateiname", http.StatusBadRequest)
+		return
+	}
+
+	filePath := filepath.Join("backups", fileName)
+	if _, err := os.Stat(filePath); err != nil {
+		http.Error(w, "Backup nicht gefunden", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", "attachment; filename="+fileName)
 	http.ServeFile(w, r, filePath)
 }

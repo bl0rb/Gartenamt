@@ -1,13 +1,16 @@
 {{define "content"}}
+<style>
+    .tabular-nums { font-variant-numeric: tabular-nums; }
+</style>
 <div class="row">
     <div class="col-12">
         <h2>Wertermittlung - Parzelle {{.Parzelle.Nummer}}</h2>
         <p class="text-muted mb-4">
-            <strong>Pächter:</strong> {{.Parzelle.PaechterName}} | 
-            <strong>Größe:</strong> {{.Parzelle.Groesse}} m² | 
+            <strong>Pächter:</strong> {{.Parzelle.PaechterName}} |
+            <strong>Größe:</strong> {{.Parzelle.Groesse}} m² |
             <strong>Verein:</strong> {{.Parzelle.Verein}}
         </p>
-        
+
         <div class="alert alert-info">
             <strong>Hinweis:</strong> Die Wertermittlung erfolgt nach der „Richtlinie für die Inspektion und
             Wertermittlung von Kleingärten bei Pächterwechsel" und kann nur nach erfolgter Inspektion
@@ -15,9 +18,60 @@
             Im Standard gelten die Hamburger Richtlinien des Landesbundes der Gartenfreunde in Hamburg e.V.;
             die Bewertungsgrundlagen lassen sich unter <em>Admin → Stammdaten</em> für andere Landesverbände anpassen.
         </div>
-        
+
         <form method="POST" class="needs-validation" novalidate>
-            
+
+            <!-- Wizard-Fortschrittsleiste: nummerierte Schritte, nur besuchte/gültige
+                 Schritte sind per Klick/Tastatur anspringbar (siehe stepperClick unten). -->
+            <nav class="wz-stepper" aria-label="Fortschritt Wertermittlung" id="wz-stepper">
+                <div class="wz-step-item">
+                    <button type="button" class="wz-step" id="wz-step-btn-1" data-step="1" onclick="stepperClick(1)">
+                        <span class="wz-step-circle">1</span>
+                        <span class="wz-step-label">Laube</span>
+                    </button>
+                </div>
+                <div class="wz-step-connector" data-connector="1"></div>
+                <div class="wz-step-item">
+                    <button type="button" class="wz-step" id="wz-step-btn-2" data-step="2" onclick="stepperClick(2)">
+                        <span class="wz-step-circle">2</span>
+                        <span class="wz-step-label">Baulichkeiten &amp; Anschlüsse</span>
+                    </button>
+                </div>
+                <div class="wz-step-connector" data-connector="2"></div>
+                <div class="wz-step-item">
+                    <button type="button" class="wz-step" id="wz-step-btn-3" data-step="3" onclick="stepperClick(3)">
+                        <span class="wz-step-circle">3</span>
+                        <span class="wz-step-label">Anpflanzungen</span>
+                    </button>
+                </div>
+                <div class="wz-step-connector" data-connector="3"></div>
+                <div class="wz-step-item">
+                    <button type="button" class="wz-step" id="wz-step-btn-4" data-step="4" onclick="stepperClick(4)">
+                        <span class="wz-step-circle">4</span>
+                        <span class="wz-step-label">Prüfen &amp; Speichern</span>
+                    </button>
+                </div>
+            </nav>
+
+            <!-- Preistabellen-Fehler: dauerhaft sichtbar, solange nicht alle vier Preisquellen
+                 geladen sind. Ohne aktuelle Preise ist keine fachlich verlässliche Bewertung
+                 möglich, daher bleibt der Speichern-Button in diesem Fall deaktiviert. Bewusst
+                 AUSSERHALB der Schritt-Panels, damit sie in jedem Schritt sichtbar bleibt. -->
+            <div class="alert alert-danger" role="alert" id="preise-fehler-alert" style="display:none">
+                <div class="d-flex align-items-start justify-content-between flex-wrap gap-2">
+                    <div>
+                        <strong><i class="fas fa-exclamation-triangle"></i> Preistabellen konnten nicht geladen werden</strong>
+                        <div>Eine Bewertung ist derzeit nicht möglich.</div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-danger" id="btn-preise-retry" onclick="ladePreiseVonAPI()">
+                        <i class="fas fa-sync-alt"></i> Erneut versuchen
+                    </button>
+                </div>
+            </div>
+
+            <!-- SCHRITT 1: Laube -->
+            <div class="wz-step-panel" data-step="1">
+
             <!-- A. LAUBE - ERWEITERT MIT MANUELLER EINGABE -->
             <div class="card mb-4">
                 <div class="card-header">
@@ -31,7 +85,7 @@
                             Laube vorhanden
                         </label>
                     </div>
-                    
+
                     <div id="laube_details" style="display: none;">
                         <!-- Grundlegende Laube-Daten -->
                         <div class="row">
@@ -49,20 +103,20 @@
                             </div>
                             <div class="col-md-4">
                                 <label for="laube_erstellungsjahr" class="form-label">Erstellungsjahr</label>
-                                <input type="number" class="form-control" id="laube_erstellungsjahr" name="laube_erstellungsjahr" 
+                                <input type="number" class="form-control" id="laube_erstellungsjahr" name="laube_erstellungsjahr"
                                     min="1960" max="2100" value="{{if .Wertermittlung}}{{.Wertermittlung.Details.Laube.Erstellungsjahr}}{{end}}">
                             </div>
                             <div class="col-md-4">
                                 <label for="laube_grundflaeche" class="form-label">Grundfläche (m²)</label>
-                                <input type="number" class="form-control" id="laube_grundflaeche" name="laube_grundflaeche" 
+                                <input type="number" class="form-control" id="laube_grundflaeche" name="laube_grundflaeche"
                                     step="0.1" max="24" value="{{if .Wertermittlung}}{{.Wertermittlung.Details.Laube.Grundflaeche}}{{end}}">
                             </div>
                         </div>
-                        
+
                         <div class="row mt-3">
                             <div class="col-md-4">
                                 <label for="laube_herstellungswert" class="form-label">Herstellungswert (€/m²)</label>
-                                <input type="number" class="form-control" id="laube_herstellungswert" name="laube_herstellungswert" 
+                                <input type="number" class="form-control" id="laube_herstellungswert" name="laube_herstellungswert"
                                     step="0.01" value="{{if .Wertermittlung}}{{.Wertermittlung.Details.Laube.HerstellungswertProQM}}{{end}}"
                                     placeholder="z.B. 18.50">
                                 <div class="form-text">Herstellungswert pro m² (siehe Tabelle A/B)</div>
@@ -93,42 +147,48 @@
                             </div>
                             <div class="card-body" id="laube_manuell_details" style="display: none;">
                                 <div class="alert alert-warning">
-                                    <strong><i class="fas fa-exclamation-triangle"></i> Wichtiger Hinweis:</strong> 
-                                    Die manuelle Eingabe überschreibt die automatische Berechnung. 
-                                    Der Restwert darf maximal 15% des berechneten Grundwertes betragen. 
+                                    <strong><i class="fas fa-exclamation-triangle"></i> Wichtiger Hinweis:</strong>
+                                    Die manuelle Eingabe überschreibt die automatische Berechnung.
+                                    Der Restwert darf maximal 15% des berechneten Grundwertes betragen.
                                     Eine Begründung ist zwingend erforderlich.
                                 </div>
-                                
+
                                 <div class="row">
                                     <div class="col-md-6">
                                         <label for="laube_restwert_prozent" class="form-label">Restwert in % (max. 15%)</label>
                                         <div class="input-group">
-                                            <input type="number" class="form-control" id="laube_restwert_prozent" name="laube_restwert_prozent" 
+                                            <input type="number" class="form-control" id="laube_restwert_prozent" name="laube_restwert_prozent"
                                                 step="0.1" min="0" max="15" value="{{if .Wertermittlung}}{{.Wertermittlung.Details.Laube.RestwertProzent}}{{end}}">
                                             <span class="input-group-text">%</span>
                                         </div>
+                                        <div class="invalid-feedback d-block" id="laube_restwert_prozent_fehler" style="display:none"></div>
                                         <div class="form-text">Prozentuale Festsetzung des Restwertes</div>
                                     </div>
                                     <div class="col-md-6">
                                         <label for="laube_manuell_zeitwert" class="form-label">Alternativer fester Zeitwert</label>
                                         <div class="input-group">
-                                            <input type="number" class="form-control" id="laube_manuell_zeitwert" name="laube_manuell_zeitwert" 
+                                            <input type="number" class="form-control" id="laube_manuell_zeitwert" name="laube_manuell_zeitwert"
                                                 step="0.01" min="0" value="{{if .Wertermittlung}}{{.Wertermittlung.Details.Laube.ManuellZeitwert}}{{end}}">
                                             <span class="input-group-text">€</span>
                                         </div>
                                         <div class="form-text">Direkter Zeitwert (überschreibt Prozent-Eingabe)</div>
                                     </div>
                                 </div>
-                                
+
                                 <div class="row mt-3">
                                     <div class="col-12">
                                         <label for="laube_begruendung" class="form-label">Begründung für manuelle Eingabe *</label>
-                                        <textarea class="form-control" id="laube_begruendung" name="laube_begruendung" rows="3" 
-                                            placeholder="Begründung für die Abweichung von der automatischen Berechnung (z.B. besondere Bausubstanz, Schäden, außergewöhnliche Umstände...)" 
+                                        <textarea class="form-control" id="laube_begruendung" name="laube_begruendung" rows="3"
+                                            placeholder="Begründung für die Abweichung von der automatischen Berechnung (z.B. besondere Bausubstanz, Schäden, außergewöhnliche Umstände...)"
                                             required>{{if .Wertermittlung}}{{.Wertermittlung.Details.Laube.Begruendung}}{{end}}</textarea>
+                                        <div class="invalid-feedback d-block" id="laube_begruendung_fehler" style="display:none">Bei manueller Eingabe ist eine Begründung erforderlich.</div>
                                     </div>
                                 </div>
-                                
+
+                                <div class="invalid-feedback d-block" id="laube_wertangabe_fehler" style="display:none">
+                                    Bitte geben Sie entweder einen Restwert-Prozentsatz oder einen festen Zeitwert ein.
+                                </div>
+
                                 <div class="row mt-3">
                                     <div class="col-12">
                                         <div class="card bg-light">
@@ -141,9 +201,19 @@
                                         </div>
                                     </div>
                                 </div>
+
+                                <div class="alert alert-warning mt-3" id="laube_ueberschreitung_warnung" role="alert" style="display:none">
+                                    <span id="laube_ueberschreitung_text"></span>
+                                    <div class="form-check mt-2">
+                                        <input class="form-check-input" type="checkbox" id="laube_ueberschreitung_bestaetigt">
+                                        <label class="form-check-label" for="laube_ueberschreitung_bestaetigt">
+                                            Ich bestätige, dass dieser Wert bewusst über der 15%-Grenze liegt und dies fachlich begründet ist.
+                                        </label>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        
+
                         <!-- Automatische Berechnung (bestehend) -->
                         <div id="laube_berechnung" class="mt-3 p-3 bg-light rounded" style="display: none;">
                             <h6><i class="fas fa-calculator"></i> Automatische Berechnung (nach offizieller Richtlinie):</h6>
@@ -152,6 +222,22 @@
                     </div>
                 </div>
             </div>
+
+            <div class="wz-step-actions">
+                <span></span>
+                <div class="wz-weiter-col">
+                    <button type="button" class="btn btn-success" id="wz-weiter-1" onclick="weiterClick(1)">
+                        Weiter <i class="fas fa-arrow-right"></i>
+                    </button>
+                    <div class="wz-weiter-grund" id="wz-weiter-1-grund"></div>
+                </div>
+            </div>
+
+            </div>
+            <!-- ENDE SCHRITT 1 -->
+
+            <!-- SCHRITT 2: Baulichkeiten & Anschlüsse -->
+            <div class="wz-step-panel" data-step="2" style="display:none">
 
             <!-- B. SONSTIGE BAULICHKEITEN -->
             <div class="card mb-4">
@@ -164,7 +250,7 @@
                         <div class="col-md-6 mb-3">
                             <label for="wege_flaeche" class="form-label">Feste Wegebeläge (max. 40 m²)</label>
                             <div class="input-group">
-                                <input type="number" class="form-control" id="wege_flaeche" name="wege_flaeche" 
+                                <input type="number" class="form-control" id="wege_flaeche" name="wege_flaeche"
                                        step="0.1" max="40" placeholder="Fläche in m²" value="{{if .Wertermittlung}}{{printf "%.1f" (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "wege").Flaeche}}{{end}}">
                                 <span class="input-group-text">m²</span>
                             </div>
@@ -174,7 +260,7 @@
                                 <option value="10" {{if and .Wertermittlung (eq (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "wege").Qualitaet 10.0)}}selected{{end}}>Aufwändige Gestaltung (10,00 €/m²)</option>
                             </select>
                         </div>
-                        
+
                         <!-- Pforte -->
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Parzellenpforte</label>
@@ -237,7 +323,7 @@
                                 </div>
                             </div>
                         </div>
-                        
+
                         <div class="col-md-6">
                             <div class="form-check mb-2">
                                 <input type="checkbox" class="form-check-input" id="wasser_vorhanden" name="wasser_vorhanden" value="true" {{if and .Wertermittlung (baulichkeitByTyp .Wertermittlung.Details.Baulichkeiten "wasser").Aktiv}}checked{{end}}>
@@ -253,6 +339,23 @@
                 </div>
             </div>
 
+            <div class="wz-step-actions">
+                <button type="button" class="btn btn-outline-secondary" onclick="zurueckClick(1)">
+                    <i class="fas fa-arrow-left"></i> Zurück
+                </button>
+                <div class="wz-weiter-col">
+                    <button type="button" class="btn btn-success" id="wz-weiter-2" onclick="weiterClick(2)">
+                        Weiter <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            </div>
+            <!-- ENDE SCHRITT 2 -->
+
+            <!-- SCHRITT 3: Anpflanzungen -->
+            <div class="wz-step-panel" data-step="3" style="display:none">
+
             <!-- D. OBSTGEHÖLZE - ERWEITERT FÜR INDIVIDUELLE PREISE -->
             <div class="card mb-4">
                 <div class="card-header">
@@ -260,10 +363,10 @@
                 </div>
                 <div class="card-body">
                     <div class="alert alert-info">
-                        <strong>Hinweis:</strong> Jede Obstart wird individuell mit ihrem spezifischen Preis nach Tabelle E bewertet. 
+                        <strong>Hinweis:</strong> Jede Obstart wird individuell mit ihrem spezifischen Preis nach Tabelle E bewertet.
                         Sie können verschiedene Obstarten und -sorten einzeln erfassen.
                     </div>
-                    
+
                     <!-- Bestehende Obsteinträge anzeigen -->
                     <div id="obst-container">
                         {{if .Wertermittlung}}
@@ -279,18 +382,18 @@
                                         </div>
                                         <div class="col-md-2">
                                             <label class="form-label">Anzahl/Menge</label>
-                                            <input type="number" class="form-control obst-anzahl" name="obst_anzahl[]" 
+                                            <input type="number" class="form-control obst-anzahl" name="obst_anzahl[]"
                                                    value="{{$obst.Anzahl}}" min="0" step="0.1" onchange="berechneObstWert({{$obst.ID}})">
                                         </div>
                                         <div class="col-md-1">
                                             <label class="form-label">Einheit</label>
-                                            <input type="text" class="form-control obst-einheit" name="obst_einheit[]" 
+                                            <input type="text" class="form-control obst-einheit" name="obst_einheit[]"
                                                    value="{{$obst.Einheit}}" readonly>
                                         </div>
                                         <div class="col-md-2">
                                             <label class="form-label">Einzelpreis</label>
                                             <div class="input-group">
-                                                <input type="number" class="form-control obst-einzelpreis" name="obst_einzelpreis[]" 
+                                                <input type="number" class="form-control obst-einzelpreis" name="obst_einzelpreis[]"
                                                        value="{{$obst.EinzelPreis}}" step="0.01" onchange="berechneObstWert({{$obst.ID}})">
                                                 <span class="input-group-text">€</span>
                                             </div>
@@ -298,7 +401,7 @@
                                         <div class="col-md-2">
                                             <label class="form-label">Gesamtwert</label>
                                             <div class="input-group">
-                                                <input type="text" class="form-control obst-gesamt" 
+                                                <input type="text" class="form-control obst-gesamt"
                                                        value="{{printf "%.2f" $obst.GesamtWert}}" readonly>
                                                 <span class="input-group-text">€</span>
                                             </div>
@@ -314,14 +417,14 @@
                             {{end}}
                         {{end}}
                     </div>
-                    
+
                     <!-- Neue Obsteinträge hinzufügen -->
                     <div class="text-center mb-3">
-                        <button type="button" class="btn btn-success" onclick="fuegeObstEintragHinzu()">
+                        <button type="button" class="btn btn-success" id="btn-obst-hinzufuegen" onclick="fuegeObstEintragHinzu()" disabled>
                             <i class="fas fa-plus"></i> Neue Obstart hinzufügen
                         </button>
                     </div>
-                    
+
                     <!-- Gesamtwert Anzeige -->
                     <div class="card bg-light">
                         <div class="card-body">
@@ -347,31 +450,31 @@
                 </div>
                 <div class="card-body">
                     <div class="alert alert-warning">
-                        <strong>Hinweis:</strong> Gemüsekulturen werden nur bewertet, wenn der Pächterwechsel vor dem 
-                        Abernten des Höchstertrages stattfindet (bis spätestens Anfang August) und dem nachfolgenden 
+                        <strong>Hinweis:</strong> Gemüsekulturen werden nur bewertet, wenn der Pächterwechsel vor dem
+                        Abernten des Höchstertrages stattfindet (bis spätestens Anfang August) und dem nachfolgenden
                         Pächter die Ernte zugutekommt.
                     </div>
-                    
+
                     <div class="row">
                         <div class="col-md-6">
                             <label for="gemuese_einzelpflanzen" class="form-label">G1 - Gemüse Einzelpflanzen</label>
-                            <input type="number" class="form-control mb-2" id="gemuese_einzelpflanzen_anzahl" name="gemuese_einzelpflanzen_anzahl" 
+                            <input type="number" class="form-control mb-2" id="gemuese_einzelpflanzen_anzahl" name="gemuese_einzelpflanzen_anzahl"
                                 placeholder="Anzahl Pflanzen" min="0" value="{{if .Wertermittlung}}{{printf "%.0f" (gemueseMenge .Wertermittlung.Details.Gemuese "G1")}}{{end}}">
                             <div class="form-text">Tomaten, Gurken, Kürbis, Paprika, Kohlarten etc. (0,75 €/Stück)</div>
                         </div>
-                        
+
                         <div class="col-md-6">
                             <label for="gemuese_reihen" class="form-label">G2 - Gemüse Reihenpflanzungen</label>
-                            <input type="number" class="form-control mb-2" id="gemuese_reihen_meter" name="gemuese_reihen_meter" 
+                            <input type="number" class="form-control mb-2" id="gemuese_reihen_meter" name="gemuese_reihen_meter"
                                 placeholder="Laufende Meter" step="0.1" min="0" value="{{if .Wertermittlung}}{{printf "%.1f" (gemueseMenge .Wertermittlung.Details.Gemuese "G2")}}{{end}}">
                             <div class="form-text">Erbsen, Bohnen, Zwiebeln, Kartoffeln, Spinat etc. (1,00 €/lfm)</div>
                         </div>
                     </div>
-                    
+
                     <div class="row mt-3">
                         <div class="col-md-6">
                             <label for="kraeuter_flaeche" class="form-label">E9 - Ausdauernde Kräuter (m²)</label>
-                            <input type="number" class="form-control" id="kraeuter_flaeche" name="kraeuter_flaeche" 
+                            <input type="number" class="form-control" id="kraeuter_flaeche" name="kraeuter_flaeche"
                                 placeholder="Fläche in m²" step="0.1" min="0" value="{{if .Wertermittlung}}{{printf "%.1f" (gemueseMenge .Wertermittlung.Details.Gemuese "E9")}}{{end}}">
                             <div class="form-text">Thymian, Salbei, Schnittlauch, Petersilie etc. (5,00 €/m²)</div>
                         </div>
@@ -386,48 +489,48 @@
                 </div>
                 <div class="card-body">
                     <div class="alert alert-info">
-                        <strong>Hinweis:</strong> Max. 1/3 der Parzellengröße ({{printf "%.0f" (div .Parzelle.Groesse 3.0)}} m²), 
+                        <strong>Hinweis:</strong> Max. 1/3 der Parzellengröße ({{printf "%.0f" (div .Parzelle.Groesse 3.0)}} m²),
                         höchstens 200 m².
                     </div>
-                    
+
                     <div class="row">
                         <div class="col-md-6">
                             <label for="zier_f1" class="form-label">F1 - Ziersträucher einzeln (4,00 €/m²)</label>
-                            <input type="number" class="form-control" id="zier_f1" name="zier_f1" 
+                            <input type="number" class="form-control" id="zier_f1" name="zier_f1"
                                 placeholder="Fläche in m²" step="0.1" min="0" value="{{if .Wertermittlung}}{{printf "%.1f" .Wertermittlung.Details.Zier.F1}}{{end}}">
                         </div>
-                        
+
                         <div class="col-md-6">
                             <label for="zier_f2" class="form-label">F2 - Gehölze + Stauden (5,00 €/m²)</label>
-                            <input type="number" class="form-control" id="zier_f2" name="zier_f2" 
+                            <input type="number" class="form-control" id="zier_f2" name="zier_f2"
                                 placeholder="Fläche in m²" step="0.1" min="0" value="{{if .Wertermittlung}}{{printf "%.1f" .Wertermittlung.Details.Zier.F2}}{{end}}">
                         </div>
                     </div>
-                    
+
                     <div class="row mt-3">
                         <div class="col-md-6">
                             <label for="zier_f3" class="form-label">F3 - Gemischte Bepflanzung (6,00 €/m²)</label>
-                            <input type="number" class="form-control" id="zier_f3" name="zier_f3" 
+                            <input type="number" class="form-control" id="zier_f3" name="zier_f3"
                                 placeholder="Fläche in m²" step="0.1" min="0" value="{{if .Wertermittlung}}{{printf "%.1f" .Wertermittlung.Details.Zier.F3}}{{end}}">
                         </div>
-                        
+
                         <div class="col-md-6">
                             <label for="zier_f4" class="form-label">F4 - Ökologisch wertvoll (12,00 €/m²)</label>
-                            <input type="number" class="form-control" id="zier_f4" name="zier_f4" 
+                            <input type="number" class="form-control" id="zier_f4" name="zier_f4"
                                 placeholder="Fläche in m²" step="0.1" min="0" value="{{if .Wertermittlung}}{{printf "%.1f" .Wertermittlung.Details.Zier.F4}}{{end}}">
                         </div>
                     </div>
-                    
+
                     <div class="row mt-3">
                         <div class="col-md-6">
                             <label for="rasen" class="form-label">F8 - Rasenflächen (0,50 €/m²)</label>
-                            <input type="number" class="form-control" id="rasen" name="rasen" 
+                            <input type="number" class="form-control" id="rasen" name="rasen"
                                 placeholder="Fläche in m²" step="0.1" min="0" value="{{if .Wertermittlung}}{{printf "%.1f" .Wertermittlung.Details.Zier.F8}}{{end}}">
                         </div>
-                        
+
                         <div class="col-md-6">
                             <label for="teich" class="form-label">Gartenteich (max. 15 m²)</label>
-                            <input type="number" class="form-control mb-2" id="teich_flaeche" name="teich_flaeche" 
+                            <input type="number" class="form-control mb-2" id="teich_flaeche" name="teich_flaeche"
                                    placeholder="Fläche in m²" step="0.1" min="0" max="15" value="{{if .Wertermittlung}}{{printf "%.1f" .Wertermittlung.Details.Zier.TeichFlaeche}}{{end}}">
                             <select class="form-select" id="teich_typ" name="teich_typ">
                                 <option value="5" {{if and .Wertermittlung (eq .Wertermittlung.Details.Zier.TeichTyp "5")}}selected{{end}}>F5 - Zier-/Fischteich (5,00 €/m²)</option>
@@ -439,23 +542,108 @@
                 </div>
             </div>
 
-            <!-- Aktionen -->
+            <div class="wz-step-actions">
+                <button type="button" class="btn btn-outline-secondary" onclick="zurueckClick(2)">
+                    <i class="fas fa-arrow-left"></i> Zurück
+                </button>
+                <div class="wz-weiter-col">
+                    <button type="button" class="btn btn-success" id="wz-weiter-3" onclick="weiterClick(3)">
+                        Weiter <i class="fas fa-arrow-right"></i>
+                    </button>
+                    <div class="wz-weiter-grund" id="wz-weiter-3-grund"></div>
+                </div>
+            </div>
+
+            </div>
+            <!-- ENDE SCHRITT 3 -->
+
+            <!-- SCHRITT 4: Prüfen & Speichern -->
+            <div class="wz-step-panel" data-step="4" style="display:none">
+
+            {{if .Error}}
+            <div class="alert alert-danger" role="alert">
+                <strong>Fehler beim Speichern:</strong> {{.Error}}
+            </div>
+            {{end}}
+
+            <!-- Kompakte Zusammenfassung der Eingaben aus Schritt 1–3 (wird per JS befüllt,
+                 siehe buildZusammenfassung). Ersetzt kein erneutes Durchklicken der Formulare. -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-list-check"></i> Zusammenfassung der Eingaben</h5>
+                </div>
+                <div class="card-body">
+                    <div id="wz-zusammenfassung-inhalt" class="d-flex flex-column gap-1 small"></div>
+                </div>
+            </div>
+
+            <!-- Aktionen: hier, in Schritt 4, wird gespeichert - der einzige Ort im Wizard. -->
             <div class="card mb-4">
                 <div class="card-body">
-                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                        <button type="button" class="btn btn-outline-primary me-md-2" onclick="berechneVorschau()">
-                            <i class="fas fa-calculator"></i> Berechnung anzeigen
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-between">
+                        <button type="button" class="btn btn-outline-secondary" onclick="zurueckClick(3)">
+                            <i class="fas fa-arrow-left"></i> Zurück
                         </button>
-                        <button type="submit" class="btn btn-success">
-                            <i class="fas fa-save"></i> Wertermittlung speichern
-                        </button>
+                        <div class="d-grid gap-2 d-md-flex">
+                            <button type="button" class="btn btn-outline-primary me-md-2" onclick="berechneVorschau()">
+                                <i class="fas fa-calculator"></i> Berechnung anzeigen
+                            </button>
+                            <button type="submit" class="btn btn-success" id="btn-speichern" disabled>
+                                <i class="fas fa-save"></i> Wertermittlung speichern
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
+
+            <!-- Berechnungs-Zusammenfassung: wird von "Berechnung anzeigen" (und automatisch
+                 beim Eintritt in Schritt 4) befüllt, ersetzt das vormalige alert() -->
+            <div class="card mb-4" id="berechnung-panel">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-calculator"></i> Berechnungsübersicht</h5>
+                </div>
+                <div class="card-body" aria-live="polite">
+                    <p class="text-muted mb-0" id="berechnung-hinweis">Noch keine Berechnung vorhanden. Klicken Sie oben auf „Berechnung anzeigen“.</p>
+                    <div id="berechnung-tabelle" style="display:none">
+                        <table class="table table-sm mb-0">
+                            <tbody>
+                                <tr><td>A. Laube</td><td class="text-end tabular-nums" id="sum-a">0,00 €</td></tr>
+                                <tr><td>B. Sonstige Baulichkeiten</td><td class="text-end tabular-nums" id="sum-b">0,00 €</td></tr>
+                                <tr><td>C. Strom- und Wasserversorgung</td><td class="text-end tabular-nums" id="sum-c">0,00 €</td></tr>
+                                <tr><td>D. Obstgehölze</td><td class="text-end tabular-nums" id="sum-d">0,00 €</td></tr>
+                                <tr><td>E. Gemüsekulturen</td><td class="text-end tabular-nums" id="sum-e">0,00 €</td></tr>
+                                <tr><td>F. Zieranpflanzungen</td><td class="text-end tabular-nums" id="sum-f">0,00 €</td></tr>
+                            </tbody>
+                            <tfoot>
+                                <tr class="fw-bold border-top">
+                                    <td>Gesamtwert</td>
+                                    <td class="text-end tabular-nums fs-5 text-success" id="sum-gesamt">0,00 €</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                        <p class="text-muted small mt-2 mb-0" id="berechnung-bauindex-hinweis"></p>
+                    </div>
+                </div>
+            </div>
+
+            </div>
+            <!-- ENDE SCHRITT 4 -->
+
+            <!-- Kompakte Live-Summenleiste: bleibt in jedem Schritt sichtbar (siehe
+                 updateCompactSumme). In Schritt 4 steht die ausführliche Aufschlüsselung
+                 zusätzlich im großen Berechnungs-Panel oben. -->
+            <div class="wz-summary-bar" aria-live="polite">
+                <div class="wz-summary-bar-inner">
+                    <span class="wz-summary-label">Gesamtwert (Vorschau)</span>
+                    <span class="wz-summary-value" id="wz-summe-live">0,00 €</span>
+                </div>
+            </div>
+            <div class="wz-form-spacer"></div>
         </form>
-        
-        <!-- Aktuelle Wertermittlung anzeigen -->
-        {{if .Wertermittlung}}
+
+        <!-- Aktuelle Wertermittlung anzeigen (nicht nach einem Speicherfehler: dort ist
+             .Wertermittlung nur die best-effort Formular-Rekonstruktion, kein Datensatz) -->
+        {{if and .Wertermittlung (not .Error)}}
         <div class="card mt-4">
             <div class="card-header">
                 <h5 class="mb-0">Gespeicherte Wertermittlung vom {{.Wertermittlung.Datum.Format "02.01.2006"}}</h5>
@@ -503,14 +691,14 @@
                         <span class="badge bg-dark fs-4 px-3 py-2">{{printf "%.2f" .Wertermittlung.GesamtWert}} €</span>
                     </div>
                 </div>
-                
+
                 {{if .Wertermittlung.Details.Laube.ManuellEingegeben}}
                 <div class="alert alert-info mt-3">
                     <strong><i class="fas fa-hand-paper"></i> Manuelle Laube-Bewertung:</strong><br>
                     <small>{{.Wertermittlung.Details.Laube.Begruendung}}</small>
                 </div>
                 {{end}}
-                
+
                 <div class="mt-4 text-center">
                     <a href="/protokoll/wertermittlung/{{.Wertermittlung.ID}}" class="btn btn-primary">
                         <i class="fas fa-file-pdf"></i> PDF Protokoll herunterladen
@@ -519,10 +707,10 @@
             </div>
         </div>
         {{end}}
-        
+
         <!-- Zurück Button -->
         <div class="mt-4">
-            <a href="/parzellen/{{.Parzelle.ID}}" class="btn btn-secondary">
+            <a href="{{.ParzellenBasePath}}/{{.Parzelle.ID}}" class="btn btn-secondary">
                 <i class="fas fa-arrow-left"></i> Zurück zur Parzelle
             </a>
         </div>
@@ -530,24 +718,37 @@
 </div>
 
 <script>
-// GLOBALE VARIABLEN für dynamisch geladene Preise
+// GLOBALE VARIABLEN für dynamisch geladene Preise. Ohne erfolgreichen Ladevorgang
+// bleiben diese leer/null (KEIN stiller Fallback auf plausible, aber möglicherweise
+// veraltete Werte) - eine Bewertung mit ungeladenen Preisen wäre fachlich falsch,
+// ohne dass das für Nutzer:innen erkennbar wäre. Deshalb bleibt der
+// Speichern-Button deaktiviert, bis preiseGeladen true ist.
 let obstPreisTabelle = {};
 let zieranpflanzungsPreise = {};
 let gemusePreise = {};
-let aktuellerBauindex = 42.9;
+let aktuellerBauindex = null;
+let preiseGeladen = false;
+
+// WIZARD-ZUSTAND: currentStep ist der sichtbare Schritt (1-4), maxUnlocked der
+// weiteste per Stepper anspringbare Schritt. Nach einem Speicherfehler startet
+// der Wizard direkt in Schritt 4 mit allen Schritten freigeschaltet, damit die
+// bereits eingegebenen Daten ohne erneutes Durchklicken korrigiert werden können.
+let currentStep = 1;
+let maxUnlocked = 1;
+const hasServerError = {{if .Error}}true{{else}}false{{end}};
 
 // BEIM LADEN der Seite: Preise von API laden
 document.addEventListener('DOMContentLoaded', function() {
     // Preise laden
-    ladePeiseVonAPI();
-    
+    ladePreiseVonAPI();
+
     // Bestehende Initialisierung...
     if (document.getElementById('laube_manuell').checked) {
         document.getElementById('laube_manuell_details').style.display = 'block';
         document.getElementById('laube_berechnung').style.display = 'none';
         updateManuellVorschau();
     }
-    
+
     if (document.getElementById('laube_vorhanden').checked) {
         document.getElementById('laube_details').style.display = 'block';
         if (!document.getElementById('laube_manuell').checked) {
@@ -584,63 +785,98 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('#strom_rechnung_betrag, #strom_rechnung_jahr').forEach(function(el) {
         el.addEventListener('input', berechneVorschau);
     });
-    
+
     berechneObstGesamtwert();
+
+    // Wizard initialisieren: bei .Error direkt in Schritt 4 starten (alle
+    // Schritte freigeschaltet, sonst normal bei Schritt 1 beginnen.
+    if (hasServerError) {
+        currentStep = 4;
+        maxUnlocked = 4;
+    }
+    document.querySelectorAll('.wz-step-panel').forEach(function(panel) {
+        panel.style.display = (parseInt(panel.dataset.step, 10) === currentStep) ? 'block' : 'none';
+    });
+    updateStepperUI();
+    wizardSync();
+    if (currentStep === 4) {
+        buildZusammenfassung();
+    }
 });
 
-// Preise von API laden
-async function ladePeiseVonAPI() {
+// Preise von API laden. Schlägt eine der vier Quellen fehl, gilt der gesamte
+// Ladevorgang als fehlgeschlagen: die Warn-Card bleibt sichtbar und der
+// Speichern-Button gesperrt, statt fachlich falsche Werte unbemerkt zu
+// verwenden. "Erneut versuchen" ruft diese Funktion einfach erneut auf.
+async function ladePreiseVonAPI() {
+    const fehlerAlert = document.getElementById('preise-fehler-alert');
+    const speichernBtn = document.getElementById('btn-speichern');
+    const obstHinzufuegenBtn = document.getElementById('btn-obst-hinzufuegen');
+    const retryBtn = document.getElementById('btn-preise-retry');
+
+    preiseGeladen = false;
+    if (speichernBtn) speichernBtn.disabled = true;
+    if (obstHinzufuegenBtn) obstHinzufuegenBtn.disabled = true;
+    if (retryBtn) {
+        retryBtn.disabled = true;
+        retryBtn.innerHTML = '<i class="fas fa-sync-alt fa-spin"></i> Lädt …';
+    }
+
     try {
-        // Obstarten-Preise laden
-        const obstResponse = await fetch('/api/obstarten/preise');
-        if (obstResponse.ok) {
-            obstPreisTabelle = await obstResponse.json();
+        const [obstResponse, zierResponse, gemuseResponse, bauindexResponse] = await Promise.all([
+            fetch('/api/obstarten/preise'),
+            fetch('/api/zieranpflanzungen/preise'),
+            fetch('/api/gemuese/preise'),
+            fetch('/api/bauindex'),
+        ]);
+
+        if (!obstResponse.ok || !zierResponse.ok || !gemuseResponse.ok || !bauindexResponse.ok) {
+            throw new Error('Mindestens eine Preistabellen-API hat einen Fehlerstatus geliefert.');
         }
-        
-        // Zieranpflanzungs-Preise laden
-        const zierResponse = await fetch('/api/zieranpflanzungen/preise');
-        if (zierResponse.ok) {
-            zieranpflanzungsPreise = await zierResponse.json();
+
+        const [obstData, zierData, gemuseData, bauindexData] = await Promise.all([
+            obstResponse.json(),
+            zierResponse.json(),
+            gemuseResponse.json(),
+            bauindexResponse.json(),
+        ]);
+
+        obstPreisTabelle = obstData;
+        zieranpflanzungsPreise = zierData;
+        gemusePreise = gemuseData;
+        aktuellerBauindex = bauindexData.bauindex;
+        preiseGeladen = true;
+
+        if (fehlerAlert) fehlerAlert.style.display = 'none';
+        if (speichernBtn) speichernBtn.disabled = false;
+        if (obstHinzufuegenBtn) obstHinzufuegenBtn.disabled = false;
+
+        // Vorschauen, die vom Bauindex abhängen, mit den nun geladenen Daten auffrischen
+        if (document.getElementById('laube_manuell').checked) {
+            updateManuellVorschau();
+        } else if (document.getElementById('laube_vorhanden').checked) {
+            updateLaubeBerechnung();
         }
-        
-        // Gemüse-Preise laden
-        const gemuseResponse = await fetch('/api/gemuese/preise');
-        if (gemuseResponse.ok) {
-            gemusePreise = await gemuseResponse.json();
-        }
-        
-        // Bauindex laden
-        const bauindexResponse = await fetch('/api/bauindex');
-        if (bauindexResponse.ok) {
-            const bauindexData = await bauindexResponse.json();
-            aktuellerBauindex = bauindexData.bauindex;
-        }
-        
     } catch (error) {
         console.error('Fehler beim Laden der Preise von API:', error);
-        // Fallback auf hardcoded Werte
-        ladeHardcodedFallback();
+        obstPreisTabelle = {};
+        zieranpflanzungsPreise = {};
+        gemusePreise = {};
+        aktuellerBauindex = null;
+        preiseGeladen = false;
+        if (fehlerAlert) fehlerAlert.style.display = 'block';
+        if (speichernBtn) speichernBtn.disabled = true;
+        if (obstHinzufuegenBtn) obstHinzufuegenBtn.disabled = true;
+    } finally {
+        if (retryBtn) {
+            retryBtn.disabled = false;
+            retryBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Erneut versuchen';
+        }
+        wizardSync();
+        if (currentStep === 4) {
+            berechneVorschau();
+        }
     }
-}
-
-// Fallback auf hardcoded Werte falls API nicht verfügbar
-function ladeHardcodedFallback() {
-    obstPreisTabelle = {
-        "Apfel": {kategorie: "E1", einheit: "Stück", standardpreis: 25.0, maxAnzahl: 999},
-        "Birne": {kategorie: "E1", einheit: "Stück", standardpreis: 25.0, maxAnzahl: 999},
-        "Kirsche süß": {kategorie: "E1", einheit: "Stück", standardpreis: 30.0, maxAnzahl: 999},
-        // ... weitere hardcoded Werte als Fallback
-    };
-    
-    zieranpflanzungsPreise = {
-        "F1": {standardpreis: 4.00}, "F2": {standardpreis: 5.00}, 
-        "F3": {standardpreis: 6.00}, "F4": {standardpreis: 12.00},
-        "F8": {standardpreis: 0.50}
-    };
-    
-    gemusePreise = {
-        "G1": 0.75, "G2": 1.00, "E9": 5.00
-    };
 }
 
 // AKTUALISIERTE Funktionen verwenden dynamische Preise
@@ -649,19 +885,19 @@ function updateObstPreis(id) {
     const einheitInput = document.querySelector(`[data-id="${id}"] .obst-einheit`);
     const einzelpreisInput = document.querySelector(`[data-id="${id}"] .obst-einzelpreis`);
     const anzahlInput = document.querySelector(`[data-id="${id}"] .obst-anzahl`);
-    
+
     const art = artSelect.value;
-    
+
     if (art && obstPreisTabelle[art]) {
         const obstInfo = obstPreisTabelle[art];
         einheitInput.value = obstInfo.einheit;
         einzelpreisInput.value = obstInfo.standardpreis.toFixed(2);
         anzahlInput.max = obstInfo.max_anzahl || obstInfo.maxAnzahl || 999;
-        
+
         if ((obstInfo.max_anzahl || obstInfo.maxAnzahl) < 999) {
             anzahlInput.title = `Maximal ${obstInfo.max_anzahl || obstInfo.maxAnzahl} ${obstInfo.einheit} erlaubt`;
         }
-        
+
         berechneObstWert(id);
     }
 }
@@ -669,13 +905,13 @@ function updateObstPreis(id) {
 function fuegeObstEintragHinzu() {
     const id = ++obstEintragCounter;
     const obstArten = Object.keys(obstPreisTabelle).sort();
-    
+
     let optionen = '<option value="">-- Obstart wählen --</option>';
     obstArten.forEach(art => {
         const info = obstPreisTabelle[art];
         optionen += `<option value="${art}">${art} (${info.standardpreis.toFixed(2)} €/${info.einheit})</option>`;
     });
-    
+
     // Rest der Funktion bleibt gleich...
     const html = `
         <div class="obst-eintrag card mb-3 border-success" data-id="${id}">
@@ -689,7 +925,7 @@ function fuegeObstEintragHinzu() {
                     </div>
                     <div class="col-md-2">
                         <label class="form-label">Anzahl/Menge</label>
-                        <input type="number" class="form-control obst-anzahl" name="obst_anzahl[]" 
+                        <input type="number" class="form-control obst-anzahl" name="obst_anzahl[]"
                                min="0" step="0.1" onchange="berechneObstWert(${id})">
                     </div>
                     <div class="col-md-1">
@@ -699,7 +935,7 @@ function fuegeObstEintragHinzu() {
                     <div class="col-md-2">
                         <label class="form-label">Einzelpreis</label>
                         <div class="input-group">
-                            <input type="number" class="form-control obst-einzelpreis" name="obst_einzelpreis[]" 
+                            <input type="number" class="form-control obst-einzelpreis" name="obst_einzelpreis[]"
                                    step="0.01" onchange="berechneObstWert(${id})">
                             <span class="input-group-text">€</span>
                         </div>
@@ -720,8 +956,9 @@ function fuegeObstEintragHinzu() {
             </div>
         </div>
     `;
-    
+
     document.getElementById('obst-container').insertAdjacentHTML('beforeend', html);
+    wizardSync();
 }
 
 // AKTUALISIERTE Lauben-Berechnung mit dynamischem Bauindex
@@ -730,26 +967,31 @@ function updateLaubeBerechnung() {
     const grundflaeche = parseFloat(document.getElementById('laube_grundflaeche').value) || 0;
     const erstellungsjahr = parseInt(document.getElementById('laube_erstellungsjahr').value) || new Date().getFullYear();
     const material = document.getElementById('laube_material').value;
-    
+
+    if (aktuellerBauindex === null) {
+        document.getElementById('laube_details_text').innerHTML = '<span class="text-muted">Bauindex wird geladen …</span>';
+        return;
+    }
+
     if (herstellungswertProQM > 0 && grundflaeche > 0) {
         const aktuellesJahr = new Date().getFullYear();
         const bauindex = aktuellerBauindex; // DYNAMISCH aus API
         const abschreibungProzent = material === 'stein' ? 2.0 : 3.0;
         const maxLebensdauer = material === 'stein' ? 50 : 33;
-        
+
         const grundwert = herstellungswertProQM * grundflaeche * bauindex;
         const abschreibungsjahre = Math.max(0, aktuellesJahr - erstellungsjahr - 1);
-        
+
         let gesamtabschreibung;
         if (abschreibungsjahre >= maxLebensdauer) {
             gesamtabschreibung = 85.0;
         } else {
             gesamtabschreibung = Math.min(85, abschreibungsjahre * abschreibungProzent);
         }
-        
+
         const abschreibungsbetrag = grundwert * gesamtabschreibung / 100;
         const zeitwert = Math.max(grundwert - abschreibungsbetrag, grundwert * 0.15);
-        
+
         document.getElementById('laube_details_text').innerHTML = `
             <strong>Berechnung:</strong> ${herstellungswertProQM.toFixed(2)} €/m² × ${grundflaeche} m² × ${bauindex} (Bauindex) = ${grundwert.toFixed(2)} € (Grundwert)<br>
             <strong>Abschreibung:</strong> ${abschreibungsjahre} Jahre × ${abschreibungProzent}% = ${gesamtabschreibung.toFixed(1)}% (${abschreibungsbetrag.toFixed(2)} €)<br>
@@ -764,16 +1006,22 @@ function updateManuellVorschau() {
     const grundflaeche = parseFloat(document.getElementById('laube_grundflaeche').value) || 0;
     const restwertProzent = parseFloat(document.getElementById('laube_restwert_prozent').value) || 0;
     const manuellZeitwert = parseFloat(document.getElementById('laube_manuell_zeitwert').value) || 0;
-    
+
     const vorschauDiv = document.getElementById('laube_manuell_vorschau');
-    
+
+    if (aktuellerBauindex === null) {
+        vorschauDiv.innerHTML = '<span class="text-muted">Bauindex wird geladen …</span>';
+        document.getElementById('laube_ueberschreitung_warnung').style.display = 'none';
+        return;
+    }
+
     if (herstellungswertProQM > 0 && grundflaeche > 0) {
         const bauindex = aktuellerBauindex; // DYNAMISCH aus API
         const grundwert = herstellungswertProQM * grundflaeche * bauindex;
-        
+
         let zeitwert;
         let berechnungsart;
-        
+
         if (manuellZeitwert > 0) {
             zeitwert = manuellZeitwert;
             berechnungsart = "Fester Zeitwert";
@@ -781,23 +1029,105 @@ function updateManuellVorschau() {
             zeitwert = grundwert * restwertProzent / 100;
             berechnungsart = `${restwertProzent}% Restwert`;
         }
-        
+
         const maxErlaubt = grundwert * 0.15;
-        let warnung = "";
-        if (zeitwert > maxErlaubt) {
-            warnung = `<div class="alert alert-danger mt-2"><strong>Warnung:</strong> Der eingegebene Wert (${zeitwert.toFixed(2)} €) überschreitet den maximal zulässigen Restwert von 15% (${maxErlaubt.toFixed(2)} €)!</div>`;
-        }
-        
+
         vorschauDiv.innerHTML = `
             <strong>Grundwert:</strong> ${herstellungswertProQM.toFixed(2)} €/m² × ${grundflaeche} m² × ${bauindex} = ${grundwert.toFixed(2)} €<br>
             <strong>Berechnungsart:</strong> ${berechnungsart}<br>
             <strong>Manueller Zeitwert:</strong> <span class="text-success fw-bold">${zeitwert.toFixed(2)} €</span><br>
             <small class="text-muted">Max. zulässiger Restwert (15%): ${maxErlaubt.toFixed(2)} €</small>
-            ${warnung}
         `;
     } else {
         vorschauDiv.innerHTML = "Bitte füllen Sie Herstellungswert und Grundfläche aus.";
     }
+
+    // Die weiche 15%-Überschreitungswarnung (Zeitwert > 15% Grundwert) wird als
+    // sichtbare Warnzeile mit Bestätigungs-Checkbox geführt statt per confirm().
+    pruefeLaubeUeberschreitung();
+}
+
+// Inline-Validierung: Restwert-Prozent (max. 15%, statt clamp()+alert()).
+function pruefeRestwertProzent() {
+    const el = document.getElementById('laube_restwert_prozent');
+    const fehlerEl = document.getElementById('laube_restwert_prozent_fehler');
+    const wert = parseFloat(el.value);
+    let meldung = '';
+
+    if (!isNaN(wert) && wert > 15) {
+        meldung = 'Der Restwert darf maximal 15 % betragen.';
+    } else if (!isNaN(wert) && wert < 0) {
+        meldung = 'Der Restwert kann nicht negativ sein.';
+    }
+
+    if (meldung) {
+        el.classList.add('is-invalid');
+        fehlerEl.textContent = meldung;
+        fehlerEl.style.display = 'block';
+    } else {
+        el.classList.remove('is-invalid');
+        fehlerEl.style.display = 'none';
+    }
+    return meldung === '';
+}
+
+// Inline-Validierung: Begründung ist bei manueller Eingabe Pflicht.
+function pruefeLaubeBegruendung() {
+    const el = document.getElementById('laube_begruendung');
+    const fehlerEl = document.getElementById('laube_begruendung_fehler');
+    const leer = el.value.trim() === '';
+
+    if (leer) {
+        el.classList.add('is-invalid');
+        fehlerEl.style.display = 'block';
+    } else {
+        el.classList.remove('is-invalid');
+        fehlerEl.style.display = 'none';
+    }
+    return !leer;
+}
+
+// Inline-Validierung: entweder Restwert-Prozent ODER fester Zeitwert muss angegeben sein.
+function pruefeLaubeManuellWertangabe() {
+    const restwertProzent = parseFloat(document.getElementById('laube_restwert_prozent').value) || 0;
+    const manuellZeitwert = parseFloat(document.getElementById('laube_manuell_zeitwert').value) || 0;
+    const fehlerEl = document.getElementById('laube_wertangabe_fehler');
+    const fehlt = restwertProzent === 0 && manuellZeitwert === 0;
+
+    fehlerEl.style.display = fehlt ? 'block' : 'none';
+    return !fehlt;
+}
+
+// Weiche Warnung: eingegebener Wert überschreitet die empfohlene 15%-Grenze.
+// Ersetzt das vormalige confirm() durch eine Warnzeile mit Bestätigungs-Checkbox;
+// solange die Checkbox nicht gesetzt ist, blockiert diese Prüfung das Absenden.
+function pruefeLaubeUeberschreitung() {
+    const herstellungswertProQM = parseFloat(document.getElementById('laube_herstellungswert').value) || 0;
+    const grundflaeche = parseFloat(document.getElementById('laube_grundflaeche').value) || 0;
+    const restwertProzent = parseFloat(document.getElementById('laube_restwert_prozent').value) || 0;
+    const manuellZeitwert = parseFloat(document.getElementById('laube_manuell_zeitwert').value) || 0;
+    const warnBox = document.getElementById('laube_ueberschreitung_warnung');
+    const warnText = document.getElementById('laube_ueberschreitung_text');
+    const bestaetigt = document.getElementById('laube_ueberschreitung_bestaetigt');
+
+    if (herstellungswertProQM <= 0 || grundflaeche <= 0 || aktuellerBauindex === null) {
+        warnBox.style.display = 'none';
+        return true;
+    }
+
+    const grundwert = herstellungswertProQM * grundflaeche * aktuellerBauindex;
+    const maxErlaubt = grundwert * 0.15;
+    const eingabeWert = manuellZeitwert > 0 ? manuellZeitwert : (grundwert * restwertProzent / 100);
+
+    if (eingabeWert > maxErlaubt) {
+        warnText.innerHTML = `<strong>Hinweis:</strong> Der eingegebene Wert (${eingabeWert.toFixed(2)} €) überschreitet den empfohlenen Höchstwert von 15 % (${maxErlaubt.toFixed(2)} €).`;
+        warnBox.style.display = 'block';
+        return bestaetigt.checked;
+    }
+
+    warnBox.style.display = 'none';
+    bestaetigt.checked = false;
+    return true;
 }
 
 // Rest des JavaScript bleibt gleich...
@@ -808,7 +1138,7 @@ document.getElementById('laube_manuell').addEventListener('change', function() {
     const manuellDetails = document.getElementById('laube_manuell_details');
     const automatischBerechnung = document.getElementById('laube_berechnung');
     const begruendung = document.getElementById('laube_begruendung');
-    
+
     if (this.checked) {
         manuellDetails.style.display = 'block';
         automatischBerechnung.style.display = 'none';
@@ -818,26 +1148,23 @@ document.getElementById('laube_manuell').addEventListener('change', function() {
         manuellDetails.style.display = 'none';
         automatischBerechnung.style.display = 'block';
         begruendung.required = false;
+        document.getElementById('laube_ueberschreitung_warnung').style.display = 'none';
         updateLaubeBerechnung();
     }
 });
 
 document.getElementById('laube_restwert_prozent').addEventListener('input', function() {
-    const wert = parseFloat(this.value);
-    if (wert > 15) {
-        this.value = 15;
-        alert('Restwert darf maximal 15% betragen!');
-    }
-    if (wert < 0) {
-        this.value = 0;
-    }
+    pruefeRestwertProzent();
     updateManuellVorschau();
 });
+
+document.getElementById('laube_begruendung').addEventListener('input', pruefeLaubeBegruendung);
 
 ['laube_herstellungswert', 'laube_grundflaeche', 'laube_restwert_prozent', 'laube_manuell_zeitwert'].forEach(id => {
     document.getElementById(id).addEventListener('input', function() {
         if (document.getElementById('laube_manuell').checked) {
             updateManuellVorschau();
+            pruefeLaubeManuellWertangabe();
         } else {
             updateLaubeBerechnung();
         }
@@ -848,7 +1175,7 @@ function berechneObstWert(id) {
     const anzahl = parseFloat(document.querySelector(`[data-id="${id}"] .obst-anzahl`).value) || 0;
     const einzelpreis = parseFloat(document.querySelector(`[data-id="${id}"] .obst-einzelpreis`).value) || 0;
     const gesamtwert = anzahl * einzelpreis;
-    
+
     document.querySelector(`[data-id="${id}"] .obst-gesamt`).value = gesamtwert.toFixed(2);
     berechneObstGesamtwert();
 }
@@ -864,13 +1191,14 @@ function berechneObstGesamtwert() {
 function entferneObstEintrag(id) {
     document.querySelector(`[data-id="${id}"]`).remove();
     berechneObstGesamtwert();
+    wizardSync();
 }
 
 document.getElementById('laube_vorhanden').addEventListener('change', function() {
     const details = document.getElementById('laube_details');
     const berechnung = document.getElementById('laube_berechnung');
     const manuellDetails = document.getElementById('laube_manuell_details');
-    
+
     if (this.checked) {
         details.style.display = 'block';
         if (document.getElementById('laube_manuell').checked) {
@@ -910,74 +1238,89 @@ document.getElementById('laube_vorhanden').addEventListener('change', function()
 });
 
 document.querySelector('form').addEventListener('submit', function(e) {
+    // Preistabellen müssen geladen sein - der Speichern-Button ist zwar bereits
+    // deaktiviert, dies ist die serverseitig unabhängige zweite Absicherung.
+    if (!preiseGeladen) {
+        e.preventDefault();
+        return false;
+    }
+
     const laubeVorhanden = document.getElementById('laube_vorhanden').checked;
     const laubeManuell = document.getElementById('laube_manuell').checked;
-    
+
     if (laubeVorhanden && laubeManuell) {
-        const begruendung = document.getElementById('laube_begruendung').value.trim();
-        const restwertProzent = parseFloat(document.getElementById('laube_restwert_prozent').value) || 0;
-        const manuellZeitwert = parseFloat(document.getElementById('laube_manuell_zeitwert').value) || 0;
-        
-        if (begruendung === "") {
+        const begruendungOk = pruefeLaubeBegruendung();
+        const restwertOk = pruefeRestwertProzent();
+        const wertangabeOk = pruefeLaubeManuellWertangabe();
+        const ueberschreitungOk = pruefeLaubeUeberschreitung();
+
+        if (!begruendungOk) {
             e.preventDefault();
-            alert('Bei manueller Eingabe ist eine Begründung erforderlich!');
+            goToStep(1);
             document.getElementById('laube_begruendung').focus();
             return false;
         }
-        
-        if (restwertProzent === 0 && manuellZeitwert === 0) {
+
+        if (!restwertOk) {
             e.preventDefault();
-            alert('Bitte geben Sie entweder einen Restwert-Prozentsatz oder einen festen Zeitwert ein!');
-            return false;
-        }
-        
-        if (restwertProzent > 15) {
-            e.preventDefault();
-            alert('Der Restwert darf maximal 15% betragen!');
+            goToStep(1);
             document.getElementById('laube_restwert_prozent').focus();
             return false;
         }
-        
-        const grundwert = (parseFloat(document.getElementById('laube_herstellungswert').value) || 0) * 
-                         (parseFloat(document.getElementById('laube_grundflaeche').value) || 0) * aktuellerBauindex;
-        const maxErlaubt = grundwert * 0.15;
-        const eingabeWert = manuellZeitwert > 0 ? manuellZeitwert : (grundwert * restwertProzent / 100);
-        
-        if (eingabeWert > maxErlaubt) {
-            if (!confirm(`Der eingegebene Wert (${eingabeWert.toFixed(2)} €) überschreitet den empfohlenen Höchstwert von 15% (${maxErlaubt.toFixed(2)} €). Möchten Sie dennoch fortfahren?`)) {
-                e.preventDefault();
-                return false;
-            }
+
+        if (!wertangabeOk) {
+            e.preventDefault();
+            goToStep(1);
+            document.getElementById('laube_restwert_prozent').focus();
+            return false;
+        }
+
+        if (!ueberschreitungOk) {
+            e.preventDefault();
+            goToStep(1);
+            document.getElementById('laube_ueberschreitung_bestaetigt').focus();
+            return false;
         }
     }
 });
 
-function berechneVorschau() {
-    let gesamtwert = 0;
-    let details = [];
-    
-    // Laube
+// berechneSummen liefert die Zwischensummen A-F + Gesamtwert als Vorschau, oder
+// null, solange die Preistabellen nicht geladen sind. Wird sowohl vom großen
+// Berechnungs-Panel (Schritt 4) als auch von der kompakten Live-Summenleiste
+// (jeder Schritt) verwendet, damit beide immer denselben Stand zeigen.
+function berechneSummen() {
+    if (!preiseGeladen) {
+        return null;
+    }
+
+    let sumA = 0; // Laube
+    let sumB = 0; // Sonstige Baulichkeiten (Wege, Pforte)
+    let sumC = 0; // Strom- und Wasserversorgung
+    let sumD = 0; // Obstgehölze
+    let sumE = 0; // Gemüsekulturen
+    let sumF = 0; // Zieranpflanzungen
+
+    // A. Laube
     if (document.getElementById('laube_vorhanden').checked) {
         const manuell = document.getElementById('laube_manuell').checked;
-        
+
         if (manuell) {
             const herstellungswertProQM = parseFloat(document.getElementById('laube_herstellungswert').value) || 0;
             const grundflaeche = parseFloat(document.getElementById('laube_grundflaeche').value) || 0;
             const restwertProzent = parseFloat(document.getElementById('laube_restwert_prozent').value) || 0;
             const manuellZeitwert = parseFloat(document.getElementById('laube_manuell_zeitwert').value) || 0;
-            
+
             if (herstellungswertProQM > 0 && grundflaeche > 0) {
                 const grundwert = herstellungswertProQM * grundflaeche * aktuellerBauindex;
                 const zeitwert = manuellZeitwert > 0 ? manuellZeitwert : (grundwert * restwertProzent / 100);
-                gesamtwert += zeitwert;
-                details.push(`Laube (manuell): ${zeitwert.toFixed(2)} €`);
+                sumA += zeitwert;
             }
         } else {
             const herstellungswertProQM = parseFloat(document.getElementById('laube_herstellungswert').value) || 0;
             const grundflaeche = parseFloat(document.getElementById('laube_grundflaeche').value) || 0;
             const erstellungsjahr = parseInt(document.getElementById('laube_erstellungsjahr').value) || new Date().getFullYear();
             const material = document.getElementById('laube_material').value;
-            
+
             if (herstellungswertProQM > 0 && grundflaeche > 0) {
                 const bauindex = aktuellerBauindex;
                 const abschreibungProzent = material === 'stein' ? 2.0 : 3.0;
@@ -986,30 +1329,25 @@ function berechneVorschau() {
                 const gesamtabschreibung = Math.min(85, abschreibungsjahre * abschreibungProzent);
                 const abschreibungsbetrag = grundwert * gesamtabschreibung / 100;
                 const zeitwert = Math.max(grundwert - abschreibungsbetrag, grundwert * 0.15);
-                
-                gesamtwert += zeitwert;
-                details.push(`Laube (automatisch): ${zeitwert.toFixed(2)} €`);
+
+                sumA += zeitwert;
             }
         }
     }
-    
-    // Wege
+
+    // B. Sonstige Baulichkeiten - Wege
     const wegeFlaeche = parseFloat(document.getElementById('wege_flaeche').value) || 0;
     const wegeQualitaet = parseFloat(document.getElementById('wege_qualitaet').value) || 0;
     if (wegeFlaeche > 0) {
-        const wegeWert = wegeFlaeche * wegeQualitaet;
-        gesamtwert += wegeWert;
-        details.push(`Wege: ${wegeWert.toFixed(2)} €`);
-    }
-    
-    // Pforte
-    if (document.getElementById('pforte_vorhanden').checked) {
-        const pforteWert = parseFloat(document.getElementById('pforte_wert').value) || 0;
-        gesamtwert += pforteWert;
-        details.push(`Pforte: ${pforteWert.toFixed(2)} €`);
+        sumB += wegeFlaeche * wegeQualitaet;
     }
 
-    // Strom
+    // B. Sonstige Baulichkeiten - Pforte
+    if (document.getElementById('pforte_vorhanden').checked) {
+        sumB += parseFloat(document.getElementById('pforte_wert').value) || 0;
+    }
+
+    // C. Strom- und Wasserversorgung - Strom
     if (document.getElementById('strom_vorhanden').checked) {
         const stromVariante = document.querySelector('input[name="strom_variante"]:checked');
         const variante = stromVariante ? stromVariante.value : 'ohne_beleg';
@@ -1047,45 +1385,29 @@ function berechneVorschau() {
             stromWert = berechneRestwert(hw, baujahr, laubeAbschreibung, 10.0);
         }
 
-        if (stromWert > 0) {
-            gesamtwert += stromWert;
-            details.push(`Strom: ${stromWert.toFixed(2)} €`);
-        }
+        sumC += stromWert;
     }
 
-    // Wasser
+    // C. Strom- und Wasserversorgung - Wasser
     if (document.getElementById('wasser_vorhanden').checked) {
-        const wasserWert = 37.5;
-        gesamtwert += wasserWert;
-        details.push(`Wasser: ${wasserWert.toFixed(2)} €`);
+        sumC += 37.5;
     }
-    
-    // Obstgehölze
-    let obstGesamtwert = 0;
+
+    // D. Obstgehölze
     document.querySelectorAll('.obst-gesamt').forEach(input => {
-        obstGesamtwert += parseFloat(input.value) || 0;
+        sumD += parseFloat(input.value) || 0;
     });
-    if (obstGesamtwert > 0) {
-        gesamtwert += obstGesamtwert;
-        details.push(`Obstgehölze: ${obstGesamtwert.toFixed(2)} €`);
-    }
-    
-    // Gemüse - MIT DYNAMISCHEN PREISEN
+
+    // E. Gemüsekulturen - MIT DYNAMISCHEN PREISEN
     const gemuseEinzelpflanzen = parseInt(document.getElementById('gemuese_einzelpflanzen_anzahl').value) || 0;
     const gemuseReihen = parseFloat(document.getElementById('gemuese_reihen_meter').value) || 0;
     const kraeuterFlaeche = parseFloat(document.getElementById('kraeuter_flaeche').value) || 0;
-    
-    let gemuseWert = 0;
-    if (gemusePreise.G1) gemuseWert += gemuseEinzelpflanzen * gemusePreise.G1;
-    if (gemusePreise.G2) gemuseWert += gemuseReihen * gemusePreise.G2;
-    if (gemusePreise.E9) gemuseWert += kraeuterFlaeche * gemusePreise.E9;
-    
-    if (gemuseWert > 0) {
-        gesamtwert += gemuseWert;
-        details.push(`Gemüse/Kräuter: ${gemuseWert.toFixed(2)} €`);
-    }
-    
-    // Zieranpflanzungen - MIT DYNAMISCHEN PREISEN
+
+    if (gemusePreise.G1) sumE += gemuseEinzelpflanzen * gemusePreise.G1;
+    if (gemusePreise.G2) sumE += gemuseReihen * gemusePreise.G2;
+    if (gemusePreise.E9) sumE += kraeuterFlaeche * gemusePreise.E9;
+
+    // F. Zieranpflanzungen - MIT DYNAMISCHEN PREISEN
     const zierF1 = parseFloat(document.getElementById('zier_f1').value) || 0;
     const zierF2 = parseFloat(document.getElementById('zier_f2').value) || 0;
     const zierF3 = parseFloat(document.getElementById('zier_f3').value) || 0;
@@ -1093,21 +1415,282 @@ function berechneVorschau() {
     const rasen = parseFloat(document.getElementById('rasen').value) || 0;
     const teichFlaeche = parseFloat(document.getElementById('teich_flaeche').value) || 0;
     const teichTyp = parseFloat(document.getElementById('teich_typ').value) || 5;
-    
-    let zierWert = 0;
-    if (zieranpflanzungsPreise.F1) zierWert += zierF1 * zieranpflanzungsPreise.F1.standardpreis;
-    if (zieranpflanzungsPreise.F2) zierWert += zierF2 * zieranpflanzungsPreise.F2.standardpreis;
-    if (zieranpflanzungsPreise.F3) zierWert += zierF3 * zieranpflanzungsPreise.F3.standardpreis;
-    if (zieranpflanzungsPreise.F4) zierWert += zierF4 * zieranpflanzungsPreise.F4.standardpreis;
-    if (zieranpflanzungsPreise.F8) zierWert += rasen * zieranpflanzungsPreise.F8.standardpreis;
-    zierWert += teichFlaeche * teichTyp;
-    
-    if (zierWert > 0) {
-        gesamtwert += zierWert;
-        details.push(`Zieranpflanzungen: ${zierWert.toFixed(2)} €`);
+
+    if (zieranpflanzungsPreise.F1) sumF += zierF1 * zieranpflanzungsPreise.F1.standardpreis;
+    if (zieranpflanzungsPreise.F2) sumF += zierF2 * zieranpflanzungsPreise.F2.standardpreis;
+    if (zieranpflanzungsPreise.F3) sumF += zierF3 * zieranpflanzungsPreise.F3.standardpreis;
+    if (zieranpflanzungsPreise.F4) sumF += zierF4 * zieranpflanzungsPreise.F4.standardpreis;
+    if (zieranpflanzungsPreise.F8) sumF += rasen * zieranpflanzungsPreise.F8.standardpreis;
+    sumF += teichFlaeche * teichTyp;
+
+    return {
+        sumA: sumA, sumB: sumB, sumC: sumC, sumD: sumD, sumE: sumE, sumF: sumF,
+        gesamt: sumA + sumB + sumC + sumD + sumE + sumF
+    };
+}
+
+function berechneVorschau() {
+    const panel = document.getElementById('berechnung-panel');
+    const hinweis = document.getElementById('berechnung-hinweis');
+    const tabelle = document.getElementById('berechnung-tabelle');
+
+    const summen = berechneSummen();
+    if (!summen) {
+        hinweis.textContent = 'Die Preistabellen sind noch nicht geladen. Eine Berechnung ist derzeit nicht möglich.';
+        hinweis.style.display = 'block';
+        tabelle.style.display = 'none';
+        panel.scrollIntoView({behavior: 'smooth', block: 'start'});
+        return;
     }
-    
-    alert(`Berechnete Wertermittlung (Bauindex ${aktuellerBauindex}):\n\n${details.join('\n')}\n\nGESAMTWERT: ${gesamtwert.toFixed(2)} €`);
+
+    document.getElementById('sum-a').textContent = summen.sumA.toFixed(2) + ' €';
+    document.getElementById('sum-b').textContent = summen.sumB.toFixed(2) + ' €';
+    document.getElementById('sum-c').textContent = summen.sumC.toFixed(2) + ' €';
+    document.getElementById('sum-d').textContent = summen.sumD.toFixed(2) + ' €';
+    document.getElementById('sum-e').textContent = summen.sumE.toFixed(2) + ' €';
+    document.getElementById('sum-f').textContent = summen.sumF.toFixed(2) + ' €';
+    document.getElementById('sum-gesamt').textContent = summen.gesamt.toFixed(2) + ' €';
+    document.getElementById('berechnung-bauindex-hinweis').textContent =
+        `Berechnet mit Bauindex ${aktuellerBauindex}. Die Zwischensummen sind eine Vorschau und werden erst beim Speichern amtlich festgeschrieben.`;
+
+    hinweis.style.display = 'none';
+    tabelle.style.display = 'block';
+    panel.scrollIntoView({behavior: 'smooth', block: 'start'});
+}
+
+// updateCompactSumme aktualisiert die kompakte Live-Summenleiste, die in jedem
+// Wizard-Schritt sichtbar bleibt (siehe .wz-summary-bar).
+function updateCompactSumme() {
+    const valueEl = document.getElementById('wz-summe-live');
+    if (!valueEl) return;
+
+    if (!preiseGeladen) {
+        valueEl.textContent = 'Preise nicht geladen';
+        valueEl.classList.add('is-blocked');
+        return;
+    }
+
+    const summen = berechneSummen();
+    valueEl.classList.remove('is-blocked');
+    valueEl.textContent = summen.gesamt.toFixed(2) + ' €';
+}
+
+// ── Wizard: Schritt-Validierung ─────────────────────────────────────────
+
+// Schritt 1 (Laube) ist gültig, wenn entweder keine Laube angegeben ist, oder
+// bei angehakter Laube Bauklasse/Erstellungsjahr/Grundfläche gefüllt sind und
+// - bei manueller Wertfestsetzung - alle 15%-Inline-Regeln erfüllt sind.
+function validateStep1() {
+    const laubeVorhanden = document.getElementById('laube_vorhanden').checked;
+    if (!laubeVorhanden) {
+        return {valid: true, reasons: []};
+    }
+
+    const reasons = [];
+    const bauklasse = document.getElementById('laube_bauklasse').value;
+    const erstellungsjahr = document.getElementById('laube_erstellungsjahr').value;
+    const grundflaeche = parseFloat(document.getElementById('laube_grundflaeche').value) || 0;
+
+    if (!bauklasse) reasons.push('Bauklasse fehlt.');
+    if (!erstellungsjahr) reasons.push('Erstellungsjahr fehlt.');
+    if (grundflaeche <= 0) reasons.push('Grundfläche fehlt.');
+
+    if (document.getElementById('laube_manuell').checked) {
+        if (!pruefeLaubeBegruendung()) reasons.push('Begründung für manuelle Eingabe fehlt.');
+        if (!pruefeRestwertProzent()) reasons.push('Restwert-Prozent ist ungültig (max. 15 %).');
+        if (!pruefeLaubeManuellWertangabe()) reasons.push('Restwert-Prozent oder fester Zeitwert fehlt.');
+        if (!pruefeLaubeUeberschreitung()) reasons.push('Bestätigung der 15%-Überschreitung fehlt.');
+    }
+
+    return {valid: reasons.length === 0, reasons: reasons};
+}
+
+// Eine Obst-Zeile gilt als "halbleer", wenn nur ein Teil ihrer drei Felder
+// (Art, Anzahl, Einzelpreis) gefüllt ist - vollständig leere Zeilen (kann bei
+// dynamisch hinzugefügten, noch nicht befüllten Zeilen vorkommen) sind ok.
+function obstZeileIstHalbleer(eintrag) {
+    const art = eintrag.querySelector('.obst-art').value;
+    const anzahl = parseFloat(eintrag.querySelector('.obst-anzahl').value) || 0;
+    const preis = parseFloat(eintrag.querySelector('.obst-einzelpreis').value) || 0;
+    const gefuellt = [art !== '', anzahl > 0, preis > 0].filter(Boolean).length;
+    return gefuellt > 0 && gefuellt < 3;
+}
+
+// Schritt 3 (Anpflanzungen) ist gültig, wenn keine Obst-Zeile halbleer ist.
+function validateStep3() {
+    let halbleer = false;
+    document.querySelectorAll('#obst-container .obst-eintrag').forEach(function(eintrag) {
+        if (obstZeileIstHalbleer(eintrag)) {
+            halbleer = true;
+        }
+    });
+    if (halbleer) {
+        return {valid: false, reasons: ['Bitte alle Obst-Zeilen vollständig ausfüllen (Art, Anzahl, Einzelpreis) oder unvollständige Zeilen entfernen.']};
+    }
+    return {valid: true, reasons: []};
+}
+
+// Aktualisiert die "Weiter"-Buttons (disabled + sichtbare Begründung) anhand
+// der aktuellen Schritt-Validität. Schritt 2 hat keine eigenen Pflichtfelder
+// und ist daher immer gültig.
+function updateStepValidity() {
+    const v1 = validateStep1();
+    const btn1 = document.getElementById('wz-weiter-1');
+    const grund1 = document.getElementById('wz-weiter-1-grund');
+    if (btn1) {
+        btn1.disabled = !v1.valid;
+    }
+    if (grund1) {
+        grund1.textContent = v1.valid ? '' : v1.reasons.join(' ');
+        grund1.style.display = v1.valid ? 'none' : 'block';
+    }
+
+    const v3 = validateStep3();
+    const btn3 = document.getElementById('wz-weiter-3');
+    const grund3 = document.getElementById('wz-weiter-3-grund');
+    if (btn3) {
+        btn3.disabled = !v3.valid;
+    }
+    if (grund3) {
+        grund3.textContent = v3.valid ? '' : v3.reasons.join(' ');
+        grund3.style.display = v3.valid ? 'none' : 'block';
+    }
+}
+
+// wizardSync bündelt die beiden Dinge, die bei jeder Formular-Änderung
+// aktualisiert werden müssen: die Live-Summenleiste und die
+// "Weiter"-Button-Zustände. An das Formular per Event-Delegation gebunden
+// (siehe unten), damit auch dynamisch hinzugefügte Obst-Zeilen erfasst werden.
+function wizardSync() {
+    updateCompactSumme();
+    updateStepValidity();
+}
+
+document.querySelector('form').addEventListener('input', wizardSync);
+document.querySelector('form').addEventListener('change', wizardSync);
+
+// buildZusammenfassung befüllt die kompakte Eingabe-Übersicht in Schritt 4,
+// damit vor dem Speichern nicht durch alle Schritte zurückgeblättert werden muss.
+function buildZusammenfassung() {
+    const el = document.getElementById('wz-zusammenfassung-inhalt');
+    if (!el) return;
+
+    const teile = [];
+
+    // Laube
+    if (document.getElementById('laube_vorhanden').checked) {
+        const bauklasse = document.getElementById('laube_bauklasse').value || '–';
+        const jahr = document.getElementById('laube_erstellungsjahr').value || '–';
+        const flaeche = document.getElementById('laube_grundflaeche').value || '–';
+        const modus = document.getElementById('laube_manuell').checked ? 'manuell festgesetzt' : 'automatisch berechnet';
+        teile.push(`<div><strong>Laube:</strong> Bauklasse ${bauklasse}, Baujahr ${jahr}, ${flaeche} m² (${modus})</div>`);
+    } else {
+        teile.push('<div><strong>Laube:</strong> nicht vorhanden</div>');
+    }
+
+    // Baulichkeiten & Anschlüsse
+    const bauteile = [];
+    const wegeFlaeche = parseFloat(document.getElementById('wege_flaeche').value) || 0;
+    if (wegeFlaeche > 0) bauteile.push(`Wege ${wegeFlaeche} m²`);
+    if (document.getElementById('pforte_vorhanden').checked) bauteile.push('Pforte');
+    if (document.getElementById('strom_vorhanden').checked) bauteile.push('Elektroanschluss');
+    if (document.getElementById('wasser_vorhanden').checked) bauteile.push('Wasserzähler');
+    teile.push(`<div><strong>Baulichkeiten &amp; Anschlüsse:</strong> ${bauteile.length ? bauteile.join(', ') : 'keine Angaben'}</div>`);
+
+    // Obst
+    const obstAnzahl = document.querySelectorAll('#obst-container .obst-eintrag').length;
+    teile.push(`<div><strong>Obstgehölze:</strong> ${obstAnzahl} Eintrag${obstAnzahl === 1 ? '' : 'e'}</div>`);
+
+    // Gemüse
+    const gemueseteile = [];
+    const g1 = parseFloat(document.getElementById('gemuese_einzelpflanzen_anzahl').value) || 0;
+    const g2 = parseFloat(document.getElementById('gemuese_reihen_meter').value) || 0;
+    const e9 = parseFloat(document.getElementById('kraeuter_flaeche').value) || 0;
+    if (g1 > 0) gemueseteile.push(`${g1} Einzelpflanzen`);
+    if (g2 > 0) gemueseteile.push(`${g2} lfm Reihen`);
+    if (e9 > 0) gemueseteile.push(`${e9} m² Kräuter`);
+    teile.push(`<div><strong>Gemüse:</strong> ${gemueseteile.length ? gemueseteile.join(', ') : 'keine Angaben'}</div>`);
+
+    // Zieranpflanzungen
+    const zierteile = [];
+    [['zier_f1', 'F1'], ['zier_f2', 'F2'], ['zier_f3', 'F3'], ['zier_f4', 'F4'], ['rasen', 'Rasen']].forEach(function(paar) {
+        const v = parseFloat(document.getElementById(paar[0]).value) || 0;
+        if (v > 0) zierteile.push(`${paar[1]}: ${v} m²`);
+    });
+    const teichFlaeche = parseFloat(document.getElementById('teich_flaeche').value) || 0;
+    if (teichFlaeche > 0) zierteile.push(`Teich: ${teichFlaeche} m²`);
+    teile.push(`<div><strong>Zieranpflanzungen:</strong> ${zierteile.length ? zierteile.join(', ') : 'keine Angaben'}</div>`);
+
+    el.innerHTML = teile.join('');
+}
+
+// ── Wizard: Navigation ───────────────────────────────────────────────────
+
+function updateStepperUI() {
+    for (let s = 1; s <= 4; s++) {
+        const btn = document.getElementById('wz-step-btn-' + s);
+        if (!btn) continue;
+        const circle = btn.querySelector('.wz-step-circle');
+        btn.classList.remove('is-complete', 'is-active');
+        btn.disabled = s > maxUnlocked;
+        if (s === currentStep) {
+            btn.classList.add('is-active');
+            btn.setAttribute('aria-current', 'step');
+        } else {
+            btn.removeAttribute('aria-current');
+        }
+        if (s < currentStep) {
+            btn.classList.add('is-complete');
+        }
+        if (circle) {
+            circle.textContent = (s < currentStep) ? '✓' : String(s);
+        }
+    }
+    for (let c = 1; c <= 3; c++) {
+        const connector = document.querySelector('.wz-step-connector[data-connector="' + c + '"]');
+        if (connector) {
+            connector.classList.toggle('is-filled', c < currentStep);
+        }
+    }
+}
+
+function goToStep(n) {
+    currentStep = n;
+    document.querySelectorAll('.wz-step-panel').forEach(function(panel) {
+        panel.style.display = (parseInt(panel.dataset.step, 10) === n) ? 'block' : 'none';
+    });
+    updateStepperUI();
+    wizardSync();
+    if (n === 4) {
+        buildZusammenfassung();
+        berechneVorschau();
+    }
+    const stepperEl = document.getElementById('wz-stepper');
+    if (stepperEl) stepperEl.scrollIntoView({behavior: 'smooth', block: 'start'});
+}
+
+// Stepper-Buttons: nur besuchte/gültige (freigeschaltete) Schritte anspringbar.
+function stepperClick(step) {
+    if (step <= maxUnlocked) {
+        goToStep(step);
+    }
+}
+
+// "Weiter"-Buttons validieren ihren eigenen Schritt erneut (zusätzlich zur
+// laufenden disabled-Absicherung durch updateStepValidity) und schalten den
+// Folgeschritt frei.
+function weiterClick(fromStep) {
+    let ok = true;
+    if (fromStep === 1) ok = validateStep1().valid;
+    if (fromStep === 3) ok = validateStep3().valid;
+    if (!ok) return;
+
+    maxUnlocked = Math.max(maxUnlocked, fromStep + 1);
+    goToStep(fromStep + 1);
+}
+
+function zurueckClick(toStep) {
+    goToStep(toStep);
 }
 </script>
 

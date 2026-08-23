@@ -16,6 +16,12 @@
             bevor eine Wertermittlung erfolgen darf.
         </div>
         
+        {{if .Error}}
+        <div class="alert alert-danger" role="alert">
+            {{.Error}}
+        </div>
+        {{end}}
+
         <form method="POST" class="needs-validation" novalidate>
             <div class="card mb-4">
                 <div class="card-header">
@@ -40,9 +46,14 @@
                                     <td><strong>{{.Nr}}.</strong></td>
                                     <td class="text-center">
                                         <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" 
+                                            <input class="form-check-input" type="checkbox"
                                                    id="mangel_{{.Nr}}" name="mangel_{{.Nr}}" value="true"
+                                                   {{if or .Erfuellt .Checked}}checked{{end}}
                                                    {{if .Erfuellt}}disabled{{end}}>
+                                            {{if .Erfuellt}}
+                                            <!-- Disabled Checkboxen werden vom Browser nicht übertragen - Wert daher zusätzlich als hidden-Feld mitschicken -->
+                                            <input type="hidden" name="mangel_{{.Nr}}" value="true">
+                                            {{end}}
                                         </div>
                                     </td>
                                     <td>{{.Beschreibung}}</td>
@@ -62,21 +73,21 @@
                 <div class="card-body">
                     <div class="mb-3">
                         <label for="weitere_auflagen" class="form-label">Zusätzliche Auflagen oder Hinweise:</label>
-                        <textarea class="form-control" id="weitere_auflagen" name="weitere_auflagen" 
-                                  rows="3" placeholder="Zusätzliche Beanstandungen oder spezielle Hinweise..."></textarea>
+                        <textarea class="form-control" id="weitere_auflagen" name="weitere_auflagen"
+                                  rows="3" placeholder="Zusätzliche Beanstandungen oder spezielle Hinweise...">{{.WeitereAuflagen}}</textarea>
                     </div>
-                    
+
                     <div class="row">
                         <div class="col-md-6">
                             <label for="frist" class="form-label">Frist zur Mängelbeseitigung:</label>
-                            <input type="date" class="form-control" id="frist" name="frist" 
-                                   min="{{(index . "Today")}}" required>
+                            <input type="date" class="form-control" id="frist" name="frist"
+                                   min="{{.Today}}" value="{{.FristValue}}" required>
                             <div class="form-text">Alle aufgeführten Auflagen/Mängel müssen bis zu diesem Datum beseitigt werden.</div>
                         </div>
                         <div class="col-md-6">
                             <div class="form-check mt-4">
-                                <input class="form-check-input" type="checkbox" id="auflagen_erfuellt" 
-                                       name="auflagen_erfuellt" value="true">
+                                <input class="form-check-input" type="checkbox" id="auflagen_erfuellt"
+                                       name="auflagen_erfuellt" value="true" {{if .AuflagenErfuellt}}checked{{end}}>
                                 <label class="form-check-label" for="auflagen_erfuellt">
                                     <strong>Die Parzelle ist in einwandfreiem Zustand, keine Vereinsauflagen.</strong>
                                 </label>
@@ -102,8 +113,12 @@
                 </div>
             </div>
             
+            <div id="inspektionValidierungHinweis" class="alert alert-danger d-none" role="alert">
+                Bitte wählen Sie entweder "einwandfreier Zustand" oder mindestens einen Mangel aus.
+            </div>
+
             <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                <a href="/parzellen/{{.Parzelle.ID}}" class="btn btn-secondary me-md-2">Abbrechen</a>
+                <a href="{{.ParzellenBasePath}}/{{.Parzelle.ID}}" class="btn btn-secondary me-md-2">Abbrechen</a>
                 <button type="submit" class="btn btn-success">Inspektion speichern</button>
             </div>
         </form>
@@ -189,24 +204,43 @@ document.getElementById('auflagen_erfuellt').addEventListener('change', function
     }
 });
 
-// Automatische Fristsetzung (30 Tage ab heute)
+// Automatische Fristsetzung (30 Tage ab heute) - nur wenn noch kein Datum
+// gesetzt ist (z.B. beim Rerender nach einem Speicherfehler bleibt die
+// eingegebene Frist erhalten und wird hier nicht überschrieben).
 document.addEventListener('DOMContentLoaded', function() {
+    const fristInput = document.getElementById('frist');
+    if (fristInput.value) {
+        return;
+    }
     const heute = new Date();
     const frist = new Date(heute.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 Tage
-    document.getElementById('frist').value = frist.toISOString().split('T')[0];
+    fristInput.value = frist.toISOString().split('T')[0];
 });
 
-// Validierung vor Submit
+// Zustand nach Rerender (z.B. nach Speicherfehler) angleichen, falls
+// "einwandfreier Zustand" bereits angehakt zurückkommt
+document.addEventListener('DOMContentLoaded', function() {
+    const auflagenErfuellt = document.getElementById('auflagen_erfuellt');
+    if (auflagenErfuellt.checked) {
+        auflagenErfuellt.dispatchEvent(new Event('change'));
+    }
+});
+
+// Validierung vor Submit - sichtbarer Hinweis statt natives alert()
 document.querySelector('form').addEventListener('submit', function(e) {
     const auflagenErfuellt = document.getElementById('auflagen_erfuellt').checked;
     const maengelSelected = document.querySelectorAll('input[name^="mangel_"]:checked').length > 0;
     const weitereAuflagen = document.getElementById('weitere_auflagen').value.trim();
-    
+    const hinweis = document.getElementById('inspektionValidierungHinweis');
+
     if (!auflagenErfuellt && !maengelSelected && !weitereAuflagen) {
         e.preventDefault();
-        alert('Bitte wählen Sie entweder "einwandfreier Zustand" oder mindestens einen Mangel aus.');
+        hinweis.classList.remove('d-none');
+        hinweis.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return false;
     }
+
+    hinweis.classList.add('d-none');
 });
 </script>
 {{end}}

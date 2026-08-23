@@ -23,6 +23,7 @@ import (
 const lghOrgName = "Landesbund der Gartenfreunde in Hamburg e.V."
 const stromManuellFestwert = 80.0
 const stromMaxBetrag = 1900.0
+const fallbackBauindex = 44.3 // Fallback 2026, falls der Bauindex-Service nicht erreichbar ist
 
 const wertermittlungHinweisText = "Gutachterliche Wertermittlung erstattet unabhängig davon, ob ein Rechtsanspruch auf Entschädigung besteht.\n" +
 	"Der scheidende Pächter hat das Recht, binnen 2 Wochen nach Erhalt gegen die Wertermittlung des Vereins Einspruch beim Vereinsvorstand einzulegen und eine erneute Wertermittlung durch die Bezirks-Wertermittler zu verlangen (Satzung)."
@@ -33,23 +34,26 @@ func WertermittlungHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	parzelleID, err := strconv.Atoi(vars["parzelle_id"])
 	if err != nil {
-		http.Error(w, "Ungültige Parzellen-ID", http.StatusBadRequest)
+		// Gestylte Fehlerseite statt Plaintext — identisches Muster wie
+		// InspektionHandler, damit ein veralteter/kaputter Link nicht aus
+		// dem Layout fällt.
+		RenderErrorPage(w, r, http.StatusBadRequest, "Ungültige Anfrage", "Die Parzellen-ID ist ungültig.", parzellenBasePath(r))
 		return
 	}
 
 	parzelle, err := models.GetParzelleByID(parzelleID)
 	if err != nil {
-		http.Error(w, "Parzelle nicht gefunden", http.StatusNotFound)
+		RenderErrorPage(w, r, http.StatusNotFound, "Nicht gefunden", "Diese Parzelle wurde nicht gefunden.", parzellenBasePath(r))
 		return
 	}
 
 	if r.Method == "POST" {
 		if err := handleWertermittlungPostMitService(w, r, parzelleID); err != nil {
 			log.Printf("Fehler bei Wertermittlung POST: %v", err)
-			http.Error(w, "Fehler beim Speichern der Wertermittlung: "+err.Error(), http.StatusInternalServerError)
+			renderWertermittlungFehler(w, r, parzelle, err)
 			return
 		}
-		http.Redirect(w, r, "/parzellen/"+strconv.Itoa(parzelleID), http.StatusSeeOther)
+		http.Redirect(w, r, parzellenBasePath(r)+"/"+strconv.Itoa(parzelleID), http.StatusSeeOther)
 		return
 	}
 
@@ -104,7 +108,7 @@ func handleWertermittlungPostMitService(w http.ResponseWriter, r *http.Request, 
 		// DATENBANKBASIERTER Bauindex
 		aktuellerBauindex, err := berechnungsService.GetAktuellerBauindex()
 		if err != nil {
-			aktuellerBauindex = 44.3 // Fallback 2026
+			aktuellerBauindex = fallbackBauindex
 		}
 		laubeDetails.Bauindex = aktuellerBauindex
 
@@ -338,12 +342,12 @@ func handleWertermittlungPostMitService(w http.ResponseWriter, r *http.Request, 
 	return wertermittlung.Save()
 }
 
-func handleWertermittlungGet(w http.ResponseWriter, r *http.Request, parzelle *models.Parzelle) {
-	// Bestehende Wertermittlung laden falls vorhanden
-	wertermittlung, _ := models.GetWertermittlungByParzelleID(parzelle.ID)
-
-	// Template-Funktionen definieren
-	funcMap := template.FuncMap{
+// wertermittlungFuncMap liefert die Template-Funktionen, die sowohl die
+// normale Anzeige (handleWertermittlungGet) als auch die Fehler-Neuanzeige
+// nach einem gescheiterten Speicherversuch (renderWertermittlungFehler)
+// benötigen.
+func wertermittlungFuncMap() template.FuncMap {
+	return template.FuncMap{
 		"div": func(a, b float64) float64 {
 			if b == 0 {
 				return 0
@@ -376,9 +380,14 @@ func handleWertermittlungGet(w http.ResponseWriter, r *http.Request, parzelle *m
 			return 0
 		},
 	}
+}
+
+func handleWertermittlungGet(w http.ResponseWriter, r *http.Request, parzelle *models.Parzelle) {
+	// Bestehende Wertermittlung laden falls vorhanden
+	wertermittlung, _ := models.GetWertermittlungByParzelleID(parzelle.ID)
 
 	// Template laden und ausführen
-	tmpl, err := LoadTemplateWithFuncs(funcMap, "templates/layout.html", "templates/wertermittlung.html")
+	tmpl, err := LoadTemplateWithFuncs(wertermittlungFuncMap(), "templates/layout.html", "templates/wertermittlung.html")
 	if err != nil {
 		log.Printf("Template Parse Error: %v", err)
 		http.Error(w, "Template-Fehler", http.StatusInternalServerError)
@@ -386,10 +395,11 @@ func handleWertermittlungGet(w http.ResponseWriter, r *http.Request, parzelle *m
 	}
 
 	data := map[string]interface{}{
-		"Title":           "Wertermittlung - Parzelle " + parzelle.Nummer,
-		"Parzelle":        parzelle,
-		"Wertermittlung":  wertermittlung,
-		"BauindexTabelle": models.BauindexTabelle,
+		"Title":             "Wertermittlung - Parzelle " + parzelle.Nummer,
+		"Parzelle":          parzelle,
+		"Wertermittlung":    wertermittlung,
+		"BauindexTabelle":   models.BauindexTabelle,
+		"ParzellenBasePath": parzellenBasePath(r),
 	}
 
 	err = tmpl.ExecuteTemplate(w, "layout.html", data)
@@ -398,6 +408,178 @@ func handleWertermittlungGet(w http.ResponseWriter, r *http.Request, parzelle *m
 		http.Error(w, "Template-Rendering-Fehler: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+}
+
+// renderWertermittlungFehler zeigt das Wertermittlung-Formular nach einem
+// gescheiterten Speicherversuch erneut an, statt die Nutzerin/den Nutzer mit
+// http.Error aus dem Layout zu werfen. Die skalaren Felder (Laube, B/C/E/F)
+// werden best-effort aus r.Form rekonstruiert, damit nicht alles neu
+// eingegeben werden muss; siehe wertermittlungFromForm.
+func renderWertermittlungFehler(w http.ResponseWriter, r *http.Request, parzelle *models.Parzelle, formErr error) {
+	berechnungsService := services.NewBerechnungsService(models.DB)
+	aktuellerBauindex, err := berechnungsService.GetAktuellerBauindex()
+	if err != nil {
+		aktuellerBauindex = fallbackBauindex
+	}
+
+	wertermittlung := wertermittlungFromForm(r, parzelle.ID, aktuellerBauindex)
+
+	tmpl, tmplErr := LoadTemplateWithFuncs(wertermittlungFuncMap(), "templates/layout.html", "templates/wertermittlung.html")
+	if tmplErr != nil {
+		log.Printf("Template Parse Error: %v", tmplErr)
+		http.Error(w, "Template-Fehler", http.StatusInternalServerError)
+		return
+	}
+
+	data := map[string]interface{}{
+		"Title":             "Wertermittlung - Parzelle " + parzelle.Nummer,
+		"Parzelle":          parzelle,
+		"Wertermittlung":    wertermittlung,
+		"BauindexTabelle":   models.BauindexTabelle,
+		"ParzellenBasePath": parzellenBasePath(r),
+		"Error":             "Die Wertermittlung konnte nicht gespeichert werden: " + formErr.Error(),
+	}
+
+	if execErr := tmpl.ExecuteTemplate(w, "layout.html", data); execErr != nil {
+		log.Printf("Template Execute Error: %v", execErr)
+	}
+}
+
+// wertermittlungFromForm rekonstruiert eine Wertermittlung best-effort aus
+// r.Form, um das Formular nach einem Speicherfehler mit den bereits
+// eingegebenen Werten erneut anzuzeigen, statt die Nutzerin/den Nutzer alles
+// neu eingeben zu lassen. Es liest dieselben Feldnamen wie
+// handleWertermittlungPostMitService, validiert dabei aber nichts - diese
+// Rekonstruktion dient ausschließlich der Anzeige, nie dem Speichern.
+func wertermittlungFromForm(r *http.Request, parzelleID int, aktuellerBauindex float64) *models.Wertermittlung {
+	w := &models.Wertermittlung{ParzelleID: parzelleID, Datum: time.Now()}
+
+	// A. Laube
+	if r.FormValue("laube_vorhanden") == "true" {
+		laube := models.LaubeDetails{}
+		if jahr, err := strconv.Atoi(r.FormValue("laube_erstellungsjahr")); err == nil {
+			laube.Erstellungsjahr = jahr
+		}
+		laube.Grundflaeche = parseFloatSafe(r.FormValue("laube_grundflaeche"))
+		laube.HerstellungswertProQM = parseFloatSafe(r.FormValue("laube_herstellungswert"))
+		laube.Bauklasse = r.FormValue("laube_bauklasse")
+		laube.AbschreibungProzent = 3.0
+		if r.FormValue("laube_material") == "stein" {
+			laube.AbschreibungProzent = 2.0
+		}
+		laube.Bauindex = aktuellerBauindex
+
+		if r.FormValue("laube_manuell") == "true" {
+			laube.ManuellEingegeben = true
+			laube.Begruendung = r.FormValue("laube_begruendung")
+			laube.RestwertProzent = parseFloatSafe(r.FormValue("laube_restwert_prozent"))
+			laube.ManuellZeitwert = parseFloatSafe(r.FormValue("laube_manuell_zeitwert"))
+		}
+		w.Details.Laube = laube
+	}
+
+	// B. Wege + Pforte
+	wegeFlaeche := parseFloatSafe(r.FormValue("wege_flaeche"))
+	wegeQualitaet := parseFloatSafe(r.FormValue("wege_qualitaet"))
+	pforteAktiv := r.FormValue("pforte_vorhanden") == "true"
+	pforteWert := parseFloatSafe(r.FormValue("pforte_wert"))
+
+	// C. Strom + Wasser
+	stromAktiv := r.FormValue("strom_vorhanden") == "true"
+	stromVariante := strings.TrimSpace(r.FormValue("strom_variante"))
+	if stromVariante == "" {
+		stromVariante = "ohne_beleg"
+	}
+	stromHerstellungswert := 0.0
+	stromBaujahr := 0
+	stromBewertungsgrund := stromVariante
+	switch stromVariante {
+	case "manuell_80":
+		stromHerstellungswert = stromManuellFestwert
+	case "mit_beleg":
+		stromBewertungsgrund = "belegbasiert"
+		stromHerstellungswert = parseFloatSafe(r.FormValue("strom_rechnung_betrag"))
+		if jahr, err := strconv.Atoi(strings.TrimSpace(r.FormValue("strom_rechnung_jahr"))); err == nil {
+			stromBaujahr = jahr
+		}
+	default: // ohne_beleg
+		stromHerstellungswert = stromMaxBetrag / 2
+		stromBaujahr = w.Details.Laube.Erstellungsjahr
+		if stromBaujahr == 0 {
+			stromBaujahr = time.Now().Year()
+		}
+	}
+
+	wasserAktiv := r.FormValue("wasser_vorhanden") == "true"
+
+	w.Details.Baulichkeiten = []models.BaulichkeitDetail{
+		{Typ: "wege", Flaeche: wegeFlaeche, Qualitaet: wegeQualitaet, Aktiv: wegeFlaeche > 0},
+		{Typ: "pforte", Herstellungswert: pforteWert, Aktiv: pforteAktiv},
+		{Typ: "strom", Herstellungswert: stromHerstellungswert, Baujahr: stromBaujahr, Aktiv: stromAktiv, Bewertungsgrund: stromBewertungsgrund},
+		{Typ: "wasser", Herstellungswert: 37.50, Aktiv: wasserAktiv},
+	}
+
+	// D. Obstgehölze (best effort; Kategorie wird erst beim erneuten Speichern
+	// über den Berechnungs-Service neu ermittelt, hier für die Anzeige nicht nötig)
+	if err := r.ParseForm(); err == nil {
+		obstArten := r.Form["obst_art[]"]
+		obstAnzahlen := r.Form["obst_anzahl[]"]
+		obstEinheiten := r.Form["obst_einheit[]"]
+		obstEinzelpreise := r.Form["obst_einzelpreis[]"]
+
+		var obstDetails []models.ObstDetail
+		obstID := 1
+		for i := 0; i < len(obstArten) && i < len(obstAnzahlen); i++ {
+			if obstArten[i] == "" {
+				continue
+			}
+			anzahl, _ := strconv.ParseFloat(obstAnzahlen[i], 64)
+			var einzelpreis float64
+			if i < len(obstEinzelpreise) {
+				einzelpreis, _ = strconv.ParseFloat(obstEinzelpreise[i], 64)
+			}
+			if anzahl <= 0 || einzelpreis <= 0 {
+				continue
+			}
+			einheit := "Stück"
+			if i < len(obstEinheiten) {
+				einheit = obstEinheiten[i]
+			}
+			obstDetails = append(obstDetails, models.ObstDetail{
+				ID:          obstID,
+				Art:         obstArten[i],
+				Anzahl:      int(anzahl),
+				Einheit:     einheit,
+				EinzelPreis: einzelpreis,
+				GesamtWert:  anzahl * einzelpreis,
+			})
+			obstID++
+		}
+		w.Details.Obst = obstDetails
+	}
+
+	// E. Gemüse
+	einzelpflanzen, _ := strconv.Atoi(r.FormValue("gemuese_einzelpflanzen_anzahl"))
+	reihenMeter := parseFloatSafe(r.FormValue("gemuese_reihen_meter"))
+	kraeuterFlaeche := parseFloatSafe(r.FormValue("kraeuter_flaeche"))
+	w.Details.Gemuese = []models.GemuseDetail{
+		{Art: "G1", Menge: float64(einzelpflanzen)},
+		{Art: "G2", Menge: reihenMeter},
+		{Art: "E9", Menge: kraeuterFlaeche},
+	}
+
+	// F. Zieranpflanzungen
+	w.Details.Zier = models.ZierDetail{
+		F1:           parseFloatSafe(r.FormValue("zier_f1")),
+		F2:           parseFloatSafe(r.FormValue("zier_f2")),
+		F3:           parseFloatSafe(r.FormValue("zier_f3")),
+		F4:           parseFloatSafe(r.FormValue("zier_f4")),
+		F8:           parseFloatSafe(r.FormValue("rasen")),
+		TeichFlaeche: parseFloatSafe(r.FormValue("teich_flaeche")),
+		TeichTyp:     r.FormValue("teich_typ"),
+	}
+
+	return w
 }
 
 func berechneStromRestwert(herstellungswert float64, baujahr int, abschreibungProzent float64, minRestwertProzent float64) float64 {
@@ -442,24 +624,26 @@ func ProtokollHandler(w http.ResponseWriter, r *http.Request) {
 
 	switch typ {
 	case "wertermittlung":
-		generateWertermittlungPDF(w, id)
+		generateWertermittlungPDF(w, r, id)
 	case "inspektion":
-		generateInspektionPDF(w, id)
+		generateInspektionPDF(w, r, id)
 	default:
-		http.Error(w, "Unbekannter Protokoll-Typ", http.StatusBadRequest)
+		// Gestylte Fehlerseite statt Plaintext - identisches Muster wie
+		// WertermittlungHandler/InspektionHandler.
+		RenderErrorPage(w, r, http.StatusBadRequest, "Ungültige Anfrage", "Unbekannter Protokoll-Typ.", parzellenBasePath(r))
 	}
 }
 
-func generateWertermittlungPDF(w http.ResponseWriter, id int) {
+func generateWertermittlungPDF(w http.ResponseWriter, r *http.Request, id int) {
 	wertermittlung, err := models.GetWertermittlungByID(id)
 	if err != nil {
-		http.Error(w, "Wertermittlung nicht gefunden", http.StatusNotFound)
+		RenderErrorPage(w, r, http.StatusNotFound, "Nicht gefunden", "Diese Wertermittlung wurde nicht gefunden.", parzellenBasePath(r))
 		return
 	}
 
 	parzelle, err := models.GetParzelleByID(wertermittlung.ParzelleID)
 	if err != nil {
-		http.Error(w, "Parzelle nicht gefunden", http.StatusNotFound)
+		RenderErrorPage(w, r, http.StatusNotFound, "Nicht gefunden", "Diese Parzelle wurde nicht gefunden.", parzellenBasePath(r))
 		return
 	}
 
@@ -1037,6 +1221,9 @@ func generateWertermittlungPDF(w http.ResponseWriter, id int) {
 			id, time.Now().Format("2006-01-02")))
 
 	if err = pdf.Output(w); err != nil {
+		// Header (Content-Type/Content-Disposition) sind hier bereits gesendet
+		// und der PDF-Stream hat begonnen - RenderErrorPage kann keine
+		// html/Layout-Antwort mehr aufsetzen, deshalb bleibt es bei http.Error.
 		http.Error(w, "Fehler beim Generieren des PDFs", http.StatusInternalServerError)
 		return
 	}

@@ -33,7 +33,7 @@
                             </button>
                         </div>
                     </div>
-                    <small class="text-muted">Ein Jahr kann nur einmal gespeichert werden. Um einen Wert zu aktualisieren, löschen Sie den alten Eintrag und erstellen Sie einen neuen.</small>
+                    <small class="text-muted">Ein Jahr kann nur einmal gespeichert werden. Für ein bereits vorhandenes Jahr nutzen Sie stattdessen „Bearbeiten“ in der Tabelle unten.</small>
                 </form>
             </div>
         </div>
@@ -63,12 +63,18 @@
                                     <strong>{{.Bauindex}}</strong>
                                 </td>
                                 <td>
-                                    <form method="POST" action="/admin/bauindex/{{.Jahr}}/delete" style="display: inline;">
-                                        <button type="submit" class="btn btn-outline-danger btn-sm"
-                                                onclick="return confirm('Sind Sie sicher, dass Sie diesen Eintrag löschen möchten?');">
-                                            <i class="fas fa-trash-alt"></i> Löschen
+                                    <div class="btn-group btn-group-sm">
+                                        <button type="button" class="btn btn-outline-secondary" title="Bauindex-Eintrag bearbeiten"
+                                                onclick="bearbeiteBauindex({{.Jahr}}, {{.Bauindex}})">
+                                            <i class="fas fa-edit"></i> Bearbeiten
                                         </button>
-                                    </form>
+                                        <form method="POST" action="/admin/bauindex/{{.Jahr}}/delete" style="display: inline;">
+                                            <button type="submit" class="btn btn-outline-danger"
+                                                    onclick="return confirm('Sind Sie sicher, dass Sie diesen Eintrag löschen möchten?');">
+                                                <i class="fas fa-trash-alt"></i> Löschen
+                                            </button>
+                                        </form>
+                                    </div>
                                 </td>
                             </tr>
                             {{end}}
@@ -94,4 +100,51 @@
         </div>
     </div>
 </div>
+
+<!-- Bearbeiten Modal: Jahr ist der Schlüssel und daher readonly; nur der
+     Bauindex-Wert lässt sich ändern. Formular postet ohne eigenes action auf
+     dieselbe /admin/bauindex-Route wie das "Neu"-Formular oben - der Handler
+     (handleBauindexPost -> models.CreateBauindex) speichert per
+     INSERT OR REPLACE, verhält sich für ein vorhandenes Jahr also bereits
+     wie ein Update. -->
+<div class="modal fade" id="bearbeitenModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST">
+                <div class="modal-header">
+                    <h5 class="modal-title">Bauindex-Eintrag bearbeiten</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="edit_jahr" class="form-label">Jahr</label>
+                        <input type="number" class="form-control" id="edit_jahr" name="jahr" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_bauindex" class="form-label">Bauindex-Wert</label>
+                        <input type="number" class="form-control" id="edit_bauindex" name="bauindex"
+                               step="0.1" min="0.1" required>
+                    </div>
+                    <div class="alert alert-warning mb-0">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Änderungen wirken sich auf zukünftige Wertermittlungen aus; bestehende bleiben unverändert.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-success">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function bearbeiteBauindex(jahr, bauindex) {
+    document.getElementById('edit_jahr').value = jahr;
+    document.getElementById('edit_bauindex').value = bauindex;
+
+    new bootstrap.Modal(document.getElementById('bearbeitenModal')).show();
+}
+</script>
 {{end}}

@@ -1,9 +1,7 @@
 package handlers
 
 import (
-	"encoding/json"
 	"fmt"
-	"github.com/bl0rb/gartenamt/models"
 	"html/template"
 	"log"
 	"net/http"
@@ -12,6 +10,8 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+
+	"github.com/bl0rb/gartenamt/models"
 
 	"github.com/gorilla/mux"
 )
@@ -161,74 +161,6 @@ func AdminWertermittlungLoeschenHandler(w http.ResponseWriter, r *http.Request) 
 	writeAudit(r, "WERTERMITTLUNG_GELOESCHT", auditBeschreibung, wertermittlung, nil)
 
 	http.Redirect(w, r, "/admin/protokolle?success=wertermittlung_geloescht", http.StatusSeeOther)
-}
-
-// AdminBulkDeleteHandler - Mehrere Einträge gleichzeitig löschen
-func AdminBulkDeleteHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.Error(w, "Nur POST erlaubt", http.StatusMethodNotAllowed)
-		return
-	}
-
-	typ := r.FormValue("type")   // "parzellen", "inspektionen", "wertermittlungen"
-	idsStr := r.FormValue("ids") // Comma-separated IDs
-
-	// Sicherheitscheck: Bulk-Bestätigung erforderlich
-	if r.FormValue("bulk_bestaetigung") != "BULK_LOESCHEN" {
-		http.Error(w, "Bulk-Bestätigung 'BULK_LOESCHEN' erforderlich", http.StatusBadRequest)
-		return
-	}
-
-	var ids []int
-	if err := json.Unmarshal([]byte(idsStr), &ids); err != nil {
-		http.Error(w, "Ungültige ID-Liste", http.StatusBadRequest)
-		return
-	}
-
-	if len(ids) == 0 {
-		http.Error(w, "Keine IDs zum Löschen ausgewählt", http.StatusBadRequest)
-		return
-	}
-
-	// Bulk-Delete durchführen
-	deletedCount := 0
-	errors := []string{}
-
-	for _, id := range ids {
-		var err error
-		switch typ {
-		case "parzellen":
-			err = loescheParzelleMitAbhaengigkeiten(id)
-		case "inspektionen":
-			err = models.DeleteInspektion(id)
-		case "wertermittlungen":
-			err = models.DeleteWertermittlung(id)
-		default:
-			err = fmt.Errorf("unbekannter Typ: %s", typ)
-		}
-
-		if err != nil {
-			errors = append(errors, fmt.Sprintf("ID %d: %s", id, err.Error()))
-		} else {
-			deletedCount++
-		}
-	}
-
-	writeAudit(r, "BULK_DELETE_"+typ,
-		fmt.Sprintf("Bulk-Delete: %d von %d Einträgen (%s) erfolgreich gelöscht", deletedCount, len(ids), typ),
-		map[string]interface{}{"ids": ids, "typ": typ, "errors": errors}, nil)
-
-	// Erfolgs-/Fehlermeldung
-	if len(errors) > 0 {
-		log.Printf("Bulk-Delete Fehler: %v", errors)
-	}
-
-	redirectUrl := fmt.Sprintf("/admin/%s?success=bulk_deleted&count=%d", typ, deletedCount)
-	if len(errors) > 0 {
-		redirectUrl += fmt.Sprintf("&errors=%d", len(errors))
-	}
-
-	http.Redirect(w, r, redirectUrl, http.StatusSeeOther)
 }
 
 // AdminAuditLogHandler - Audit-Log anzeigen

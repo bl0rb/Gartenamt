@@ -1,0 +1,16 @@
+{{define "content"}}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card mt-4">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-triangle-exclamation fa-2x text-danger mb-3"></i>
+                <h2>{{.ErrTitle}}</h2>
+                <p class="text-muted">{{.Message}}</p>
+                <a href="{{if .BackURL}}{{.BackURL}}{{else}}/{{end}}" class="btn btn-success mt-2">
+                    <i class="fas fa-arrow-left"></i> Zurück
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}

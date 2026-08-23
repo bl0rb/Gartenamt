@@ -11,27 +11,27 @@ func TestDefaultRolePermissions(t *testing.T) {
 		"admin": {
 			"dashboard.access": true, "stammdaten.manage": true, "parzellen.manage": true,
 			"protokolle.manage": true, "invoices.manage": true, "backup.manage": true,
-			"audit.view": true, "users.manage": true, "settings.manage": true, "system.settings": true,
+			"audit.view": true, "users.manage": true, "settings.manage": true, "system.settings": true, "mail.send": true,
 		},
 		"vorstand": {
 			"dashboard.access": true, "stammdaten.manage": true, "parzellen.manage": true,
 			"protokolle.manage": true, "invoices.manage": true, "backup.manage": true,
-			"audit.view": true, "users.manage": true, "settings.manage": true, "system.settings": true,
+			"audit.view": true, "users.manage": true, "settings.manage": true, "system.settings": true, "mail.send": true,
 		},
 		"kassenwart": {
 			"dashboard.access": true, "stammdaten.manage": true, "parzellen.manage": true,
 			"protokolle.manage": false, "invoices.manage": true, "backup.manage": false,
-			"audit.view": false, "users.manage": false, "settings.manage": false, "system.settings": false,
+			"audit.view": false, "users.manage": false, "settings.manage": false, "system.settings": false, "mail.send": false,
 		},
 		"wertermittler": {
 			"dashboard.access": true, "stammdaten.manage": true, "parzellen.manage": true,
 			"protokolle.manage": true, "invoices.manage": false, "backup.manage": false,
-			"audit.view": false, "users.manage": false, "settings.manage": false, "system.settings": false,
+			"audit.view": false, "users.manage": false, "settings.manage": false, "system.settings": false, "mail.send": false,
 		},
 		"user": {
 			"dashboard.access": false, "stammdaten.manage": false, "parzellen.manage": false,
 			"protokolle.manage": false, "invoices.manage": false, "backup.manage": false,
-			"audit.view": false, "users.manage": false, "settings.manage": false, "system.settings": false,
+			"audit.view": false, "users.manage": false, "settings.manage": false, "system.settings": false, "mail.send": false,
 		},
 	}
 

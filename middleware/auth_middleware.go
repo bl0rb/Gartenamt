@@ -18,6 +18,24 @@ const (
 	UserContextKey    ContextKey = "user"
 )
 
+// ErrorRenderer wird beim Start von handlers.init() gesetzt (siehe
+// handlers.RenderErrorPage) und rendert Fehlerseiten im Layout statt
+// Plaintext. Die Verdrahtung läuft über diese Variable statt über einen
+// direkten Import, weil handlers bereits middleware importiert - ein
+// Rückimport middleware -> handlers wäre ein Zyklus.
+var ErrorRenderer func(w http.ResponseWriter, r *http.Request, status int, title, message, backURL string)
+
+// renderError liefert eine Fehlerseite im Layout, sofern ErrorRenderer
+// registriert ist, und fällt andernfalls (z.B. in Tests ohne handlers-Import)
+// auf http.Error zurück.
+func renderError(w http.ResponseWriter, r *http.Request, status int, title, message string) {
+	if ErrorRenderer != nil {
+		ErrorRenderer(w, r, status, title, message, "/")
+		return
+	}
+	http.Error(w, message, status)
+}
+
 // RequireAuth Middleware für geschützte Routen
 func RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -58,7 +76,7 @@ func RequireAdmin(next http.HandlerFunc) http.HandlerFunc {
 	return RequireAuth(func(w http.ResponseWriter, r *http.Request) {
 		session := GetSessionFromContext(r.Context())
 		if session == nil || session.Role != "admin" {
-			http.Error(w, "Zugriff verweigert - Administrator-Rechte erforderlich", http.StatusForbidden)
+			renderError(w, r, http.StatusForbidden, "Zugriff verweigert", "Für diese Aktion sind Administrator-Rechte erforderlich.")
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -70,7 +88,7 @@ func RequireBackoffice(next http.HandlerFunc) http.HandlerFunc {
 	return RequireAuth(func(w http.ResponseWriter, r *http.Request) {
 		session := GetSessionFromContext(r.Context())
 		if session == nil || !models.IsBackofficeRole(session.Role) {
-			http.Error(w, "Zugriff verweigert - Verwaltungsrechte erforderlich", http.StatusForbidden)
+			renderError(w, r, http.StatusForbidden, "Zugriff verweigert", "Für diese Aktion sind Verwaltungsrechte erforderlich.")
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -82,7 +100,7 @@ func RequirePermission(permission string, next http.HandlerFunc) http.HandlerFun
 	return RequireAuth(func(w http.ResponseWriter, r *http.Request) {
 		session := GetSessionFromContext(r.Context())
 		if session == nil || !models.RoleHasPermission(session.Role, permission) {
-			http.Error(w, "Zugriff verweigert - Berechtigung fehlt", http.StatusForbidden)
+			renderError(w, r, http.StatusForbidden, "Zugriff verweigert", "Ihnen fehlt die erforderliche Berechtigung für diese Aktion.")
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -97,7 +115,7 @@ func CSRFProtect(next http.Handler) http.Handler {
 		switch r.Method {
 		case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
 			if !sameOriginRequest(r) {
-				http.Error(w, "Zugriff verweigert - Cross-Origin-Anfrage blockiert", http.StatusForbidden)
+				renderError(w, r, http.StatusForbidden, "Zugriff verweigert", "Die Anfrage wurde aus Sicherheitsgründen blockiert (Cross-Origin).")
 				return
 			}
 		}

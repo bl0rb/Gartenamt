@@ -23,8 +23,22 @@
             </div>
             <div class="card-body p-0">
                 {{if .AuditLogs}}
+                <!-- P1.8: Filterleiste (Suche + Aktion-Dropdown), rein clientseitig über die bereits gerenderten Zeilen -->
+                <div class="al-filter-bar">
+                    <div class="al-filter-search">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="auditSearch" class="form-control"
+                               placeholder="Benutzer, Aktion, Beschreibung oder IP suchen…" autocomplete="off">
+                    </div>
+                    <div class="al-filter-chips" role="group" aria-label="Nach Aktion filtern" id="auditAktionChips">
+                        <button type="button" class="filter-chip active" data-aktion="" aria-pressed="true">
+                            Alle Aktionen
+                        </button>
+                    </div>
+                </div>
+                <div id="auditFilterCount" class="al-filter-count" aria-live="polite"></div>
                 <div class="table-responsive">
-                    <table class="table table-striped table-hover mb-0 align-middle">
+                    <table class="table table-striped table-hover mb-0 align-middle" id="auditTable">
                         <thead>
                             <tr>
                                 <th>Zeitpunkt</th>
@@ -36,7 +50,8 @@
                         </thead>
                         <tbody>
                             {{range .AuditLogs}}
-                            <tr>
+                            <tr data-aktion="{{.Aktion}}"
+                                data-filter-text="{{.Benutzer}} {{.Aktion}} {{.Beschreibung}} {{.IPAdresse}}">
                                 <td class="text-nowrap">{{.Zeitstempel.Format "02.01.2006 15:04:05"}}</td>
                                 <td class="text-nowrap">{{if .Benutzer}}{{.Benutzer}}{{else}}<span class="text-muted">unbekannt</span>{{end}}</td>
                                 <td><span class="badge bg-secondary">{{.Aktion}}</span></td>
@@ -44,6 +59,11 @@
                                 <td class="text-muted small">{{.IPAdresse}}</td>
                             </tr>
                             {{end}}
+                            <tr id="auditNoMatch" class="d-none">
+                                <td colspan="5" class="text-center text-muted py-4">
+                                    Keine Einträge entsprechen dem Filter.
+                                </td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -57,4 +77,146 @@
         </div>
     </div>
 </div>
+
+<!-- P1.8: seitenlokale Ergänzung statt style.css — .filter-chip-Sprache ist hier noch ein Einzelfall,
+     erst bei einer zweiten/dritten Verwendung lohnt sich die Auslagerung nach style.css. -->
+<style>
+.al-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1rem 0;
+}
+
+.al-filter-search {
+    position: relative;
+    flex: 1 1 260px;
+    min-width: 220px;
+}
+
+.al-filter-search i {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--gray-400);
+    font-size: 0.85rem;
+    pointer-events: none;
+}
+
+.al-filter-search .form-control {
+    padding-left: 2.1rem;
+}
+
+.al-filter-chips {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
+.filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.75rem;
+    border: 1px solid var(--color-border);
+    background-color: var(--color-surface);
+    color: var(--gray-700);
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.filter-chip:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.filter-chip.active {
+    background-color: var(--green-50);
+    border-color: var(--green-200);
+    color: var(--color-primary);
+}
+
+.al-filter-count {
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    padding: 0 1rem 0.85rem;
+}
+</style>
+
+<script>
+// P1.8: Suche + Aktion-Filter, rein clientseitig über die bereits gerenderten Zeilen (kein Backend-Umbau)
+document.addEventListener('DOMContentLoaded', function() {
+    var table = document.getElementById('auditTable');
+    if (!table) return;
+
+    var searchInput = document.getElementById('auditSearch');
+    var chipsContainer = document.getElementById('auditAktionChips');
+    var noMatchRow = document.getElementById('auditNoMatch');
+    var countEl = document.getElementById('auditFilterCount');
+    var rows = [].slice.call(table.querySelectorAll('tbody tr')).filter(function(tr) {
+        return tr !== noMatchRow;
+    });
+    var totalCount = rows.length;
+    var activeAktion = '';
+
+    // Aktion-Chips aus den tatsächlich gerenderten Badges deduplizieren (alphabetisch sortiert)
+    var aktionen = [];
+    rows.forEach(function(tr) {
+        var aktion = tr.dataset.aktion;
+        if (aktion && aktionen.indexOf(aktion) === -1) {
+            aktionen.push(aktion);
+        }
+    });
+    aktionen.sort(function(a, b) { return a.localeCompare(b, 'de'); });
+    aktionen.forEach(function(aktion) {
+        var chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'filter-chip';
+        chip.dataset.aktion = aktion;
+        chip.setAttribute('aria-pressed', 'false');
+        chip.textContent = aktion;
+        chipsContainer.appendChild(chip);
+    });
+
+    function applyFilter() {
+        var query = (searchInput.value || '').trim().toLowerCase();
+        var visible = 0;
+
+        rows.forEach(function(tr) {
+            var matchesAktion = !activeAktion || tr.dataset.aktion === activeAktion;
+            var matchesSearch = !query || (tr.dataset.filterText || '').toLowerCase().indexOf(query) !== -1;
+            var show = matchesAktion && matchesSearch;
+            tr.classList.toggle('d-none', !show);
+            if (show) visible++;
+        });
+
+        noMatchRow.classList.toggle('d-none', visible !== 0);
+        countEl.textContent = visible + ' von ' + totalCount + ' Einträgen';
+    }
+
+    searchInput.addEventListener('input', applyFilter);
+
+    chipsContainer.addEventListener('click', function(event) {
+        var chip = event.target.closest('.filter-chip');
+        if (!chip || !chipsContainer.contains(chip)) return;
+
+        chipsContainer.querySelectorAll('.filter-chip').forEach(function(c) {
+            c.classList.remove('active');
+            c.setAttribute('aria-pressed', 'false');
+        });
+        chip.classList.add('active');
+        chip.setAttribute('aria-pressed', 'true');
+        activeAktion = chip.dataset.aktion;
+        applyFilter();
+    });
+
+    applyFilter();
+});
+</script>
 {{end}}

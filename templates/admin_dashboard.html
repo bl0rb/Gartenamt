@@ -75,13 +75,108 @@
             grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
         }
     }
+
+    .handlungsbedarf-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.75rem 0;
+        text-decoration: none;
+        color: inherit;
+    }
+
+    .handlungsbedarf-row:not(:last-child) {
+        border-bottom: 1px solid var(--color-border);
+    }
+
+    .handlungsbedarf-row:hover {
+        color: inherit;
+    }
+
+    .handlungsbedarf-row:hover .handlungsbedarf-label {
+        text-decoration: underline;
+    }
+
+    .handlungsbedarf-count {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 1.75rem;
+        height: 1.75rem;
+        padding: 0 0.4rem;
+        border-radius: 999px;
+        font-weight: 700;
+        font-size: 0.85rem;
+    }
+
+    .handlungsbedarf-count--warn { background: #fffbeb; color: #b45309; }
+    .handlungsbedarf-count--danger { background: #fef2f2; color: #b91c1c; }
+
+    .handlungsbedarf-label {
+        font-weight: 500;
+    }
+
+    .handlungsbedarf-arrow {
+        color: var(--color-text-muted);
+    }
+
+    .handlungsbedarf-empty {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.5rem 0;
+        color: #047857;
+        font-weight: 500;
+    }
 </style>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 class="mb-0 fw-bold">Verwaltung</h2>
+    <h2 class="mb-0 fw-bold">Dashboard</h2>
     <a href="/admin/parzellen" class="btn btn-secondary">
         <i class="fas fa-map"></i> Parzellen
     </a>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-list-check me-2"></i>Handlungsbedarf</h5>
+    </div>
+    <div class="card-body">
+        {{if .Handlungsbedarf.Gesamt}}
+        {{if .Handlungsbedarf.FristenUeberschritten}}
+        <a href="/admin/protokolle?tab=inspektionen" class="handlungsbedarf-row">
+            <span class="handlungsbedarf-label">Inspektionsfristen überschritten</span>
+            <span>
+                <span class="handlungsbedarf-count handlungsbedarf-count--danger">{{.Handlungsbedarf.FristenUeberschritten}}</span>
+                <i class="fas fa-chevron-right fa-xs handlungsbedarf-arrow ms-2"></i>
+            </span>
+        </a>
+        {{end}}
+        {{if .Handlungsbedarf.GekuendigtOhneInspektion}}
+        <a href="/admin/parzellen" class="handlungsbedarf-row">
+            <span class="handlungsbedarf-label">Gekündigte Parzellen ohne Inspektion</span>
+            <span>
+                <span class="handlungsbedarf-count handlungsbedarf-count--warn">{{.Handlungsbedarf.GekuendigtOhneInspektion}}</span>
+                <i class="fas fa-chevron-right fa-xs handlungsbedarf-arrow ms-2"></i>
+            </span>
+        </a>
+        {{end}}
+        {{if .Handlungsbedarf.InspektionenOhneWertermittlung}}
+        <a href="/admin/protokolle" class="handlungsbedarf-row">
+            <span class="handlungsbedarf-label">Inspektionen ohne Wertermittlung</span>
+            <span>
+                <span class="handlungsbedarf-count handlungsbedarf-count--warn">{{.Handlungsbedarf.InspektionenOhneWertermittlung}}</span>
+                <i class="fas fa-chevron-right fa-xs handlungsbedarf-arrow ms-2"></i>
+            </span>
+        </a>
+        {{end}}
+        {{else}}
+        <div class="handlungsbedarf-empty">
+            <i class="fas fa-circle-check"></i> Kein Handlungsbedarf.
+        </div>
+        {{end}}
+    </div>
 </div>
 
 <div class="stat-grid">
@@ -116,7 +211,28 @@
         <h5 class="mb-0">Schnellzugriff</h5>
     </div>
     <div class="card-body">
-        <p class="text-muted mb-0">Alle Verwaltungsseiten inklusive Parzellen laufen nun im einheitlichen Admin-Layout mit linker Sidebar.</p>
+        <div class="d-flex flex-wrap gap-2">
+            {{if hasPerm .Session.Role "parzellen.manage"}}
+            <a href="/admin/parzellen/neu" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-plus"></i> Neue Parzelle
+            </a>
+            {{end}}
+            {{if hasPerm .Session.Role "users.manage"}}
+            <a href="/admin/users" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-users"></i> Benutzer
+            </a>
+            {{end}}
+            {{if hasPerm .Session.Role "backup.manage"}}
+            <a href="/admin/backup" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-download"></i> Backup
+            </a>
+            {{end}}
+            {{if hasPerm .Session.Role "audit.view"}}
+            <a href="/admin/audit-log" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-clipboard-list"></i> Audit-Log
+            </a>
+            {{end}}
+        </div>
     </div>
 </div>
 {{end}}

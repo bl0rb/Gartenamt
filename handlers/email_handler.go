@@ -106,7 +106,9 @@ func SendBulkParzelleEmailHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func SendParzelleInfoMailHandler(w http.ResponseWriter, r *http.Request) {
-	if !middleware.HasPermission(r, "invoices.manage") {
+	// Eigentuemer-Entscheidung 23.08.2026: Info-/Verwarnungsmails sind Vorstandsarbeit,
+	// eigene Permission "mail.send" statt der Rechnungs-Berechtigung "invoices.manage".
+	if !middleware.HasPermission(r, "mail.send") {
 		http.Error(w, "Zugriff verweigert - Berechtigung fehlt", http.StatusForbidden)
 		return
 	}
@@ -144,7 +146,8 @@ func SendParzelleInfoMailHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func ParzelleEmailHistoryHandler(w http.ResponseWriter, r *http.Request) {
-	if !middleware.HasPermission(r, "invoices.manage") {
+	// Eigentuemer-Entscheidung 23.08.2026: siehe SendParzelleInfoMailHandler oben.
+	if !middleware.HasPermission(r, "mail.send") {
 		http.Error(w, "Zugriff verweigert - Berechtigung fehlt", http.StatusForbidden)
 		return
 	}

@@ -15,7 +15,28 @@ func LoadTemplate(filenames ...string) (*template.Template, error) {
 	return LoadTemplateWithFuncs(nil, filenames...)
 }
 
-// LoadTemplateWithFuncs loads a template with custom functions
+// baseTemplateFuncMap liefert die Funcs, die in JEDEM Template-Set verfuegbar
+// sein muessen (Sichtbarkeit=Berechtigung, ein Vokabular fuer Rollen). Sie
+// spiegeln direkt die Berechtigungs-/Rollenlogik aus models/user.go, damit
+// Templates nie eigene Kopien dieser Entscheidungen pflegen.
+func baseTemplateFuncMap() template.FuncMap {
+	return template.FuncMap{
+		"hasPerm": func(role, permission string) bool {
+			return models.RoleHasPermission(role, permission)
+		},
+		"roleLabel": func(role string) string {
+			return models.RoleDisplayName(role)
+		},
+		"roleBadgeClass": func(role string) string {
+			return models.RoleBadgeClass(role)
+		},
+	}
+}
+
+// LoadTemplateWithFuncs loads a template with custom functions. Die
+// Basis-Funcs (hasPerm, roleLabel, roleBadgeClass) stehen dabei immer zur
+// Verfuegung; ein per Handler uebergebenes funcMap wird obendrauf gemergt und
+// kann bei Namensgleichheit die Basis-Funcs ueberschreiben.
 func LoadTemplateWithFuncs(funcMap template.FuncMap, filenames ...string) (*template.Template, error) {
 	if len(filenames) == 0 {
 		return nil, nil
@@ -36,9 +57,11 @@ func LoadTemplateWithFuncs(funcMap template.FuncMap, filenames ...string) (*temp
 
 	// Create template with the main file name and functions
 	tmpl := template.New(filepath.Base(mainFile))
-	if funcMap != nil {
-		tmpl = tmpl.Funcs(funcMap)
+	merged := baseTemplateFuncMap()
+	for name, fn := range funcMap {
+		merged[name] = fn
 	}
+	tmpl = tmpl.Funcs(merged)
 
 	// Parse the content
 	tmpl, err = tmpl.Parse(string(mainContent))

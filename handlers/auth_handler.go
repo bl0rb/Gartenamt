@@ -565,6 +565,10 @@ func showUsersListWithError(w http.ResponseWriter, r *http.Request, errorMsg str
 	}))
 }
 
+// adminUsersTemplateFuncMap ergaenzt die Basis-Funcs (hasPerm, roleLabel,
+// roleBadgeClass aus LoadTemplateWithFuncs) um die Helfer, die nur die
+// Benutzerverwaltung braucht. "hasPermission" bleibt als Alias fuer
+// bestehende Nutzungen in admin_users.html/admin_user_edit.html erhalten.
 func adminUsersTemplateFuncMap() template.FuncMap {
 	return template.FuncMap{
 		"contains": func(s, substr string) bool {
@@ -572,12 +576,6 @@ func adminUsersTemplateFuncMap() template.FuncMap {
 		},
 		"add": func(a, b int) int {
 			return a + b
-		},
-		"roleLabel": func(role string) string {
-			return models.RoleDisplayName(role)
-		},
-		"roleBadgeClass": func(role string) string {
-			return models.RoleBadgeClass(role)
 		},
 		"hasPermission": func(role, permission string) bool {
 			return models.RoleHasPermission(role, permission)

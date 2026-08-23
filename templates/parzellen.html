@@ -18,8 +18,28 @@
         {{if .Parzellen}}
         <div class="card">
             <div class="card-body">
+                <!-- P1.8: Filterleiste (Suche + Status-Chips), rein clientseitig über die bereits gerenderten Zeilen -->
+                <div class="pv-filter-bar">
+                    <div class="pv-filter-search">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="parzellenSearch" class="form-control"
+                               placeholder="Nummer, Pächter oder Ort suchen…" autocomplete="off">
+                    </div>
+                    <div class="pv-filter-chips" role="group" aria-label="Nach Status filtern">
+                        <button type="button" class="filter-chip active" data-status="alle" aria-pressed="true">
+                            Alle <span class="filter-chip-count" id="pvCountAlle">0</span>
+                        </button>
+                        <button type="button" class="filter-chip" data-status="aktiv" aria-pressed="false">
+                            Aktiv <span class="filter-chip-count" id="pvCountAktiv">0</span>
+                        </button>
+                        <button type="button" class="filter-chip" data-status="gekuendigt" aria-pressed="false">
+                            Gekündigt <span class="filter-chip-count" id="pvCountGekuendigt">0</span>
+                        </button>
+                    </div>
+                </div>
+                <div id="parzellenFilterCount" class="pv-filter-count" aria-live="polite"></div>
                 <div class="table-responsive">
-                    <table class="table table-striped table-hover">
+                    <table class="table table-striped table-hover" id="parzellenTable">
                         <thead class="table-dark">
                             <tr>
                                 <th>Nummer</th>
@@ -34,7 +54,8 @@
                         </thead>
                         <tbody>
                             {{range .Parzellen}}
-                            <tr>
+                            <tr data-status="{{if .KuendigungDatum}}gekuendigt{{else}}aktiv{{end}}"
+                                data-filter-text="{{.Nummer}} {{.PaechterName}} {{.PaechterOrt}}">
                                 <td><strong>{{.Nummer}}</strong></td>
                                 <td>{{.Groesse}} m²</td>
                                 <td>{{.Verein}}</td>
@@ -77,7 +98,7 @@
                                 </td>
                                 <td>
                                     {{if .KuendigungDatum}}
-                                        <span class="badge bg-info text-dark fs-6 px-2 py-1">Freiwerdend</span>
+                                        <span class="badge bg-warning text-dark fs-6 px-2 py-1">Gekündigt</span>
                                     {{else}}
                                         <span class="badge bg-success fs-6 px-2 py-1">Aktiv</span>
                                     {{end}}
@@ -90,7 +111,7 @@
                                         <a href="{{$.ParzellenBasePath}}/{{.ID}}/edit" class="btn btn-outline-secondary btn-sm">
                                             <i class="fas fa-pen"></i> Bearbeiten
                                         </a>
-                                        {{if .KuendigungDatum}}
+                                        {{if and .KuendigungDatum (hasPerm $.Session.Role "protokolle.manage")}}
                                         <a href="/inspektion/{{.ID}}" class="btn btn-outline-warning btn-sm">
                                             <i class="fas fa-clipboard-check"></i> Inspektion
                                         </a>
@@ -102,6 +123,11 @@
                                 </td>
                             </tr>
                             {{end}}
+                            <tr id="parzellenNoMatch" class="d-none">
+                                <td colspan="8" class="text-center text-muted py-4">
+                                    Keine Parzellen entsprechen dem Filter.
+                                </td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -124,6 +150,95 @@
     </div>
 </div>
 
+<!-- P1.8: seitenlokale Ergänzung statt style.css — .filter-chip ist hier noch ein Einzelfall,
+     erst bei einer zweiten/dritten Verwendung lohnt sich die Auslagerung nach style.css. -->
+<style>
+.pv-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.pv-filter-search {
+    position: relative;
+    flex: 1 1 260px;
+    min-width: 220px;
+}
+
+.pv-filter-search i {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--gray-400);
+    font-size: 0.85rem;
+    pointer-events: none;
+}
+
+.pv-filter-search .form-control {
+    padding-left: 2.1rem;
+}
+
+.pv-filter-chips {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
+.filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.75rem;
+    border: 1px solid var(--color-border);
+    background-color: var(--color-surface);
+    color: var(--gray-700);
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.filter-chip:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.filter-chip.active {
+    background-color: var(--green-50);
+    border-color: var(--green-200);
+    color: var(--color-primary);
+}
+
+.filter-chip-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.35rem;
+    padding: 0.05rem 0.3rem;
+    border-radius: 999px;
+    background-color: var(--gray-100);
+    color: var(--gray-700);
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.filter-chip.active .filter-chip-count {
+    background-color: rgba(4, 120, 87, 0.15);
+    color: var(--color-primary-dark);
+}
+
+.pv-filter-count {
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    margin-bottom: 0.75rem;
+}
+</style>
+
 <script>
 // Bootstrap Tooltips aktivieren für Notizen
 document.addEventListener('DOMContentLoaded', function() {
@@ -131,6 +246,62 @@ document.addEventListener('DOMContentLoaded', function() {
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl)
     })
+});
+
+// P1.8: Suche + Status-Filter, rein clientseitig über die bereits gerenderten Zeilen (kein Backend-Umbau)
+document.addEventListener('DOMContentLoaded', function() {
+    var table = document.getElementById('parzellenTable');
+    if (!table) return;
+
+    var searchInput = document.getElementById('parzellenSearch');
+    var chips = [].slice.call(document.querySelectorAll('.filter-chip'));
+    var noMatchRow = document.getElementById('parzellenNoMatch');
+    var countEl = document.getElementById('parzellenFilterCount');
+    var rows = [].slice.call(table.querySelectorAll('tbody tr')).filter(function(tr) {
+        return tr !== noMatchRow;
+    });
+
+    var totalCount = rows.length;
+    var aktivCount = rows.filter(function(tr) { return tr.dataset.status === 'aktiv'; }).length;
+    var gekuendigtCount = rows.filter(function(tr) { return tr.dataset.status === 'gekuendigt'; }).length;
+    document.getElementById('pvCountAlle').textContent = totalCount;
+    document.getElementById('pvCountAktiv').textContent = aktivCount;
+    document.getElementById('pvCountGekuendigt').textContent = gekuendigtCount;
+
+    var activeStatus = 'alle';
+
+    function applyFilter() {
+        var query = (searchInput.value || '').trim().toLowerCase();
+        var visible = 0;
+
+        rows.forEach(function(tr) {
+            var matchesStatus = activeStatus === 'alle' || tr.dataset.status === activeStatus;
+            var matchesSearch = !query || (tr.dataset.filterText || '').toLowerCase().indexOf(query) !== -1;
+            var show = matchesStatus && matchesSearch;
+            tr.classList.toggle('d-none', !show);
+            if (show) visible++;
+        });
+
+        noMatchRow.classList.toggle('d-none', visible !== 0);
+        countEl.textContent = visible + ' von ' + totalCount + ' Parzellen';
+    }
+
+    searchInput.addEventListener('input', applyFilter);
+
+    chips.forEach(function(chip) {
+        chip.addEventListener('click', function() {
+            chips.forEach(function(c) {
+                c.classList.remove('active');
+                c.setAttribute('aria-pressed', 'false');
+            });
+            chip.classList.add('active');
+            chip.setAttribute('aria-pressed', 'true');
+            activeStatus = chip.dataset.status;
+            applyFilter();
+        });
+    });
+
+    applyFilter();
 });
 </script>
 {{end}}
