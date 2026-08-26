@@ -1,12 +1,20 @@
 {{define "content"}}
 <div class="row">
     <div class="col-12">
-        <h2>Inspektion - Parzelle {{.Parzelle.Nummer}}</h2>
-        <p class="text-muted">
-            <strong>Pächter:</strong> {{.Parzelle.PaechterName}} | 
-            <strong>Größe:</strong> {{.Parzelle.Groesse}} m² | 
-            <strong>Verein:</strong> {{.Parzelle.Verein}}
-        </p>
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+            <div>
+                <h2 class="mb-1">Inspektion</h2>
+                <p class="text-muted mb-0">
+                    <strong>Parzelle {{.Parzelle.Nummer}}</strong> ·
+                    {{.Parzelle.PaechterName}} |
+                    <strong>Größe:</strong> {{.Parzelle.Groesse}} m² |
+                    <strong>Verein:</strong> {{.Parzelle.Verein}}
+                </p>
+            </div>
+            <a href="{{.ParzellenBasePath}}/{{.Parzelle.ID}}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-arrow-left"></i> Zurück zur Akte
+            </a>
+        </div>
         
         <div class="alert alert-info">
             <strong>Hinweis:</strong> Die Inspektion ist aufgrund der „Richtlinie für die Inspektion und

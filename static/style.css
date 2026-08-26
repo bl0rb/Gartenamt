@@ -1025,3 +1025,19 @@ h6 {
         font-size: 11px;
     }
 }
+
+/* ── Top-Nav: aktiver Link ──
+   Fachliche Bereiche (Dashboard/Parzellen/Abrechnung) + Admin liegen seit der
+   Eigentuemer-Entscheidung vom 26.08.2026 top-level in der Navbar; das Markup
+   setzt .active + aria-current="page" bereits ueber .NavSection, hier fehlt
+   nur die visuelle Kennzeichnung. Farbgebung analog zum bestehenden
+   .sidebar-link.active-Muster (green-50/green-600). */
+.navbar.bg-success .nav-link.active {
+    background: var(--green-50);
+    color: var(--green-600) !important;
+    border-radius: var(--radius-md);
+}
+
+.navbar.bg-success .nav-link.active i {
+    color: var(--green-600);
+}

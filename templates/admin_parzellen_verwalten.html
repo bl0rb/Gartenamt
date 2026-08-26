@@ -2,20 +2,30 @@
 <div class="row">
     <div class="col-12">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2><i class="fas fa-map"></i> Parzellen verwalten</h2>
+            <h2><i class="fas fa-th-large"></i> Parzellenstruktur</h2>
             <div class="btn-group">
+                {{if hasPerm .Session.Role "backup.manage"}}
                 <a href="/admin/backup" class="btn btn-warning">
                     <i class="fas fa-download"></i> Backup erstellen
                 </a>
-                <a href="/admin/parzellen" class="btn btn-secondary">
-                    <i class="fas fa-arrow-left"></i> Zur Übersicht
+                {{end}}
+                <a href="/parzellen" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Zu den Parzellen
                 </a>
             </div>
         </div>
 
+        <div class="alert alert-warning">
+            <i class="fas fa-info-circle"></i>
+            Hier werden Strukturänderungen an der Datenbasis vorgenommen – Parzellen löschen, künftig auch
+            zusammenlegen oder teilen. Der frühere Name „Parzellen verwalten" hat genau das verschleiert: Für die
+            tägliche Arbeit mit Parzellen (Pächter, Kündigung, Inspektion, Wertermittlung) nutzen Sie die
+            <a href="/parzellen">Parzellen-Übersicht</a>.
+        </div>
+
         <div class="alert alert-danger">
-            <strong><i class="fas fa-exclamation-triangle"></i> Warnung:</strong> 
-            Das Löschen von Parzellen kann nicht rückgängig gemacht werden! 
+            <strong><i class="fas fa-exclamation-triangle"></i> Warnung:</strong>
+            Das Löschen von Parzellen kann nicht rückgängig gemacht werden!
             Alle abhängigen Inspektionen und Wertermittlungen werden ebenfalls gelöscht.
         </div>
 
@@ -94,7 +104,7 @@
                                 </td>
                                 <td>
                                     <div class="btn-group btn-group-sm">
-                                        <a href="/admin/parzellen/{{.Parzelle.ID}}" class="btn btn-outline-primary btn-sm" title="Ansehen">
+                                        <a href="/parzellen/{{.Parzelle.ID}}" class="btn btn-outline-primary btn-sm" title="Ansehen">
                                             <i class="fas fa-eye"></i>
                                         </a>
                                         <button type="button" class="btn btn-outline-danger btn-sm"
@@ -171,7 +181,7 @@ function confirmDeleteParzelle(id, nummer, inspektionen, wertermittlungen) {
 function executeParzelleLoesung() {
     const form = document.createElement('form');
     form.method = 'POST';
-    form.action = `/admin/parzellen/${currentDeleteId}/delete`;
+    form.action = `/admin/parzellenstruktur/${currentDeleteId}/delete`;
     
     const confirmInput = document.createElement('input');
     confirmInput.type = 'hidden';

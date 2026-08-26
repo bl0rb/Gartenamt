@@ -27,7 +27,7 @@ func AdminParzellenVerwaltungHandler(w http.ResponseWriter, r *http.Request) {
 
 	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/admin_parzellen_verwalten.html"))
 	err = tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
-		"Title":     "Parzellen verwalten",
+		"Title":     "Parzellenstruktur",
 		"Parzellen": parzellen,
 	}))
 
@@ -59,7 +59,7 @@ func AdminProtokollVerwaltungHandler(w http.ResponseWriter, r *http.Request) {
 
 	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/admin_protokolle_verwalten.html"))
 	data := map[string]interface{}{
-		"Title":            "Protokolle verwalten",
+		"Title":            "Protokolle",
 		"Inspektionen":     inspektionen,
 		"Wertermittlungen": wertermittlungen,
 	}
@@ -120,7 +120,7 @@ func AdminInspektionLoeschenHandler(w http.ResponseWriter, r *http.Request) {
 
 	writeAudit(r, "INSPEKTION_GELOESCHT", auditBeschreibung, inspektion, nil)
 
-	http.Redirect(w, r, "/admin/protokolle?success=inspektion_geloescht", http.StatusSeeOther)
+	http.Redirect(w, r, "/protokolle?success=inspektion_geloescht", http.StatusSeeOther)
 }
 
 // AdminWertermittlungLoeschenHandler - Einzelne Wertermittlung löschen
@@ -160,7 +160,7 @@ func AdminWertermittlungLoeschenHandler(w http.ResponseWriter, r *http.Request) 
 
 	writeAudit(r, "WERTERMITTLUNG_GELOESCHT", auditBeschreibung, wertermittlung, nil)
 
-	http.Redirect(w, r, "/admin/protokolle?success=wertermittlung_geloescht", http.StatusSeeOther)
+	http.Redirect(w, r, "/protokolle?success=wertermittlung_geloescht", http.StatusSeeOther)
 }
 
 // AdminAuditLogHandler - Audit-Log anzeigen
@@ -341,7 +341,7 @@ func loescheParzelleMitAbhaengigkeiten(parzelleID int) error {
 }
 
 // AdminParzellenLoeschenHandler - Parzellen mit Sicherheitsabfrage löschen (nur POST,
-// die Bestätigung erfolgt über den Modal-Dialog in der Parzellen-Verwaltung)
+// die Bestätigung erfolgt über den Modal-Dialog in der Parzellenstruktur-Verwaltung)
 func AdminParzellenLoeschenHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.Atoi(vars["id"])
@@ -373,5 +373,5 @@ func AdminParzellenLoeschenHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	writeAudit(r, "PARZELLE_GELOESCHT", beschreibung, davor, nil)
 
-	http.Redirect(w, r, "/admin?success=parzelle_geloescht", http.StatusSeeOther)
+	http.Redirect(w, r, "/admin/parzellenstruktur?success=parzelle_geloescht", http.StatusSeeOther)
 }

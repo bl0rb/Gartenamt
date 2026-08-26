@@ -123,8 +123,6 @@ func AddSessionToData(r *http.Request, data map[string]interface{}) map[string]i
 
 	section := ""
 	switch {
-	case r.URL.Path == "/admin" || r.URL.Path == "/admin/":
-		section = "dashboard"
 	case strings.HasPrefix(r.URL.Path, "/admin/obstarten"):
 		section = "obstarten"
 	case strings.HasPrefix(r.URL.Path, "/admin/zieranpflanzungen"):
@@ -135,12 +133,8 @@ func AddSessionToData(r *http.Request, data map[string]interface{}) map[string]i
 		section = "verwaltung"
 	case strings.HasPrefix(r.URL.Path, "/admin/users"):
 		section = "users"
-	case strings.HasPrefix(r.URL.Path, "/admin/invoices"):
-		section = "invoices"
-	case strings.HasPrefix(r.URL.Path, "/admin/parzellen"):
-		section = "parzellen"
-	case strings.HasPrefix(r.URL.Path, "/admin/protokolle"):
-		section = "protokolle"
+	case strings.HasPrefix(r.URL.Path, "/admin/parzellenstruktur"):
+		section = "parzellenstruktur"
 	case strings.HasPrefix(r.URL.Path, "/admin/backup"):
 		section = "backup"
 	case strings.HasPrefix(r.URL.Path, "/admin/audit-log"):
@@ -150,5 +144,33 @@ func AddSessionToData(r *http.Request, data map[string]interface{}) map[string]i
 	}
 
 	data["AdminSection"] = section
+
+	// NavSection steuert den aktiven Zustand in der Top-Nav (layout.html).
+	// Eigentümer-Entscheidung 26.08.2026: die fachlichen Bereiche liegen
+	// top-level, /admin ist nur noch technische + strukturelle Administration
+	// - die Top-Nav braucht darum eine eigene, von AdminSection unabhängige
+	// Ableitung aus dem URL-Pfad.
+	navSection := ""
+	switch {
+	case strings.HasPrefix(r.URL.Path, "/dashboard"):
+		navSection = "dashboard"
+	case strings.HasPrefix(r.URL.Path, "/parzellen"),
+		strings.HasPrefix(r.URL.Path, "/inspektion"),
+		strings.HasPrefix(r.URL.Path, "/wertermittlung"),
+		// "/protokoll/" mit Slash, nicht bloß "/protokoll" - sonst würde das
+		// auch die eigenständige Übersicht /protokolle treffen (Punkt 10),
+		// die kein Unterpfad von /parzellen ist und darum keinen aktiven
+		// Nav-Zustand erzeugen soll.
+		strings.HasPrefix(r.URL.Path, "/protokoll/"),
+		strings.HasPrefix(r.URL.Path, "/wasser"),
+		strings.HasPrefix(r.URL.Path, "/strom"):
+		navSection = "parzellen"
+	case strings.HasPrefix(r.URL.Path, "/abrechnung"):
+		navSection = "abrechnung"
+	case strings.HasPrefix(r.URL.Path, "/admin"):
+		navSection = "admin"
+	}
+
+	data["NavSection"] = navSection
 	return data
 }

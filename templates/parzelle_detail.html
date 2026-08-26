@@ -1,8 +1,23 @@
 {{define "content"}}
 <div class="row">
     <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2>Parzelle {{.Parzelle.Nummer}}</h2>
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+            <div>
+                <h2 class="mb-1">Parzelle {{.Parzelle.Nummer}}</h2>
+                <div class="text-muted mb-2">{{.Parzelle.Groesse}} m² · {{.Parzelle.Verein}}</div>
+                <div class="d-flex align-items-center flex-wrap gap-2">
+                    {{if .Parzelle.KuendigungDatum}}
+                        <span class="badge bg-warning text-dark fs-6 px-2 py-1">Gekündigt</span>
+                    {{else}}
+                        <span class="badge bg-success fs-6 px-2 py-1">Aktiv</span>
+                    {{end}}
+                    {{if .Parzelle.PaechterName}}
+                        <span class="fw-semibold">{{.Parzelle.PaechterName}}</span>
+                    {{else}}
+                        <span class="text-muted">Kein Pächter zugeordnet</span>
+                    {{end}}
+                </div>
+            </div>
             {{if hasPerm .Session.Role "protokolle.manage"}}
             <div class="d-flex gap-2">
                 {{if .Parzelle.KuendigungDatum}}
@@ -46,14 +61,35 @@
                             <div class="col-sm-9">{{.Parzelle.Verein}}</div>
                         </div>
                         <div class="row mb-2">
-                            <div class="col-sm-3"><strong>Pächter:</strong></div>
+                            <div class="col-sm-3"><strong>Kündigung:</strong></div>
                             <div class="col-sm-9">
-                                {{if .Parzelle.PaechterName}}
-                                    {{.Parzelle.PaechterName}}
+                                {{if .Parzelle.KuendigungDatum}}
+                                    {{.Parzelle.KuendigungDatum.Format "02.01.2006"}}
                                 {{else}}
                                     <span class="text-muted">-</span>
                                 {{end}}
                             </div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-sm-3"><strong>Erstellt:</strong></div>
+                            <div class="col-sm-9">{{.Parzelle.ErstelltAm.Format "02.01.2006 15:04"}}</div>
+                        </div>
+                    </div>
+                </div>
+
+                {{/* Eigentümer-Entscheidung 26.08.2026, Punkt 5: die Akte gliedert
+                     sich in Kopf -> Pächter -> Zählerstände -> Prozess. Die
+                     Pächterdaten stehen darum in einer eigenen Karte, getrennt
+                     von den Parzellen-Stammdaten oben. */}}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5>Pächter</h5>
+                    </div>
+                    <div class="card-body">
+                        {{if .Parzelle.PaechterName}}
+                        <div class="row mb-2">
+                            <div class="col-sm-3"><strong>Name:</strong></div>
+                            <div class="col-sm-9">{{.Parzelle.PaechterName}}</div>
                         </div>
                         <div class="row mb-2">
                             <div class="col-sm-3"><strong>E-Mail:</strong></div>
@@ -75,7 +111,7 @@
                                 {{end}}
                             </div>
                         </div>
-                        <div class="row mb-2">
+                        <div class="row">
                             <div class="col-sm-3"><strong>Rechnungsadresse:</strong></div>
                             <div class="col-sm-9">
                                 {{if or .Parzelle.PaechterStrasse .Parzelle.PaechterHausnr .Parzelle.PaechterPLZ .Parzelle.PaechterOrt}}
@@ -88,25 +124,118 @@
                                 {{end}}
                             </div>
                         </div>
+                        {{else}}
+                        <p class="text-muted mb-0">Kein Pächter zugeordnet</p>
+                        {{end}}
+                    </div>
+                </div>
+
+                {{if hasPerm .Session.Role "invoices.manage"}}
+                {{/* Eigentümer-Entscheidung 26.08.2026, Punkt 5: letzte
+                     Ablesungen direkt in der Akte sichtbar - die volle
+                     Historie und die Erfassung liegen weiterhin unter
+                     /abrechnung (WasserHandler/StromHandler sind reine
+                     JSON-Endpunkte ohne eigene Seite, siehe
+                     handlers/invoice_handler.go). */}}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5>Zählerstände</h5>
+                    </div>
+                    <div class="card-body">
                         <div class="row mb-2">
-                            <div class="col-sm-3"><strong>Kündigung:</strong></div>
+                            <div class="col-sm-3"><strong><i class="fas fa-tint text-muted"></i> Wasser:</strong></div>
                             <div class="col-sm-9">
-                                {{if .Parzelle.KuendigungDatum}}
-                                    {{.Parzelle.KuendigungDatum.Format "02.01.2006"}}
+                                {{if .LetzteWasser}}
+                                    {{.LetzteWasser.Monat}}/{{.LetzteWasser.Jahr}}: {{printf "%.2f" .LetzteWasser.Verbrauch}} m³ – {{printf "%.2f" .LetzteWasser.Kosten}} €
                                 {{else}}
-                                    <span class="text-muted">-</span>
+                                    <span class="text-muted">Noch keine Ablesung erfasst</span>
                                 {{end}}
                             </div>
                         </div>
-                        <div class="row mb-2">
-                            <div class="col-sm-3"><strong>Erstellt:</strong></div>
-                            <div class="col-sm-9">{{.Parzelle.ErstelltAm.Format "02.01.2006 15:04"}}</div>
+                        <div class="row mb-3">
+                            <div class="col-sm-3"><strong><i class="fas fa-bolt text-muted"></i> Strom:</strong></div>
+                            <div class="col-sm-9">
+                                {{if .LetzterStrom}}
+                                    {{.LetzterStrom.Monat}}/{{.LetzterStrom.Jahr}}: {{printf "%.2f" .LetzterStrom.Verbrauch}} kWh – {{printf "%.2f" .LetzterStrom.Kosten}} €
+                                {{else}}
+                                    <span class="text-muted">Noch keine Ablesung erfasst</span>
+                                {{end}}
+                            </div>
                         </div>
+                        <a href="/abrechnung" class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-gauge-high"></i> Zählerstände erfassen/verwalten
+                        </a>
                     </div>
                 </div>
+                {{end}}
             </div>
-            
+
             <div class="col-md-4">
+                {{/* Eigentümer-Entscheidung 26.08.2026: der zentrale Workflow der
+                     Vereinsverwaltung ist Parzelle -> Pächter -> Kündigung ->
+                     Inspektion -> Wertermittlung -> Protokoll -> Abrechnung - diese
+                     Karte macht ihn auf der Akte auf einen Blick sichtbar. */}}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-route"></i> Prozess</h6>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-unstyled mb-0">
+                            <li class="d-flex align-items-start gap-2 mb-2">
+                                {{if .Parzelle.PaechterName}}
+                                    <i class="fas fa-circle-check text-success mt-1"></i>
+                                {{else}}
+                                    <i class="fas fa-circle text-muted mt-1"></i>
+                                {{end}}
+                                <span>Pachtvertrag</span>
+                            </li>
+                            <li class="d-flex align-items-start gap-2 mb-2">
+                                {{if .Inspektion}}
+                                    <i class="fas fa-circle-check text-success mt-1"></i>
+                                    <span>
+                                        Inspektion
+                                        <span class="text-muted">({{.Inspektion.Datum.Format "02.01.2006"}})</span>
+                                        {{if hasPerm .Session.Role "protokolle.manage"}}
+                                        · <a href="/protokoll/inspektion/{{.Inspektion.ID}}">Protokoll</a>
+                                        {{end}}
+                                    </span>
+                                {{else}}
+                                    <i class="fas fa-circle text-muted mt-1"></i>
+                                    <span>Inspektion</span>
+                                {{end}}
+                            </li>
+                            <li class="d-flex align-items-start gap-2 mb-2">
+                                {{if .Wertermittlung}}
+                                    <i class="fas fa-circle-check text-success mt-1"></i>
+                                    <span>
+                                        Wertermittlung
+                                        <span class="text-muted">({{.Wertermittlung.Datum.Format "02.01.2006"}})</span>
+                                        {{if hasPerm .Session.Role "protokolle.manage"}}
+                                        · <a href="/protokoll/wertermittlung/{{.Wertermittlung.ID}}">Protokoll</a>
+                                        {{end}}
+                                    </span>
+                                {{else}}
+                                    <i class="fas fa-circle text-muted mt-1"></i>
+                                    <span>Wertermittlung</span>
+                                {{end}}
+                            </li>
+                            <li class="d-flex align-items-start gap-2">
+                                {{if .HatRechnungshistorie}}
+                                    <i class="fas fa-circle-check text-success mt-1"></i>
+                                {{else}}
+                                    <i class="fas fa-circle text-muted mt-1"></i>
+                                {{end}}
+                                <span>
+                                    Abrechnung
+                                    {{if hasPerm .Session.Role "invoices.manage"}}
+                                    · <a href="{{.ParzellenBasePath}}/{{.Parzelle.ID}}/invoice">Rechnungsvorschau</a>
+                                    {{end}}
+                                </span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
                 {{if .Inspektion}}
                 <div class="card mb-4">
                     <div class="card-header">
@@ -122,11 +251,13 @@
                             <p class="mt-2 mb-0"><strong>Frist:</strong> {{.Inspektion.Frist.Format "02.01.2006"}}</p>
                             {{end}}
                         {{end}}
+                        {{if hasPerm .Session.Role "protokolle.manage"}}
                         <div class="mt-3">
                             <a href="/inspektion/{{.Parzelle.ID}}" class="btn btn-outline-primary">
                                 <i class="fas fa-clipboard-list"></i> Details
                             </a>
                         </div>
+                        {{end}}
                     </div>
                 </div>
                 {{else}}
@@ -136,7 +267,7 @@
                     </div>
                     <div class="card-body">
                         <p class="text-muted">Noch keine Inspektion durchgeführt</p>
-                        {{if .Parzelle.KuendigungDatum}}
+                        {{if and .Parzelle.KuendigungDatum (hasPerm .Session.Role "protokolle.manage")}}
                         <a href="/inspektion/{{.Parzelle.ID}}" class="btn btn-warning">
                             <i class="fas fa-play"></i> Inspektion starten
                         </a>
@@ -188,11 +319,13 @@
                         </div>
                         {{end}}
                         
+                        {{if hasPerm .Session.Role "protokolle.manage"}}
                         <div class="mt-3">
                             <a href="/wertermittlung/{{.Parzelle.ID}}" class="btn btn-outline-primary">
                                 <i class="fas fa-chart-line"></i> Details
                             </a>
                         </div>
+                        {{end}}
                     </div>
                 </div>
                 {{end}}
@@ -273,7 +406,7 @@ function sendParzelleInfoMail(parzelleId) {
         return;
     }
 
-    fetch(`/admin/parzellen/${parzelleId}/email/info`, {
+    fetch(`{{.ParzellenBasePath}}/${parzelleId}/email/info`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ subject, message })
@@ -301,7 +434,7 @@ function loadParzelleMailHistory(parzelleId) {
         return;
     }
 
-    fetch(`/admin/parzellen/${parzelleId}/email/history`)
+    fetch(`{{.ParzellenBasePath}}/${parzelleId}/email/history`)
         .then(response => response.json())
         .then(data => {
             const logs = data.logs || [];

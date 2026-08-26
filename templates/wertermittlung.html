@@ -15,8 +15,7 @@
             <strong>Hinweis:</strong> Die Wertermittlung erfolgt nach der „Richtlinie für die Inspektion und
             Wertermittlung von Kleingärten bei Pächterwechsel" und kann nur nach erfolgter Inspektion
             und Mängelbeseitigung durchgeführt werden.
-            Im Standard gelten die Hamburger Richtlinien des Landesbundes der Gartenfreunde in Hamburg e.V.;
-            die Bewertungsgrundlagen lassen sich unter <em>Admin → Stammdaten</em> für andere Landesverbände anpassen.
+            Im Standard gelten die Hamburger Richtlinien des Landesbundes der Gartenfreunde in Hamburg e.V.
         </div>
 
         <form method="POST" class="needs-validation" novalidate>
@@ -369,6 +368,7 @@
 
                     <!-- Bestehende Obsteinträge anzeigen -->
                     <div id="obst-container">
+                        <p class="text-muted mb-3" id="obst-leer-hinweis" style="{{if and .Wertermittlung .Wertermittlung.Details.Obst}}display:none{{end}}">Noch keine Positionen erfasst.</p>
                         {{if .Wertermittlung}}
                             {{range $index, $obst := .Wertermittlung.Details.Obst}}
                             <div class="obst-eintrag card mb-3 border-success" data-id="{{$obst.ID}}">
@@ -958,6 +958,8 @@ function fuegeObstEintragHinzu() {
     `;
 
     document.getElementById('obst-container').insertAdjacentHTML('beforeend', html);
+    const obstLeerHinweis = document.getElementById('obst-leer-hinweis');
+    if (obstLeerHinweis) obstLeerHinweis.style.display = 'none';
     wizardSync();
 }
 
@@ -1191,6 +1193,10 @@ function berechneObstGesamtwert() {
 function entferneObstEintrag(id) {
     document.querySelector(`[data-id="${id}"]`).remove();
     berechneObstGesamtwert();
+    const obstLeerHinweis = document.getElementById('obst-leer-hinweis');
+    if (obstLeerHinweis && document.querySelectorAll('#obst-container .obst-eintrag').length === 0) {
+        obstLeerHinweis.style.display = '';
+    }
     wizardSync();
 }
 

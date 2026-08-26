@@ -90,14 +90,17 @@ func parzelleFormErrorMessage(err error) string {
 }
 
 // parzellenBasePath liefert den Basis-Pfad für Parzellen-Links im Template.
-// Eigentümer-Entscheidung 23.08.2026: Der Parzellen-URL-Raum ist auf
-// /admin/parzellen konsolidiert - die alten /parzellen*-Routen sind in main.go
-// nur noch 301-Redirects auf ihr /admin/parzellen-Pendant. Es gibt damit keinen
-// Nicht-Admin-Scope mehr zu unterscheiden; der Parameter bleibt erhalten, damit
-// die bestehenden Aufrufer (hier und in inspektion_handler.go,
+// Eigentümer-Entscheidung 26.08.2026 (ersetzt die Konsolidierung vom
+// 23.08.2026): Die App ist eine Arbeitsoberfläche für die Vereinsverwaltung -
+// die Parzellenverwaltung liegt darum wieder fachlich top-level unter
+// /parzellen, /admin ist nur noch technische und strukturelle Administration.
+// Die alten /admin/parzellen*-URLs sind in main.go nur noch 301-Redirects
+// (GET) bzw. Alias-Routen (POST) auf ihr /parzellen-Pendant. Es gibt damit
+// keinen Admin-Scope mehr zu unterscheiden; der Parameter bleibt erhalten,
+// damit die bestehenden Aufrufer (hier und in inspektion_handler.go,
 // wertermittlung_handler.go) unverändert bleiben.
 func parzellenBasePath(r *http.Request) string {
-	return "/admin/parzellen"
+	return "/parzellen"
 }
 
 func populateParzelleFromForm(parzelle *models.Parzelle, r *http.Request) error {
@@ -164,13 +167,20 @@ func renderParzelleForm(w http.ResponseWriter, r *http.Request, title string, pa
 	}))
 }
 
+// HomeHandler leitet GET / auf den passenden Einstiegspunkt weiter.
+// Eigentümer-Entscheidung 26.08.2026: statt des pauschalen Backoffice-
+// Sonderfalls (jede Verwaltungsrolle -> /admin) entscheiden jetzt dieselben
+// Permission-Gates wie die Zielrouten selbst - konsistent mit der
+// Kontrakt-Reihenfolge dashboard.access -> parzellen.manage -> Fallback.
 func HomeHandler(w http.ResponseWriter, r *http.Request) {
-	session := middleware.GetSessionFromContext(r.Context())
-	if session != nil && models.IsBackofficeRole(session.Role) {
-		http.Redirect(w, r, "/admin", http.StatusSeeOther)
-		return
+	switch {
+	case middleware.HasPermission(r, "dashboard.access"):
+		http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
+	case middleware.HasPermission(r, "parzellen.manage"):
+		http.Redirect(w, r, "/parzellen", http.StatusSeeOther)
+	default:
+		http.Redirect(w, r, "/profile", http.StatusSeeOther)
 	}
-	http.Redirect(w, r, "/profile", http.StatusSeeOther)
 }
 
 func ParzellenListHandler(w http.ResponseWriter, r *http.Request) {
@@ -180,17 +190,33 @@ func ParzellenListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Für die Spalte "Nächste Aktion": je eine Query für die gesamte Liste
+	// statt einer Abfrage pro Zeile (siehe models/parzelle_lifecycle.go).
+	parzellenMitInspektion, err := models.GetParzellenIDsMitInspektion()
+	if err != nil {
+		RenderErrorPage(w, r, http.StatusInternalServerError, "Es ist ein Fehler aufgetreten", "Die Parzellen konnten nicht geladen werden.", "/")
+		return
+	}
+
+	parzellenMitWertermittlung, err := models.GetParzellenIDsMitWertermittlung()
+	if err != nil {
+		RenderErrorPage(w, r, http.StatusInternalServerError, "Es ist ein Fehler aufgetreten", "Die Parzellen konnten nicht geladen werden.", "/")
+		return
+	}
+
 	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/parzellen.html"))
 	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
-		"Title":             "Parzellenverwaltung",
-		"Parzellen":         parzellen,
-		"ParzellenBasePath": parzellenBasePath(r),
-		// Eigentümer-Entscheidung 23.08.2026: Seit der URL-Konsolidierung auf
-		// /admin/parzellen gibt es keinen eigenen Admin-Scope mehr zu erkennen
-		// (isAdminParzellenScope wäre jetzt immer wahr). Der Feldname bleibt aus
-		// Kompatibilität mit templates/parzellen.html erhalten, gated aber jetzt
-		// direkt auf die Permission der Zielroute /admin/parzellen/verwalten
-		// ("parzellen.manage") statt auf den (nicht mehr existenten) URL-Scope.
+		"Title":                      "Parzellen",
+		"Parzellen":                  parzellen,
+		"ParzellenBasePath":          parzellenBasePath(r),
+		"ParzellenMitInspektion":     parzellenMitInspektion,
+		"ParzellenMitWertermittlung": parzellenMitWertermittlung,
+		// Eigentümer-Entscheidung 26.08.2026: Der Sekundär-Link "Parzellenstruktur"
+		// im Listenkopf führt auf die technische/strukturelle Administration unter
+		// /admin/parzellenstruktur (vormals /admin/parzellen/verwalten). Der
+		// Feldname IsAdminParzellen bleibt aus Kompatibilität mit
+		// templates/parzellen.html erhalten, gated aber weiterhin direkt auf die
+		// Permission der Zielroute ("parzellen.manage") statt auf einen URL-Scope.
 		"IsAdminParzellen": middleware.HasPermission(r, "parzellen.manage"),
 	}))
 }
@@ -281,6 +307,20 @@ func ParzelleDetailHandler(w http.ResponseWriter, r *http.Request) {
 	// Aktuelle Inspektion und Wertermittlung laden
 	inspektion, _ := models.GetInspektionByParzelleID(id)
 	wertermittlung, _ := models.GetWertermittlungByParzelleID(id)
+	// Für die Prozess-Checkliste der Akte: erledigt, sobald mindestens ein
+	// Wasser- oder Stromeintrag existiert (siehe models/parzelle_lifecycle.go).
+	// Ein Fehler hier (z.B. eine leere Historie) darf die Akte nicht
+	// verhindern - dann bleibt der Punkt einfach offen.
+	hatRechnungshistorie, _ := models.HatRechnungshistorie(id)
+
+	// Für die "Zählerstände"-Karte der Akte (Eigentümer-Entscheidung
+	// 26.08.2026, Punkt 5: Kopf -> Pächter -> Zählerstände -> Prozess): nur
+	// die jeweils letzte Ablesung, nicht die volle Historie - die liegt unter
+	// /abrechnung. Ein Fehler (z.B. noch keine Ablesung vorhanden,
+	// sql.ErrNoRows) darf die Akte nicht verhindern - die Karte zeigt dann
+	// "keine Ablesung erfasst".
+	letzteWasser, _ := models.GetLetzteWasserablesung(id)
+	letzterStrom, _ := models.GetLetzteStromablesung(id)
 
 	// Template-Funktionen definieren (für parzelle_detail.html)
 	funcMap := template.FuncMap{
@@ -294,11 +334,14 @@ func ParzelleDetailHandler(w http.ResponseWriter, r *http.Request) {
 
 	tmpl := template.Must(LoadTemplateWithFuncs(funcMap, "templates/layout.html", "templates/parzelle_detail.html"))
 	err = tmpl.ExecuteTemplate(w, "layout.html", AddSessionToData(r, map[string]interface{}{
-		"Title":             "Parzelle " + parzelle.Nummer,
-		"Parzelle":          parzelle,
-		"Inspektion":        inspektion,
-		"Wertermittlung":    wertermittlung,
-		"ParzellenBasePath": parzellenBasePath(r),
+		"Title":                "Parzelle " + parzelle.Nummer,
+		"Parzelle":             parzelle,
+		"Inspektion":           inspektion,
+		"Wertermittlung":       wertermittlung,
+		"HatRechnungshistorie": hatRechnungshistorie,
+		"LetzteWasser":         letzteWasser,
+		"LetzterStrom":         letzterStrom,
+		"ParzellenBasePath":    parzellenBasePath(r),
 	}))
 
 	if err != nil {

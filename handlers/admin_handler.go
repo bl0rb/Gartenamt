@@ -12,53 +12,21 @@ import (
 	"github.com/gorilla/mux"
 )
 
-// AdminDashboardHandler - Übersicht aller Admin-Funktionen
+// AdminDashboardHandler zeigt die fachliche Arbeitsübersicht (Handlungsbedarf,
+// Kennzahlen, Letzte Aktivitäten, Schnellzugriff). Seit der Eigentümer-
+// Entscheidung vom 26.08.2026 ist die App eine Arbeitsoberfläche für die
+// Vereinsverwaltung: dieses Dashboard liegt darum top-level unter /dashboard
+// und nicht mehr unter /admin - /admin ist seither nur noch technische und
+// strukturelle Administration. Die Kennzahlen, der Handlungsbedarf- und der
+// Aktivitäten-Block kommen aus models/dashboard_stats.go.
 func AdminDashboardHandler(w http.ResponseWriter, r *http.Request) {
-	// Statistiken für Dashboard laden
-	stats := getAdminStatistiken()
-
-	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/admin_dashboard.html"))
+	tmpl := template.Must(LoadTemplate("templates/layout.html", "templates/dashboard.html"))
 	tmpl.Execute(w, AddSessionToData(r, map[string]interface{}{
-		"Title":           "Dashboard",
-		"Stats":           stats,
-		"Handlungsbedarf": getHandlungsbedarf(),
+		"Title":              "Dashboard",
+		"Stats":              models.GetDashboardStats(),
+		"Handlungsbedarf":    models.GetDashboardHandlungsbedarf(),
+		"LetzteAktivitaeten": models.GetLetzteAktivitaeten(8),
 	}))
-}
-
-// getHandlungsbedarf - Zählt offene Vorgänge für die "Handlungsbedarf"-Karte
-// im Dashboard. Es werden ausschließlich Zustände gezählt, die sich direkt aus
-// vorhandenen Modellfeldern ableiten lassen (keine neuen Fachkonzepte):
-//   - überschrittene Inspektionsfristen (frist < heute, auflagen_erfuellt = 0)
-//   - gekündigte Parzellen ohne jede Inspektion
-//   - abgeschlossene Inspektionen (auflagen_erfuellt = 1), deren Parzelle noch
-//     keine Wertermittlung hat
-func getHandlungsbedarf() map[string]interface{} {
-	var fristenUeberschritten int
-	models.DB.QueryRow(`
-		SELECT COUNT(*) FROM inspektionen
-		WHERE frist IS NOT NULL AND frist < date('now') AND auflagen_erfuellt = 0
-	`).Scan(&fristenUeberschritten)
-
-	var gekuendigtOhneInspektion int
-	models.DB.QueryRow(`
-		SELECT COUNT(*) FROM parzellen p
-		WHERE p.kuendigung_datum IS NOT NULL
-		AND NOT EXISTS (SELECT 1 FROM inspektionen i WHERE i.parzelle_id = p.id)
-	`).Scan(&gekuendigtOhneInspektion)
-
-	var inspektionenOhneWertermittlung int
-	models.DB.QueryRow(`
-		SELECT COUNT(*) FROM inspektionen i
-		WHERE i.auflagen_erfuellt = 1
-		AND NOT EXISTS (SELECT 1 FROM wertermittlungen w WHERE w.parzelle_id = i.parzelle_id)
-	`).Scan(&inspektionenOhneWertermittlung)
-
-	return map[string]interface{}{
-		"FristenUeberschritten":          fristenUeberschritten,
-		"GekuendigtOhneInspektion":       gekuendigtOhneInspektion,
-		"InspektionenOhneWertermittlung": inspektionenOhneWertermittlung,
-		"Gesamt":                         fristenUeberschritten + gekuendigtOhneInspektion + inspektionenOhneWertermittlung,
-	}
 }
 
 // AdminVerwaltungHandler shows central organization and mail server settings.
@@ -172,32 +140,6 @@ func AdminZieranpflanzungenLoeschenHandler(w http.ResponseWriter, r *http.Reques
 }
 
 // Hilfsfunktionen
-
-func getAdminStatistiken() map[string]interface{} {
-	stats := make(map[string]interface{})
-
-	// Anzahl Obstarten
-	var anzahlObstarten int
-	models.DB.QueryRow("SELECT COUNT(*) FROM obstarten WHERE aktiv = TRUE").Scan(&anzahlObstarten)
-	stats["AnzahlObstarten"] = anzahlObstarten
-
-	// Anzahl Zieranpflanzungen
-	var anzahlZieranpflanzungen int
-	models.DB.QueryRow("SELECT COUNT(*) FROM zieranpflanzungen WHERE aktiv = TRUE").Scan(&anzahlZieranpflanzungen)
-	stats["AnzahlZieranpflanzungen"] = anzahlZieranpflanzungen
-
-	// Anzahl Parzellen
-	var anzahlParzellen int
-	models.DB.QueryRow("SELECT COUNT(*) FROM parzellen").Scan(&anzahlParzellen)
-	stats["AnzahlParzellen"] = anzahlParzellen
-
-	// Anzahl Wertermittlungen
-	var anzahlWertermittlungen int
-	models.DB.QueryRow("SELECT COUNT(*) FROM wertermittlungen").Scan(&anzahlWertermittlungen)
-	stats["AnzahlWertermittlungen"] = anzahlWertermittlungen
-
-	return stats
-}
 
 func handleObstartenPost(r *http.Request) error {
 	// Formulardaten verarbeiten

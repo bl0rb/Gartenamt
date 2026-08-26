@@ -177,17 +177,57 @@ func main() {
 	// Home-Route mit optionaler Auth (für Redirects)
 	r.HandleFunc("/", middleware.CheckLoginStatus(handlers.HomeHandler)).Methods("GET")
 
-	// Parzellen-Management: Eigentümer-Entscheidung 23.08.2026 - der Parzellen-
-	// URL-Raum ist auf /admin/parzellen konsolidiert. Die alten /parzellen*-
-	// Routen bleiben als 301-Redirects auf ihr /admin/parzellen-Pendant
-	// bestehen (Suffix erhalten), damit Deep-Links und Bookmarks weiter
-	// funktionieren. Die Permission-Gates (parzellen.manage) liegen
-	// ausschließlich auf den /admin-Zielrouten weiter unten - hier findet
-	// keine eigene Prüfung mehr statt, der Redirect gibt keine Daten preis.
-	r.HandleFunc("/parzellen", redirectToAdminParzellen).Methods("GET")
-	r.HandleFunc("/parzellen/neu", redirectToAdminParzellen).Methods("GET", "POST")
-	r.HandleFunc("/parzellen/{id}/edit", redirectToAdminParzellen).Methods("GET", "POST")
-	r.HandleFunc("/parzellen/{id}", redirectToAdminParzellen).Methods("GET")
+	// Eigentümer-Entscheidung 26.08.2026 (ersetzt die Konsolidierung vom
+	// 23.08.2026): Die App ist eine Arbeitsoberfläche für die
+	// Vereinsverwaltung - die fachlichen Bereiche (Dashboard, Parzellen,
+	// Abrechnung, Protokolle) liegen deshalb wieder top-level statt unter
+	// /admin. /admin bleibt ausschließlich für technische und strukturelle
+	// Administration (Benutzer, Stammdaten, Parzellenstruktur, System). Jede
+	// fachliche Route trägt ihr eigenes Permission-Gate; die alten
+	// /admin/*-Pendants bleiben als 301-Redirects (GET) bzw. Alias (POST,
+	// siehe unten bei den Admin-Routen) für Deep-Links und Bookmarks
+	// bestehen.
+	r.HandleFunc("/dashboard", middleware.RequirePermission("dashboard.access", handlers.AdminDashboardHandler)).Methods("GET")
+
+	// Parzellen: /neu und /{id}/edit müssen vor /{id} registriert werden -
+	// gorilla/mux matcht in Registrierungsreihenfolge, sonst würde /{id} das
+	// Literal "neu" als ID-Parameter schlucken.
+	r.HandleFunc("/parzellen", middleware.RequirePermission("parzellen.manage", handlers.ParzellenListHandler)).Methods("GET")
+	r.HandleFunc("/parzellen/neu", middleware.RequirePermission("parzellen.manage", handlers.ParzelleNeuHandler)).Methods("GET", "POST")
+	r.HandleFunc("/parzellen/{id}/edit", middleware.RequirePermission("parzellen.manage", handlers.ParzelleEditHandler)).Methods("GET", "POST")
+	r.HandleFunc("/parzellen/{id}", middleware.RequirePermission("parzellen.manage", handlers.ParzelleDetailHandler)).Methods("GET")
+
+	// Wasser-/Stromablesungen je Parzelle
+	r.HandleFunc("/parzellen/{parzelle_id}/wasser", middleware.RequirePermission("invoices.manage", handlers.WasserHandler)).Methods("GET", "POST")
+	r.HandleFunc("/parzellen/{parzelle_id}/strom", middleware.RequirePermission("invoices.manage", handlers.StromHandler)).Methods("GET", "POST")
+
+	// Rechnungsvorschau/-verlauf/-PDF sowie Mailversand je Parzelle
+	r.HandleFunc("/parzellen/{parzelle_id}/invoice", middleware.RequirePermission("invoices.manage", handlers.InvoicePreviewHandler)).Methods("GET")
+	r.HandleFunc("/parzellen/{parzelle_id}/invoice/history", middleware.RequirePermission("invoices.manage", handlers.InvoiceHistoryHandler)).Methods("GET")
+	r.HandleFunc("/parzellen/{parzelle_id}/invoice/pdf", middleware.RequirePermission("invoices.manage", handlers.InvoicePDFDownloadHandler)).Methods("GET")
+	r.HandleFunc("/parzellen/{parzelle_id}/email/send", middleware.RequirePermission("invoices.manage", handlers.SendParzelleEmailHandler)).Methods("POST")
+	// Eigentümer-Entscheidung 23.08.2026: Mailversand/-verlauf der Parzellen-
+	// Detailseite (Info/Verwarnung an Pächter) ist Vorstandsarbeit, nicht nur
+	// Admin-Sache - daher eigene Permission "mail.send" (Rollen admin +
+	// vorstand) statt der harten invoices.manage-Kopplung. Der Bulk-Rechnungs-
+	// versand (email/send oben) bleibt bei invoices.manage, da fachlich
+	// getrennt.
+	r.HandleFunc("/parzellen/{parzelle_id}/email/info", middleware.RequirePermission("mail.send", handlers.SendParzelleInfoMailHandler)).Methods("POST")
+	r.HandleFunc("/parzellen/{parzelle_id}/email/history", middleware.RequirePermission("mail.send", handlers.ParzelleEmailHistoryHandler)).Methods("GET")
+
+	// Löschen von Wasser-/Stromablesungen (eigener Pfad, nicht unter /parzellen)
+	r.HandleFunc("/wasser/{id}/delete", middleware.RequirePermission("invoices.manage", handlers.DeleteWasserHandler)).Methods("POST")
+	r.HandleFunc("/strom/{id}/delete", middleware.RequirePermission("invoices.manage", handlers.DeleteStromHandler)).Methods("POST")
+
+	// Abrechnung
+	r.HandleFunc("/abrechnung", middleware.RequirePermission("invoices.manage", handlers.AdminInvoiceManagementHandler)).Methods("GET")
+	r.HandleFunc("/abrechnung/export", middleware.RequirePermission("invoices.manage", handlers.AdminBulkInvoiceExportHandler)).Methods("GET")
+	r.HandleFunc("/abrechnung/emails/send-bulk", middleware.RequirePermission("invoices.manage", handlers.SendBulkParzelleEmailHandler)).Methods("POST")
+
+	// Protokoll-Verwaltung (Löschen von Inspektionen/Wertermittlungen)
+	r.HandleFunc("/protokolle", middleware.RequirePermission("protokolle.manage", handlers.AdminProtokollVerwaltungHandler)).Methods("GET")
+	r.HandleFunc("/protokolle/inspektionen/{id}/delete", middleware.RequirePermission("protokolle.manage", handlers.AdminInspektionLoeschenHandler)).Methods("POST")
+	r.HandleFunc("/protokolle/wertermittlungen/{id}/delete", middleware.RequirePermission("protokolle.manage", handlers.AdminWertermittlungLoeschenHandler)).Methods("POST")
 
 	// Inspektion/Wertermittlung (nur mit Protokoll-Berechtigung)
 	r.HandleFunc("/inspektion/{parzelle_id}", middleware.RequirePermission("protokolle.manage", handlers.InspektionHandler)).Methods("GET", "POST")
@@ -198,12 +238,15 @@ func main() {
 	r.HandleFunc("/profile", middleware.RequireAuth(handlers.ProfileHandler)).Methods("GET")
 	r.HandleFunc("/change-password", middleware.RequireAuth(handlers.ChangePasswordHandler)).Methods("POST")
 
-	// *** ADMIN-ROUTEN (BACKOFFICE + BERECHTIGUNGEN) ***
+	// *** ADMIN-ROUTEN (nur noch technische + strukturelle Administration,
+	// Eigentümer-Entscheidung 26.08.2026) ***
 	adminRoutes := r.PathPrefix("/admin").Subrouter()
 
-	// Dashboard
-	adminRoutes.HandleFunc("", middleware.RequirePermission("dashboard.access", handlers.AdminDashboardHandler)).Methods("GET")
-	adminRoutes.HandleFunc("/", middleware.RequirePermission("dashboard.access", handlers.AdminDashboardHandler)).Methods("GET")
+	// / und /admin/ leiten auf die erste Admin-Seite weiter, für die die
+	// Berechtigung vorliegt - das fachliche Dashboard liegt seit der
+	// Entscheidung vom 26.08.2026 unter /dashboard, nicht mehr unter /admin.
+	adminRoutes.HandleFunc("", middleware.RequireAuth(adminHomeHandler)).Methods("GET")
+	adminRoutes.HandleFunc("/", middleware.RequireAuth(adminHomeHandler)).Methods("GET")
 	adminRoutes.HandleFunc("/verwaltung", middleware.RequirePermission("settings.manage", handlers.AdminVerwaltungHandler)).Methods("GET")
 
 	// Daten-Management
@@ -213,17 +256,18 @@ func main() {
 	adminRoutes.HandleFunc("/zieranpflanzungen/{id}/delete", middleware.RequirePermission("stammdaten.manage", handlers.AdminZieranpflanzungenLoeschenHandler)).Methods("POST")
 	adminRoutes.HandleFunc("/bauindex", middleware.RequirePermission("stammdaten.manage", handlers.AdminBauindexHandler)).Methods("GET", "POST")
 	adminRoutes.HandleFunc("/bauindex/{jahr}/delete", middleware.RequirePermission("stammdaten.manage", handlers.AdminBauindexLoeschenHandler)).Methods("POST")
-	adminRoutes.HandleFunc("/parzellen", middleware.RequirePermission("parzellen.manage", handlers.ParzellenListHandler)).Methods("GET")
-	adminRoutes.HandleFunc("/parzellen/neu", middleware.RequirePermission("parzellen.manage", handlers.ParzelleNeuHandler)).Methods("GET", "POST")
-	adminRoutes.HandleFunc("/parzellen/{id}/edit", middleware.RequirePermission("parzellen.manage", handlers.ParzelleEditHandler)).Methods("GET", "POST")
-	adminRoutes.HandleFunc("/parzellen/{id}", middleware.RequirePermission("parzellen.manage", handlers.ParzelleDetailHandler)).Methods("GET")
 
-	// Parzellen-Verwaltung (Löschen)
-	adminRoutes.HandleFunc("/parzellen/verwalten", middleware.RequirePermission("parzellen.manage", handlers.AdminParzellenVerwaltungHandler)).Methods("GET")
+	// Parzellenstruktur (Datenverwaltung): früher "/admin/parzellen/verwalten",
+	// jetzt eigener Name, da der URL-Raum /admin/parzellen* an die fachliche
+	// Parzellenverwaltung (oben, top-level) zurückgegangen ist.
+	adminRoutes.HandleFunc("/parzellenstruktur", middleware.RequirePermission("parzellen.manage", handlers.AdminParzellenVerwaltungHandler)).Methods("GET")
+	adminRoutes.HandleFunc("/parzellenstruktur/{id}/delete", middleware.RequirePermission("parzellen.manage", handlers.AdminParzellenLoeschenHandler)).Methods("POST")
+	// Alter POST-Pfad bleibt als Alias auf demselben Handler bestehen (kein
+	// Redirect, da POST-Bodies bei 301 nicht zuverlässig erhalten bleiben).
 	adminRoutes.HandleFunc("/parzellen/{id}/delete", middleware.RequirePermission("parzellen.manage", handlers.AdminParzellenLoeschenHandler)).Methods("POST")
 
-	// Protokoll-Verwaltung (Löschen)
-	adminRoutes.HandleFunc("/protokolle", middleware.RequirePermission("protokolle.manage", handlers.AdminProtokollVerwaltungHandler)).Methods("GET")
+	// Protokoll-Verwaltung (Löschen) - alte POST-Aliasse, fachliche GET-Seite
+	// liegt jetzt unter /protokolle (oben, top-level).
 	adminRoutes.HandleFunc("/inspektionen/{id}/delete", middleware.RequirePermission("protokolle.manage", handlers.AdminInspektionLoeschenHandler)).Methods("POST")
 	adminRoutes.HandleFunc("/wertermittlungen/{id}/delete", middleware.RequirePermission("protokolle.manage", handlers.AdminWertermittlungLoeschenHandler)).Methods("POST")
 	// /admin/bulk-delete entfernt (23.08.2026, Eigentümer-Entscheidung): toter
@@ -241,36 +285,39 @@ func main() {
 	adminRoutes.HandleFunc("/users", middleware.RequirePermission("users.manage", handlers.AdminUsersHandlerEnhanced)).Methods("GET", "POST")
 	adminRoutes.HandleFunc("/users/{id}/edit", middleware.RequirePermission("users.manage", handlers.AdminUserEditHandler)).Methods("GET", "POST")
 
-	// *** INVOICE-/RECHNUNGS-VERWALTUNG ***
-	// Invoice management dashboard
-	adminRoutes.HandleFunc("/invoices", middleware.RequirePermission("invoices.manage", handlers.AdminInvoiceManagementHandler)).Methods("GET")
-
 	// Organization settings for invoices
 	adminRoutes.HandleFunc("/organization-settings", middleware.RequirePermission("settings.manage", handlers.OrganizationSettingsHandler)).Methods("GET", "POST")
 
-	// Water (Wasser) records per parzelle
-	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/wasser", middleware.RequirePermission("invoices.manage", handlers.WasserHandler)).Methods("GET", "POST")
+	// *** ALTE POST-ENDPUNKTE UNTER /admin/parzellen* (Alias, kein Redirect) ***
+	// Die fachlichen GET-Seiten liegen jetzt unter /parzellen* (oben,
+	// top-level); diese POST-Endpunkte bleiben unter ihrer alten /admin-URL
+	// zusätzlich erreichbar, damit bestehende Formulare nicht brechen.
 	adminRoutes.HandleFunc("/wasser/{id}/delete", middleware.RequirePermission("invoices.manage", handlers.DeleteWasserHandler)).Methods("POST")
-
-	// Electricity (Strom) records per parzelle
-	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/strom", middleware.RequirePermission("invoices.manage", handlers.StromHandler)).Methods("GET", "POST")
 	adminRoutes.HandleFunc("/strom/{id}/delete", middleware.RequirePermission("invoices.manage", handlers.DeleteStromHandler)).Methods("POST")
-
-	// Invoice preview and generation
-	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/invoice", middleware.RequirePermission("invoices.manage", handlers.InvoicePreviewHandler)).Methods("GET")
-	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/invoice/history", middleware.RequirePermission("invoices.manage", handlers.InvoiceHistoryHandler)).Methods("GET")
-	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/invoice/pdf", middleware.RequirePermission("invoices.manage", handlers.InvoicePDFDownloadHandler)).Methods("GET")
-	adminRoutes.HandleFunc("/invoices/export", middleware.RequirePermission("invoices.manage", handlers.AdminBulkInvoiceExportHandler)).Methods("GET")
 	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/email/send", middleware.RequirePermission("invoices.manage", handlers.SendParzelleEmailHandler)).Methods("POST")
-	// Eigentümer-Entscheidung 23.08.2026: Mailversand/-verlauf der Parzellen-
-	// Detailseite (Info/Verwarnung an Pächter) ist Vorstandsarbeit, nicht nur
-	// Admin-Sache - daher eigene Permission "mail.send" (Rollen admin +
-	// vorstand) statt der harten invoices.manage-Kopplung. Der Bulk-Rechnungs-
-	// versand (email/send oben) bleibt bei invoices.manage, da fachlich
-	// getrennt.
 	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/email/info", middleware.RequirePermission("mail.send", handlers.SendParzelleInfoMailHandler)).Methods("POST")
-	adminRoutes.HandleFunc("/parzellen/{parzelle_id}/email/history", middleware.RequirePermission("mail.send", handlers.ParzelleEmailHistoryHandler)).Methods("GET")
 	adminRoutes.HandleFunc("/emails/send-bulk", middleware.RequirePermission("invoices.manage", handlers.SendBulkParzelleEmailHandler)).Methods("POST")
+
+	// *** ALTE GET-URLs -> 301 (Eigentümer-Entscheidung 26.08.2026) ***
+	// Sonderfall zuerst: /admin/parzellen/verwalten ist keine Parzelle mit der
+	// ID "verwalten", sondern die alte URL der Parzellenstruktur-Verwaltung.
+	// Muss vor dem generischen /admin/parzellen*-Matcher registriert werden.
+	r.HandleFunc("/admin/parzellen/verwalten", redirectTo("/admin/parzellenstruktur")).Methods("GET")
+	// Generischer Fall: /admin/parzellen(/*) -> /parzellen(/*), Suffix und
+	// Query-String erhalten. Bare Pfad und Pfade mit Suffix brauchen getrennte
+	// Matcher: PathPrefix ohne abschließenden "/" prüft in gorilla/mux keine
+	// Segmentgrenze und würde sonst auch /admin/parzellenstruktur treffen.
+	r.HandleFunc("/admin/parzellen", redirectPrefix("/admin/parzellen", "/parzellen")).Methods("GET")
+	r.PathPrefix("/admin/parzellen/").Handler(redirectPrefix("/admin/parzellen", "/parzellen")).Methods("GET")
+	// /admin/invoices und /admin/invoices/export -> /abrechnung(/export). Wie
+	// beim /admin/parzellen-Block oben: bare Pfad und Pfade mit Suffix brauchen
+	// getrennte Matcher, sonst würde z.B. /admin/invoicesX (ohne Trennzeichen)
+	// fälschlich auf /abrechnungX statt auf 404 matchen.
+	r.HandleFunc("/admin/invoices", redirectPrefix("/admin/invoices", "/abrechnung")).Methods("GET")
+	r.PathPrefix("/admin/invoices/").Handler(redirectPrefix("/admin/invoices", "/abrechnung")).Methods("GET")
+	// /admin/protokolle -> /protokolle (gleiches Muster)
+	r.HandleFunc("/admin/protokolle", redirectPrefix("/admin/protokolle", "/protokolle")).Methods("GET")
+	r.PathPrefix("/admin/protokolle/").Handler(redirectPrefix("/admin/protokolle", "/protokolle")).Methods("GET")
 
 	// *** API-ROUTEN ***
 	// Stammdaten/Preise: für alle authentifizierten Benutzer
@@ -296,6 +343,9 @@ func main() {
 	log.Println("📍 URL: " + baseURL)
 	log.Println("🔐 Login: " + baseURL + "/login")
 	log.Println("👤 Standard-Admin: siehe Konsole oben")
+	log.Println("📊 Dashboard: " + baseURL + "/dashboard")
+	log.Println("🌱 Parzellen: " + baseURL + "/parzellen")
+	log.Println("🧾 Abrechnung: " + baseURL + "/abrechnung")
 	log.Println("📋 Admin-Interface: " + baseURL + "/admin")
 	log.Println("👥 Benutzerverwaltung: " + baseURL + "/admin/users")
 	log.Println("🔧 API-Endpoints: " + baseURL + "/api/")
@@ -382,12 +432,61 @@ func main() {
 	}
 }
 
-// redirectToAdminParzellen leitet die alten /parzellen*-Routen 301 auf ihr
-// /admin/parzellen-Pendant um (Suffix und Query-String erhalten). Eigentümer-
-// Entscheidung 23.08.2026: der Parzellen-URL-Raum ist auf /admin/parzellen
-// konsolidiert - die Permission-Gates liegen auf der Zielroute, nicht hier.
-func redirectToAdminParzellen(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, "/admin"+r.URL.RequestURI(), http.StatusMovedPermanently)
+// adminHomeHandler leitet GET /admin und /admin/ per 303 auf die erste
+// Admin-Seite weiter, für die die Session eine Berechtigung hat (Reihenfolge:
+// Benutzer, Einstellungen, Obstarten, Parzellenstruktur, Backup, Audit-Log,
+// System-Info). Ohne passende Berechtigung geht es auf /dashboard zurück.
+// Eigentümer-Entscheidung 26.08.2026: /admin ist nur noch technische und
+// strukturelle Administration - das fachliche Dashboard liegt unter
+// /dashboard, weshalb es hier keinen entsprechenden Eintrag mehr gibt.
+func adminHomeHandler(w http.ResponseWriter, r *http.Request) {
+	targets := []struct {
+		permission string
+		path       string
+	}{
+		{"users.manage", "/admin/users"},
+		{"settings.manage", "/admin/verwaltung"},
+		{"stammdaten.manage", "/admin/obstarten"},
+		{"parzellen.manage", "/admin/parzellenstruktur"},
+		{"backup.manage", "/admin/backup"},
+		{"audit.view", "/admin/audit-log"},
+		{"system.settings", "/admin/system-info"},
+	}
+
+	for _, target := range targets {
+		if middleware.HasPermission(r, target.permission) {
+			http.Redirect(w, r, target.path, http.StatusSeeOther)
+			return
+		}
+	}
+
+	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
+}
+
+// redirectTo liefert einen Handler, der 301 auf einen festen Zielpfad
+// umleitet und dabei einen eventuellen Query-String erhält.
+func redirectTo(target string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		dest := target
+		if r.URL.RawQuery != "" {
+			dest += "?" + r.URL.RawQuery
+		}
+		http.Redirect(w, r, dest, http.StatusMovedPermanently)
+	}
+}
+
+// redirectPrefix liefert einen Handler, der das Pfadpräfix oldPrefix durch
+// newPrefix ersetzt und dabei Suffix sowie Query-String erhält (301).
+// Eigentümer-Entscheidung 26.08.2026: die fachlichen Bereiche sind von /admin
+// auf top-level-URLs zurückgezogen worden (Gegenrichtung zur Konsolidierung
+// vom 23.08.2026) - alte /admin/*-Deep-Links und Bookmarks bleiben darüber
+// erreichbar, ohne dass jede einzelne Unterseite einzeln registriert werden
+// muss.
+func redirectPrefix(oldPrefix, newPrefix string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		target := newPrefix + strings.TrimPrefix(r.URL.RequestURI(), oldPrefix)
+		http.Redirect(w, r, target, http.StatusMovedPermanently)
+	}
 }
 
 // noDirectoryListing unterbindet die Verzeichnisauflistung des FileServers.

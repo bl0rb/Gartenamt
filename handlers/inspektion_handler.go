@@ -77,7 +77,16 @@ func renderInspektionForm(w http.ResponseWriter, r *http.Request, parzelle *mode
 
 func InspektionHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	parzelleID, _ := strconv.Atoi(vars["parzelle_id"])
+	parzelleID, err := strconv.Atoi(vars["parzelle_id"])
+	if err != nil {
+		// Eigentümer-Entscheidung 26.08.2026: Die Inspektion startet immer aus
+		// dem Kontext einer Parzelle (Route /inspektion/{parzelle_id}) - es gibt
+		// keine eigenständige Parzellen-Auswahl mehr auf dieser Seite. Eine
+		// fehlende oder unlesbare ID hat hier keinen sinnvollen Kontext mehr,
+		// daher direkt zurück zur Parzellenliste statt einer Fehlerseite.
+		http.Redirect(w, r, parzellenBasePath(r), http.StatusSeeOther)
+		return
+	}
 
 	if r.Method == "POST" {
 		inspektion := &models.Inspektion{

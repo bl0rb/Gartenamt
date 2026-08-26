@@ -1,0 +1,334 @@
+{{define "content"}}
+<style>
+    .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .stat-card {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        padding: 1.4rem 1.25rem 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        box-shadow: var(--shadow-xs);
+        transition: box-shadow 0.18s ease, transform 0.18s ease;
+        text-decoration: none;
+        color: inherit;
+    }
+
+    .stat-card:hover {
+        box-shadow: var(--shadow-md);
+        transform: translateY(-2px);
+        text-decoration: none;
+        color: inherit;
+    }
+
+    .stat-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: var(--radius-md);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        margin-bottom: 0.35rem;
+    }
+
+    .stat-icon--green { background: var(--green-100); color: var(--green-700); }
+    .stat-icon--teal  { background: #cdf0e8;           color: #0d6e59; }
+    .stat-icon--slate { background: var(--gray-100);   color: var(--gray-600); }
+    .stat-icon--amber { background: #fef3c7;            color: #92400e; }
+
+    .stat-number {
+        font-size: 2.1rem;
+        font-weight: 800;
+        line-height: 1;
+        color: var(--gray-900);
+    }
+
+    .stat-label {
+        font-size: 0.84rem;
+        color: var(--color-text-muted);
+        font-weight: 500;
+    }
+
+    .stat-cta {
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: var(--color-primary);
+        text-decoration: none;
+        margin-top: 0.6rem;
+        padding-top: 0.6rem;
+        border-top: 1px solid var(--color-border);
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+
+    @media (max-width: 992px) {
+        .stat-grid {
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        }
+    }
+
+    .handlungsbedarf-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.75rem 0;
+        text-decoration: none;
+        color: inherit;
+    }
+
+    .handlungsbedarf-row:not(:last-child) {
+        border-bottom: 1px solid var(--color-border);
+    }
+
+    .handlungsbedarf-row:hover {
+        color: inherit;
+    }
+
+    .handlungsbedarf-row:hover .handlungsbedarf-label {
+        text-decoration: underline;
+    }
+
+    .handlungsbedarf-count {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 1.75rem;
+        height: 1.75rem;
+        padding: 0 0.4rem;
+        border-radius: 999px;
+        font-weight: 700;
+        font-size: 0.85rem;
+    }
+
+    .handlungsbedarf-count--warn { background: #fffbeb; color: #b45309; }
+    .handlungsbedarf-count--danger { background: #fef2f2; color: #b91c1c; }
+
+    .handlungsbedarf-label {
+        font-weight: 500;
+    }
+
+    .handlungsbedarf-arrow {
+        color: var(--color-text-muted);
+    }
+
+    .handlungsbedarf-empty {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.5rem 0;
+        color: #047857;
+        font-weight: 500;
+    }
+
+    .aktivitaet-row {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.6rem 0;
+        text-decoration: none;
+        color: inherit;
+    }
+
+    .aktivitaet-row:not(:last-child) {
+        border-bottom: 1px solid var(--color-border);
+    }
+
+    .aktivitaet-row:hover .aktivitaet-label {
+        text-decoration: underline;
+    }
+
+    .aktivitaet-icon {
+        width: 2rem;
+        height: 2rem;
+        border-radius: 50%;
+        background: var(--gray-100);
+        color: var(--color-text-muted);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        font-size: 0.85rem;
+    }
+
+    .aktivitaet-text {
+        flex: 1;
+    }
+
+    .aktivitaet-label {
+        font-weight: 500;
+    }
+
+    .aktivitaet-date {
+        font-size: 0.82rem;
+        white-space: nowrap;
+    }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0 fw-bold">Dashboard</h2>
+    <a href="/parzellen" class="btn btn-secondary">
+        <i class="fas fa-map"></i> Parzellen
+    </a>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-list-check me-2"></i>Handlungsbedarf</h5>
+    </div>
+    <div class="card-body">
+        {{if .Handlungsbedarf.Gesamt}}
+        {{if .Handlungsbedarf.FristenUeberschritten}}
+            {{if hasPerm .Session.Role "protokolle.manage"}}
+            <a href="/protokolle?tab=inspektionen" class="handlungsbedarf-row">
+                <span class="handlungsbedarf-label">Inspektionsfristen überschritten</span>
+                <span>
+                    <span class="handlungsbedarf-count handlungsbedarf-count--danger">{{.Handlungsbedarf.FristenUeberschritten}}</span>
+                    <i class="fas fa-chevron-right fa-xs handlungsbedarf-arrow ms-2"></i>
+                </span>
+            </a>
+            {{else}}
+            <div class="handlungsbedarf-row">
+                <span class="handlungsbedarf-label">Inspektionsfristen überschritten</span>
+                <span class="handlungsbedarf-count handlungsbedarf-count--danger">{{.Handlungsbedarf.FristenUeberschritten}}</span>
+            </div>
+            {{end}}
+        {{end}}
+        {{if .Handlungsbedarf.GekuendigtOhneInspektion}}
+        <a href="/parzellen" class="handlungsbedarf-row">
+            <span class="handlungsbedarf-label">Gekündigte Parzellen ohne Inspektion</span>
+            <span>
+                <span class="handlungsbedarf-count handlungsbedarf-count--warn">{{.Handlungsbedarf.GekuendigtOhneInspektion}}</span>
+                <i class="fas fa-chevron-right fa-xs handlungsbedarf-arrow ms-2"></i>
+            </span>
+        </a>
+        {{end}}
+        {{if .Handlungsbedarf.InspektionenOhneWertermittlung}}
+            {{if hasPerm .Session.Role "protokolle.manage"}}
+            <a href="/protokolle" class="handlungsbedarf-row">
+                <span class="handlungsbedarf-label">Inspektionen ohne Wertermittlung</span>
+                <span>
+                    <span class="handlungsbedarf-count handlungsbedarf-count--warn">{{.Handlungsbedarf.InspektionenOhneWertermittlung}}</span>
+                    <i class="fas fa-chevron-right fa-xs handlungsbedarf-arrow ms-2"></i>
+                </span>
+            </a>
+            {{else}}
+            <div class="handlungsbedarf-row">
+                <span class="handlungsbedarf-label">Inspektionen ohne Wertermittlung</span>
+                <span class="handlungsbedarf-count handlungsbedarf-count--warn">{{.Handlungsbedarf.InspektionenOhneWertermittlung}}</span>
+            </div>
+            {{end}}
+        {{end}}
+        {{else}}
+        <div class="handlungsbedarf-empty">
+            <i class="fas fa-circle-check"></i> Kein Handlungsbedarf.
+        </div>
+        {{end}}
+    </div>
+</div>
+
+<div class="stat-grid">
+    <a href="/parzellen" class="stat-card">
+        <div class="stat-icon stat-icon--slate"><i class="fas fa-map"></i></div>
+        <div class="stat-number">{{.Stats.AnzahlParzellen}}</div>
+        <div class="stat-label">Parzellen</div>
+        <span class="stat-cta">Verwalten <i class="fas fa-arrow-right fa-xs"></i></span>
+    </a>
+    <a href="/parzellen" class="stat-card">
+        <div class="stat-icon stat-icon--green"><i class="fas fa-user"></i></div>
+        <div class="stat-number">{{.Stats.AnzahlPaechter}}</div>
+        <div class="stat-label">Pächter</div>
+        <span class="stat-cta">Verwalten <i class="fas fa-arrow-right fa-xs"></i></span>
+    </a>
+    <a href="/parzellen" class="stat-card">
+        <div class="stat-icon stat-icon--amber"><i class="fas fa-file-signature"></i></div>
+        <div class="stat-number">{{.Stats.OffeneKuendigungen}}</div>
+        <div class="stat-label">Offene Kündigungen</div>
+        <span class="stat-cta">Ansehen <i class="fas fa-arrow-right fa-xs"></i></span>
+    </a>
+    {{if hasPerm .Session.Role "invoices.manage"}}
+    <a href="/abrechnung" class="stat-card">
+        <div class="stat-icon stat-icon--teal"><i class="fas fa-file-invoice-dollar"></i></div>
+        <div class="stat-number">{{.Stats.OffeneRechnungen}}</div>
+        <div class="stat-label">Offene Rechnungen</div>
+        <span class="stat-cta">Zur Abrechnung <i class="fas fa-arrow-right fa-xs"></i></span>
+    </a>
+    {{else}}
+    <div class="stat-card">
+        <div class="stat-icon stat-icon--teal"><i class="fas fa-file-invoice-dollar"></i></div>
+        <div class="stat-number">{{.Stats.OffeneRechnungen}}</div>
+        <div class="stat-label">Offene Rechnungen</div>
+    </div>
+    {{end}}
+</div>
+
+{{/* Eigentümer-Entscheidung 26.08.2026: dritter Dashboard-Block nach
+     Handlungsbedarf und Kennzahlen. Die Einträge verlinken bewusst in die
+     Parzellen-Akte statt in Protokoll/Abrechnung - das erfordert nur
+     parzellen.manage, das jede Rolle mit dashboard.access ohnehin besitzt,
+     und braucht darum kein eigenes Permission-Gate (siehe DefaultRolePermissions
+     in models/user.go). */}}
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-clock-rotate-left me-2"></i>Letzte Aktivitäten</h5>
+    </div>
+    <div class="card-body">
+        {{if .LetzteAktivitaeten}}
+        {{range .LetzteAktivitaeten}}
+        <a href="/parzellen/{{.ParzelleID}}" class="aktivitaet-row">
+            <span class="aktivitaet-icon"><i class="fas {{.IconClass}}"></i></span>
+            <span class="aktivitaet-text">
+                <span class="aktivitaet-label">{{.Ereignis}}</span>
+                <span class="text-muted">· Parzelle {{.ParzelleNummer}}</span>
+            </span>
+            <span class="aktivitaet-date text-muted">{{.Zeit.Format "02.01.2006"}}</span>
+        </a>
+        {{end}}
+        {{else}}
+        <p class="text-muted mb-0">Noch keine Aktivitäten erfasst.</p>
+        {{end}}
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">Schnellzugriff</h5>
+    </div>
+    <div class="card-body">
+        <div class="d-flex flex-wrap gap-2">
+            {{if hasPerm .Session.Role "parzellen.manage"}}
+            <a href="/parzellen" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-map"></i> Parzellen
+            </a>
+            <a href="/parzellen/neu" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-plus"></i> Neue Parzelle
+            </a>
+            {{end}}
+            {{if hasPerm .Session.Role "invoices.manage"}}
+            <a href="/abrechnung" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-file-invoice-dollar"></i> Abrechnung
+            </a>
+            {{end}}
+            {{if hasPerm .Session.Role "protokolle.manage"}}
+            <a href="/protokolle" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-clipboard-list"></i> Protokolle
+            </a>
+            {{end}}
+            {{if .IsBackoffice}}
+            <a href="/admin" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-cog"></i> Admin
+            </a>
+            {{end}}
+        </div>
+    </div>
+</div>
+{{end}}

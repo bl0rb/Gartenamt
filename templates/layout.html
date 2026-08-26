@@ -23,27 +23,39 @@
             <div class="navbar-nav d-flex flex-row align-items-center">
                 <!-- Nur anzeigen wenn authentifiziert -->
                 {{if .Session}}
-                    {{if .IsBackoffice}}
-                    <!-- Eigentümer-Entscheidung 23.08.2026: Parzellen-URL-Raum auf
-                         /admin/parzellen konsolidiert (/parzellen* sind nur noch
-                         301-Redirects, main.go). Der Link zeigt darum direkt aufs
-                         Ziel; IsAdminPage (template_helpers.go, Prefix-Check auf
-                         "/admin") und der Sidebar-active-Zustand "parzellen"
-                         (AdminSection) greifen dadurch automatisch korrekt, ohne
-                         Sonderfall - die Seite rendert jetzt immer im
-                         Admin-Sidebar-Layout. -->
-                    <a class="nav-link me-3" href="/admin/parzellen">
+                    <!-- Eigentümer-Entscheidung 26.08.2026 (ersetzt die Konsolidierung
+                         vom 23.08.2026): Die App ist eine Arbeitsoberfläche für die
+                         Vereinsverwaltung - die fachlichen Bereiche (Dashboard,
+                         Parzellen, Abrechnung) liegen darum top-level statt unter
+                         /admin; /admin ist nur noch technische und strukturelle
+                         Administration. Jeder Link ist über seine eigene Berechtigung
+                         gegated, der aktive Zustand kommt aus .NavSection
+                         (template_helpers.go, aus dem URL-Pfad abgeleitet). -->
+                    {{if hasPerm .Session.Role "dashboard.access"}}
+                    <a class="nav-link me-3{{if eq .NavSection "dashboard"}} active{{end}}" href="/dashboard"{{if eq .NavSection "dashboard"}} aria-current="page"{{end}}>
+                        <i class="fas fa-home"></i> Dashboard
+                    </a>
+                    {{end}}
+
+                    {{if hasPerm .Session.Role "parzellen.manage"}}
+                    <a class="nav-link me-3{{if eq .NavSection "parzellen"}} active{{end}}" href="/parzellen"{{if eq .NavSection "parzellen"}} aria-current="page"{{end}}>
                         <i class="fas fa-map"></i> Parzellen
+                    </a>
+                    {{end}}
+
+                    {{if hasPerm .Session.Role "invoices.manage"}}
+                    <a class="nav-link me-3{{if eq .NavSection "abrechnung"}} active{{end}}" href="/abrechnung"{{if eq .NavSection "abrechnung"}} aria-current="page"{{end}}>
+                        <i class="fas fa-file-invoice"></i> Abrechnung
                     </a>
                     {{end}}
 
                     <!-- Admin-Link nur für Verwaltung/Backoffice -->
                     {{if .IsBackoffice}}
-                    <a class="nav-link me-3" href="/admin">
+                    <a class="nav-link me-3{{if eq .NavSection "admin"}} active{{end}}" href="/admin"{{if eq .NavSection "admin"}} aria-current="page"{{end}}>
                         <i class="fas fa-cog"></i> Admin
                     </a>
                     {{end}}
-                    
+
                     <span class="nav-link text-light me-2">
                         <i class="fas fa-user"></i> {{.Session.Username}}
                         {{if .IsBackoffice}}
@@ -93,45 +105,17 @@
                     </button>
                 </div>
                 <div class="admin-sidebar-scroll" id="adminSidebarScroll">
-                    <!-- Übersicht/Dashboard bewusst ohne Sektionstitel, oberster Eintrag.
-                         Gate: Route verlangt dashboard.access (main.go). -->
-                    {{if hasPerm .Session.Role "dashboard.access"}}
-                    <div>
-                        <a href="/admin" class="sidebar-link {{if eq .AdminSection "dashboard"}}active{{end}}"><i class="fas fa-home"></i><span>Dashboard</span></a>
-                    </div>
-                    {{end}}
+                    <!-- Eigentümer-Entscheidung 26.08.2026 (ersetzt die Konsolidierung vom
+                         23.08.2026): /admin ist nur noch technische und strukturelle
+                         Administration. Dashboard, Parzellen, Protokolle und Rechnungen
+                         sind fachliche Bereiche und liegen top-level (siehe Top-Nav) -
+                         sie stehen darum bewusst nicht mehr in dieser Sidebar. -->
 
-                    <!-- Verein: Parzellen/Protokolle je parzellen.manage bzw. protokolle.manage,
-                         Rechnungen je invoices.manage (main.go-Routen /admin/parzellen, /admin/protokolle, /admin/invoices). -->
-                    {{if or (hasPerm .Session.Role "parzellen.manage") (hasPerm .Session.Role "protokolle.manage") (hasPerm .Session.Role "invoices.manage")}}
-                    <div>
-                        <p class="sidebar-section-title">Verein</p>
-                        {{if hasPerm .Session.Role "parzellen.manage"}}
-                        <a href="/admin/parzellen" class="sidebar-link {{if eq .AdminSection "parzellen"}}active{{end}}"><i class="fas fa-map"></i><span>Parzellen</span></a>
-                        {{end}}
-                        {{if hasPerm .Session.Role "protokolle.manage"}}
-                        <a href="/admin/protokolle" class="sidebar-link {{if eq .AdminSection "protokolle"}}active{{end}}"><i class="fas fa-clipboard-list"></i><span>Protokolle</span></a>
-                        {{end}}
-                        {{if hasPerm .Session.Role "invoices.manage"}}
-                        <a href="/admin/invoices" class="sidebar-link {{if eq .AdminSection "invoices"}}active{{end}}"><i class="fas fa-file-invoice"></i><span>Rechnungen</span></a>
-                        {{end}}
-                    </div>
-                    {{end}}
-
-                    <!-- Stammdaten Wertermittlung: alle drei Routen verlangen stammdaten.manage (main.go). -->
-                    {{if hasPerm .Session.Role "stammdaten.manage"}}
-                    <div>
-                        <p class="sidebar-section-title">Stammdaten Wertermittlung</p>
-                        <a href="/admin/obstarten" class="sidebar-link {{if eq .AdminSection "obstarten"}}active{{end}}"><i class="fas fa-apple-alt"></i><span>Obstarten</span></a>
-                        <a href="/admin/zieranpflanzungen" class="sidebar-link {{if eq .AdminSection "zieranpflanzungen"}}active{{end}}"><i class="fas fa-seedling"></i><span>Zieranpflanzungen</span></a>
-                        <a href="/admin/bauindex" class="sidebar-link {{if eq .AdminSection "bauindex"}}active{{end}}"><i class="fas fa-building"></i><span>Bauindex</span></a>
-                    </div>
-                    {{end}}
-
-                    <!-- Administration: Benutzer je users.manage, Einstellungen (/admin/verwaltung) je settings.manage (main.go). -->
+                    <!-- Vereinsverwaltung: Benutzer je users.manage, Einstellungen
+                         (/admin/verwaltung) je settings.manage (main.go). -->
                     {{if or (hasPerm .Session.Role "users.manage") (hasPerm .Session.Role "settings.manage")}}
                     <div>
-                        <p class="sidebar-section-title">Administration</p>
+                        <p class="sidebar-section-title">Vereinsverwaltung</p>
                         {{if hasPerm .Session.Role "users.manage"}}
                         <a href="/admin/users" class="sidebar-link {{if eq .AdminSection "users"}}active{{end}}"><i class="fas fa-users-cog"></i><span>Benutzer</span></a>
                         {{end}}
@@ -141,10 +125,30 @@
                     </div>
                     {{end}}
 
-                    <!-- Betrieb & Sicherheit: Backup je backup.manage, Audit-Log je audit.view, System-Info je system.settings (main.go). -->
+                    <!-- Wertermittlung: alle drei Routen verlangen stammdaten.manage (main.go). -->
+                    {{if hasPerm .Session.Role "stammdaten.manage"}}
+                    <div>
+                        <p class="sidebar-section-title">Wertermittlung</p>
+                        <a href="/admin/obstarten" class="sidebar-link {{if eq .AdminSection "obstarten"}}active{{end}}"><i class="fas fa-apple-alt"></i><span>Obstarten</span></a>
+                        <a href="/admin/zieranpflanzungen" class="sidebar-link {{if eq .AdminSection "zieranpflanzungen"}}active{{end}}"><i class="fas fa-seedling"></i><span>Zieranpflanzungen</span></a>
+                        <a href="/admin/bauindex" class="sidebar-link {{if eq .AdminSection "bauindex"}}active{{end}}"><i class="fas fa-building"></i><span>Bauindex</span></a>
+                    </div>
+                    {{end}}
+
+                    <!-- Datenverwaltung: Parzellenstruktur je parzellen.manage (main.go-Route
+                         /admin/parzellenstruktur). Die fachliche Parzellenverwaltung liegt
+                         top-level unter /parzellen (Top-Nav). -->
+                    {{if hasPerm .Session.Role "parzellen.manage"}}
+                    <div>
+                        <p class="sidebar-section-title">Datenverwaltung</p>
+                        <a href="/admin/parzellenstruktur" class="sidebar-link {{if eq .AdminSection "parzellenstruktur"}}active{{end}}"><i class="fas fa-th-large"></i><span>Parzellenstruktur</span></a>
+                    </div>
+                    {{end}}
+
+                    <!-- System: Backup je backup.manage, Audit-Log je audit.view, System-Info je system.settings (main.go). -->
                     {{if or (hasPerm .Session.Role "backup.manage") (hasPerm .Session.Role "audit.view") (hasPerm .Session.Role "system.settings")}}
                     <div>
-                        <p class="sidebar-section-title">Betrieb & Sicherheit</p>
+                        <p class="sidebar-section-title">System</p>
                         {{if hasPerm .Session.Role "backup.manage"}}
                         <a href="/admin/backup" class="sidebar-link {{if eq .AdminSection "backup"}}active{{end}}"><i class="fas fa-download"></i><span>Backup</span></a>
                         {{end}}

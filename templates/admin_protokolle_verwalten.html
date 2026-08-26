@@ -2,20 +2,21 @@
 <div class="row">
     <div class="col-12">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2><i class="fas fa-clipboard-list"></i> Protokolle verwalten</h2>
-            <div class="btn-group">
-                <a href="/admin/backup" class="btn btn-warning">
-                    <i class="fas fa-download"></i> Backup erstellen
-                </a>
-                <a href="/admin" class="btn btn-secondary">
-                    <i class="fas fa-arrow-left"></i> Zurück
-                </a>
+            <div>
+                <h2 class="mb-1"><i class="fas fa-clipboard-list"></i> Protokolle</h2>
+                <p class="text-muted mb-0">
+                    Zentrale Übersicht und Suche über alle Inspektions- und Wertermittlungsprotokolle.
+                    Das Detail je Parzelle finden Sie in deren Akte.
+                </p>
             </div>
+            <a href="/parzellen" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Zu den Parzellen
+            </a>
         </div>
 
         <div class="alert alert-danger">
-            <strong><i class="fas fa-exclamation-triangle"></i> Warnung:</strong> 
-            Das Löschen von Protokollen kann nicht rückgängig gemacht werden! 
+            <strong><i class="fas fa-exclamation-triangle"></i> Warnung:</strong>
+            Das Löschen von Protokollen kann nicht rückgängig gemacht werden!
             Bei Inspektionen werden auch abhängige Wertermittlungen gelöscht.
         </div>
 
@@ -64,7 +65,7 @@
                                     <tr>
                                         <td><strong>{{.Wertermittlung.ID}}</strong></td>
                                         <td>
-                                            <a href="/admin/parzellen/{{.Wertermittlung.ParzelleID}}" class="text-decoration-none">
+                                            <a href="/parzellen/{{.Wertermittlung.ParzelleID}}" class="text-decoration-none" title="Zur Akte">
                                                 <strong>{{.ParzelleNummer}}</strong>
                                             </a>
                                         </td>
@@ -116,8 +117,8 @@
                                         </td>
                                         <td>
                                             <div class="btn-group btn-group-sm">
-                                                <a href="/wertermittlung/{{.Wertermittlung.ParzelleID}}" class="btn btn-outline-primary btn-sm" title="Ansehen">
-                                                    <i class="fas fa-eye"></i>
+                                                <a href="/protokoll/wertermittlung/{{.Wertermittlung.ID}}" class="btn btn-outline-primary btn-sm" title="Protokoll ansehen">
+                                                    <i class="fas fa-file-pdf"></i>
                                                 </a>
                                                 <button type="button" class="btn btn-outline-danger btn-sm"
                                                         onclick="confirmDeleteWertermittlung({{.Wertermittlung.ID}}, '{{.ParzelleNummer}}', {{printf "%.2f" .Wertermittlung.GesamtWert}})"
@@ -169,7 +170,7 @@
                                     <tr>
                                         <td><strong>{{.Inspektion.ID}}</strong></td>
                                         <td>
-                                            <a href="/admin/parzellen/{{.Inspektion.ParzelleID}}" class="text-decoration-none">
+                                            <a href="/parzellen/{{.Inspektion.ParzelleID}}" class="text-decoration-none" title="Zur Akte">
                                                 <strong>{{.ParzelleNummer}}</strong>
                                             </a>
                                         </td>
@@ -198,8 +199,8 @@
                                         <td>{{.Inspektion.ErstelltAm.Format "02.01.06"}}</td>
                                         <td>
                                             <div class="btn-group btn-group-sm">
-                                                <a href="/inspektion/{{.Inspektion.ParzelleID}}" class="btn btn-outline-primary btn-sm" title="Ansehen">
-                                                    <i class="fas fa-eye"></i>
+                                                <a href="/protokoll/inspektion/{{.Inspektion.ID}}" class="btn btn-outline-primary btn-sm" title="Protokoll ansehen">
+                                                    <i class="fas fa-file-pdf"></i>
                                                 </a>
                                                 <button type="button" class="btn btn-outline-danger btn-sm"
                                                         onclick="confirmDeleteInspektion({{.Inspektion.ID}}, '{{.ParzelleNummer}}')"
@@ -303,7 +304,7 @@ function confirmDeleteWertermittlung(id, parzelleNummer, wert) {
 function executeWertermittlungLoesung() {
     const form = document.createElement('form');
     form.method = 'POST';
-    form.action = `/admin/wertermittlungen/${currentDeleteWertermittlungId}/delete`;
+    form.action = `/protokolle/wertermittlungen/${currentDeleteWertermittlungId}/delete`;
     
     const confirmInput = document.createElement('input');
     confirmInput.type = 'hidden';
@@ -328,7 +329,7 @@ function confirmDeleteInspektion(id, parzelleNummer) {
 function executeInspektionLoesung() {
     const form = document.createElement('form');
     form.method = 'POST';
-    form.action = `/admin/inspektionen/${currentDeleteInspektionId}/delete`;
+    form.action = `/protokolle/inspektionen/${currentDeleteInspektionId}/delete`;
     
     const confirmInput = document.createElement('input');
     confirmInput.type = 'hidden';

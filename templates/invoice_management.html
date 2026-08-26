@@ -1,11 +1,9 @@
 {{define "content"}}
 <div class="row">
     <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2><i class="fas fa-file-invoice-dollar"></i> Rechnungs- und Gebührenverwaltung</h2>
-            <a href="/admin" class="btn btn-secondary">
-                <i class="fas fa-arrow-left"></i> Zurück
-            </a>
+        <div class="mb-4">
+            <h2 class="mb-1"><i class="fas fa-file-invoice-dollar"></i> Abrechnung</h2>
+            <p class="text-muted mb-0">Wasser-/Strom-Jahresabrechnung und Rechnungsversand für die Parzellen.</p>
         </div>
 
         <div id="message" role="alert"></div>
@@ -371,7 +369,7 @@
         document.getElementById('utilitiesContent').style.display = 'block';
 
         // Load Wasser records
-        fetch(`/admin/parzellen/${currentParzelleId}/wasser`)
+        fetch(`/parzellen/${currentParzelleId}/wasser`)
             .then(r => r.json())
             .then(records => {
                 const html = records && records.length ? records.map(r =>
@@ -384,7 +382,7 @@
             });
 
         // Load Strom records
-        fetch(`/admin/parzellen/${currentParzelleId}/strom`)
+        fetch(`/parzellen/${currentParzelleId}/strom`)
             .then(r => r.json())
             .then(records => {
                 const html = records && records.length ? records.map(r =>
@@ -406,7 +404,7 @@
             noten: document.getElementById('wasser_noten').value
         };
 
-        fetch(`/admin/parzellen/${currentParzelleId}/wasser`, {
+        fetch(`/parzellen/${currentParzelleId}/wasser`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
@@ -429,7 +427,7 @@
             noten: document.getElementById('strom_noten').value
         };
 
-        fetch(`/admin/parzellen/${currentParzelleId}/strom`, {
+        fetch(`/parzellen/${currentParzelleId}/strom`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
@@ -445,7 +443,7 @@
 
     function deleteWasser(id) {
         if (confirm('Wirklich löschen?')) {
-            fetch(`/admin/wasser/${id}/delete`, { method: 'POST' })
+            fetch(`/wasser/${id}/delete`, { method: 'POST' })
                 .then(() => {
                     showMessage('Wassereintrag gelöscht', 'success');
                     loadParzelleUtilities();
@@ -455,7 +453,7 @@
 
     function deleteStrom(id) {
         if (confirm('Wirklich löschen?')) {
-            fetch(`/admin/strom/${id}/delete`, { method: 'POST' })
+            fetch(`/strom/${id}/delete`, { method: 'POST' })
                 .then(() => {
                     showMessage('Stromeintrag gelöscht', 'success');
                     loadParzelleUtilities();
@@ -474,7 +472,7 @@
             return;
         }
 
-        fetch(`/admin/parzellen/${parzelleId}/invoice?month=${month}&year=${year}&type=${type}`)
+        fetch(`/parzellen/${parzelleId}/invoice?month=${month}&year=${year}&type=${type}`)
             .then(r => r.json())
             .then(data => {
                 document.getElementById('invoicePreview').innerHTML = `
@@ -504,7 +502,7 @@
             return;
         }
 
-        const url = `/admin/parzellen/${parzelleId}/invoice/pdf?month=${month}&year=${year}&type=${type}`;
+        const url = `/parzellen/${parzelleId}/invoice/pdf?month=${month}&year=${year}&type=${type}`;
         window.open(url, '_blank');
     }
 
@@ -517,7 +515,7 @@
             return;
         }
 
-        fetch(`/admin/parzellen/${parzelleId}/invoice/history`)
+        fetch(`/parzellen/${parzelleId}/invoice/history`)
             .then(r => {
                 if (!r.ok) {
                     throw new Error('Historie konnte nicht geladen werden');
@@ -574,7 +572,7 @@
     }
 
     function downloadOldInvoice(parzelleId, month, year, type) {
-        const url = `/admin/parzellen/${parzelleId}/invoice/pdf?month=${month}&year=${year}&type=${type}`;
+        const url = `/parzellen/${parzelleId}/invoice/pdf?month=${month}&year=${year}&type=${type}`;
         window.open(url, '_blank');
     }
 
@@ -587,7 +585,7 @@
             ? `?parzelle_ids=${encodeURIComponent(selectedParzellen.join(','))}`
             : '';
 
-        window.location.href = `/admin/invoices/export${query}`;
+        window.location.href = `/abrechnung/export${query}`;
     }
 
     function getEmailPayload() {
@@ -612,7 +610,7 @@
             return;
         }
 
-        fetch(`/admin/parzellen/${parzelleId}/email/send`, {
+        fetch(`/parzellen/${parzelleId}/email/send`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -644,7 +642,7 @@
             return;
         }
 
-        fetch('/admin/emails/send-bulk', {
+        fetch('/abrechnung/emails/send-bulk', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

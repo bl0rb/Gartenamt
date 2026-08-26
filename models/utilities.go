@@ -132,6 +132,38 @@ func GetStromByParzelle(parzelleID int) ([]Strom, error) {
 	return records, nil
 }
 
+// GetLetzteWasserablesung liefert die neueste Wasserablesung einer Parzelle
+// (sql.ErrNoRows, falls keine existiert) - für die kompakte "Zählerstände"-
+// Karte in der Parzellen-Akte reicht der letzte Eintrag; die volle Historie
+// liefert GetWasserByParzelle.
+func GetLetzteWasserablesung(parzelleID int) (*Wasser, error) {
+	query := `SELECT id, parzelle_id, monat, jahr, verbrauch, kosten, noten, erstellt_am
+              FROM wasser WHERE parzelle_id=? ORDER BY jahr DESC, monat DESC LIMIT 1`
+	row := DB.QueryRow(query, parzelleID)
+
+	var w Wasser
+	err := row.Scan(&w.ID, &w.ParzelleID, &w.Monat, &w.Jahr, &w.Verbrauch, &w.Kosten, &w.Noten, &w.ErstelltAm)
+	if err != nil {
+		return nil, err
+	}
+	return &w, nil
+}
+
+// GetLetzteStromablesung liefert analog zu GetLetzteWasserablesung die
+// neueste Stromablesung einer Parzelle.
+func GetLetzteStromablesung(parzelleID int) (*Strom, error) {
+	query := `SELECT id, parzelle_id, monat, jahr, verbrauch, kosten, noten, erstellt_am
+              FROM strom WHERE parzelle_id=? ORDER BY jahr DESC, monat DESC LIMIT 1`
+	row := DB.QueryRow(query, parzelleID)
+
+	var s Strom
+	err := row.Scan(&s.ID, &s.ParzelleID, &s.Monat, &s.Jahr, &s.Verbrauch, &s.Kosten, &s.Noten, &s.ErstelltAm)
+	if err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
 // GetWasserByID retrieves a single water record
 func GetWasserByID(id int) (*Wasser, error) {
 	query := `SELECT id, parzelle_id, monat, jahr, verbrauch, kosten, noten, erstellt_am FROM wasser WHERE id=?`
