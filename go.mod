@@ -8,7 +8,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/jung-kurt/gofpdf v1.16.2
 	github.com/mattn/go-sqlite3 v1.14.50
-	golang.org/x/crypto v0.55.0
+	golang.org/x/crypto v0.56.0
 )
 
 require (
